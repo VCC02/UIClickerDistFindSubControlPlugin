@@ -1,0 +1,1911 @@
+{
+    Copyright (C) 2024 VCC
+    creation date: 17 Mar 2024
+    initial release date: 19 May 2024
+
+    author: VCC
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+    OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+}
+
+
+library UIClickerDistFindSubControl;
+
+{$H+}
+{$IFDEF FPC}
+  //{$MODE Delphi}
+{$ENDIF}
+
+uses
+  //Windows,
+  Interfaces, Classes, SysUtils, Graphics, ExtCtrls, Forms, Math, IdTCPClient,
+  DistFindSubControlDM, ImgList, TplZlibUnit, TplLzmaUnit,
+  IdGlobal, ClickerUtils, ClickerExtraUtils, ClickerActionPlugins, DllUtils,
+  ClickerFileProviderUtils, DynArrays, PollingFIFO, InMemFileSystem,
+  DistFindSubControlCommonConsts, ClickerIniFiles, ClickerActionProperties,
+
+  ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
+  MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties;
+
+type
+  TStringArr = array of string;
+
+  TArrayOfString = array[0..0] of string;
+  PArrayOfString = ^TArrayOfString;
+  TArrayOfEnumStrings = array[0..0] of PArrayOfString;
+  PArrayOfEnumStrings = ^TArrayOfEnumStrings;
+
+
+  TDbgPoint = function(APointName, ALogMsg: string): Boolean;
+
+  TWorker = record
+    Name: string; //Maybe a unique part of the ClientID (or full ID if required), as assigned by broker. This name will also be used when requesting the execution of FindSubControl by the plugin.
+    OS: string; // Win/Lin
+    WorkerSpecificTask: string; //This field is set by plugin when preparing FindSubControl requests. Every worker receives instructions about what part of a FindSubControl action should work on (not the entire action).
+    FileCacheInfo: TStringList; //list of files and their hashes, currently present in worker's InMemFS (not its pair UIClicker).
+    FilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs etc)
+    ArchiveStream: TMemoryStream;
+    Archive: TMemArchive;
+  end;
+
+  TWorkerArr = array of TWorker;
+
+var
+  IdTCPClient1: TIdTCPClient;
+  FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
+  DebugPoint: TDbgPoint;
+  PublishAckReceived: Boolean;
+  FLatestMsg: string = '';
+  ConnectedSucessfully, ConAckReceived, SubAckReceived, SubscribedSucessfully, DisconnectedSuccessfully: Boolean;
+  WaitingForWorkerCapabilities: Boolean;
+  FSMDone: Boolean;
+  AllWorkers: TWorkerArr;
+
+  AddToLogCallback: TOnActionPlugin_AddToLog;
+
+  FindSubControlActionPropertyValue: string;
+  CredentialsFullFileNamePropertyValue: string;  //for connection to broker
+  AddressPropertyValue: string;
+  PortPropertyValue: string;
+
+  WorkerQoS: Integer;
+  FindSubControlWorkerTimeout: Integer;
+  ActionContentStr: string;
+
+
+procedure AddToLog(AMsg: string);  //thread safe
+begin
+  if @AddToLogCallback <> nil then
+    AddToLogCallback(DefaultPluginReference, @AMsg[1]);
+end;
+
+//
+//function DbgPoint(APointName, ALogMsg: string): Boolean;
+//begin
+//  if @DefaultOnActionPlugin_DebugPoint <> nil then
+//    Result := DefaultOnActionPlugin_DebugPoint(DefaultPluginReference, @APointName[1], @ALogMsg[1])
+//  else
+//    Result := True;
+//end;
+
+
+procedure GetCredentials(ACredentialsFilePath: string; out AUsername, APassword: string);
+var
+  Ini: TClkIniReadonlyFile;
+begin
+  Ini := TClkIniReadonlyFile.Create(ACredentialsFilePath);
+  try
+    AUsername := Ini.ReadString('Credentials', 'Username', '');
+    APassword := Ini.ReadString('Credentials', 'Password', '');
+  finally
+    Ini.Free;
+  end;
+end;
+
+
+procedure SyncReceivedBuffer(var AReadBuf: TDynArrayOfByte); //thread safe
+begin
+  FRecBufFIFO.Put(DynArrayOfByteToString(AReadBuf));
+end;
+
+
+procedure ProcessReceivedBuffer;  //called by a timer, to process received data
+var
+  TempReadBuf: TDynArrayOfByte;
+  NewData: string;
+begin
+  if FRecBufFIFO.Pop(NewData) then
+  begin
+    InitDynArrayToEmpty(TempReadBuf);
+    try
+      if StringToDynArrayOfByte(NewData, TempReadBuf) then
+      begin
+        MQTT_PutReceivedBufferToMQTTLib(0, TempReadBuf);
+        MQTT_Process(0);
+      end
+      else
+        AddToLog('Out of memory in ProcessReceivedBuffer.');
+    finally
+      FreeDynArray(TempReadBuf);
+    end;
+  end;
+end;
+
+
+procedure SendDynArrayOfByte(AArr: TDynArrayOfByte);
+var
+  TempArr: TIdBytes;
+begin
+  //AddToLog('============Sending: ' + StringReplace(DynArrayOfByteToString(AArr), #0, #1, [rfReplaceAll]));
+  SetLength(TempArr, AArr.Len);
+  Move(AArr.Content^, TempArr[0], AArr.Len);
+  IdTCPClient1.IOHandler.Write(TempArr);
+end;
+
+
+procedure SendPacketToServer(ClientInstance: DWord);
+var
+  BufferPointer: PMQTTBuffer;
+  Err: Word;
+begin
+  BufferPointer := MQTT_GetClientToServerBuffer(ClientInstance, Err){$IFnDEF SingleOutputBuffer}^.Content^[0]{$ENDIF};
+  SendDynArrayOfByte(BufferPointer^);
+
+  {$IFnDEF SingleOutputBuffer}
+    if not MQTT_RemovePacketFromClientToServerBuffer(ClientInstance) then
+      AddToLog('Can''t remove latest packet from send buffer.');
+  {$ELSE}
+    raise Exception.Create('MQTT_RemovePacketFromClientToServerBuffer no implemented for SingleOutputBuffer.');
+  {$ENDIF}
+end;
+
+
+procedure HandleOnMQTTError(ClientInstance: DWord; AErr: Word; APacketType: Byte);
+var
+  PacketTypeStr: string;
+begin
+  MQTTPacketToString(APacketType, PacketTypeStr);
+  AddToLog('Client: ' + IntToHex(ClientInstance, 8) + '  Err: $' + IntToHex(AErr) + '  PacketType: $' + IntToHex(APacketType) + ' (' + PacketTypeStr + ').');  //The error is made of an upper byte and a lower byte.
+
+  if Hi(AErr) = CMQTT_Reason_NotAuthorized then   // $87
+  begin
+    AddToLog('Server error: Not authorized.');
+    if APacketType = CMQTT_CONNACK then
+      AddToLog('             on receiving CONNACK.');
+  end;
+
+  if Lo(AErr) = CMQTT_PacketIdentifierNotFound_ClientToServer then   // $CE
+    AddToLog('Client error: PacketIdentifierNotFound.');
+end;
+
+
+procedure HandleOnSend_MQTT_Packet(ClientInstance: DWord; APacketType: Byte);
+var
+  PacketName: string;
+begin
+  MQTTPacketToString(APacketType, PacketName);
+  AddToLog('Sending ' + PacketName + ' packet...');
+
+  try
+    SendPacketToServer(ClientInstance);
+  except
+    on E: Exception do
+      AddToLog('Cannot send ' + PacketName + ' packet... Ex: ' + E.Message);
+  end;
+end;
+
+
+function HandleOnBeforeMQTT_CONNECT(ClientInstance: DWord;  //The lower byte identifies the client instance (the library is able to implement multiple MQTT clients / device). The higher byte can identify the call in user handlers for various events (e.g. TOnBeforeMQTT_CONNECT).
+                                    var AConnectFields: TMQTTConnectFields;                    //user code has to fill-in this parameter
+                                    var AConnectProperties: TMQTTConnectProperties;
+                                    ACallbackID: Word): Boolean;
+var
+  TempWillProperties: TMQTTWillProperties;
+  UserName, Password: string;
+  //ClientId: string;
+  //Id: Char;
+  ConnectFlags: Byte;
+  EnabledProperties: Word;
+begin
+  Result := True;
+
+  AddToLog('Preparing CONNECT data..');
+
+  //Id := Chr((ClientInstance and $FF) + 48);
+  //ClientId := 'MyClient' + Id;
+  GetCredentials(CredentialsFullFileNamePropertyValue, UserName, Password);
+
+  //StringToDynArrayOfByte(ClientId, AConnectFields.PayloadContent.ClientID);
+  StringToDynArrayOfByte(UserName, AConnectFields.PayloadContent.UserName);
+  StringToDynArrayOfByte(Password, AConnectFields.PayloadContent.Password);
+
+  ConnectFlags := CMQTT_UsernameInConnectFlagsBitMask or
+                  CMQTT_PasswordInConnectFlagsBitMask or
+                  CMQTT_CleanStartInConnectFlagsBitMask {or
+                  CMQTT_WillQoSB1InConnectFlagsBitMask};
+
+  EnabledProperties := CMQTTConnect_EnSessionExpiryInterval or
+                       CMQTTConnect_EnMaximumPacketSize or
+                       CMQTTConnect_EnRequestResponseInformation or
+                       CMQTTConnect_EnRequestProblemInformation {or
+                       CMQTTConnect_EnAuthenticationMethod or
+                       CMQTTConnect_EnAuthenticationData};
+
+  MQTT_InitWillProperties(TempWillProperties);
+  TempWillProperties.WillDelayInterval := 30; //some value
+  TempWillProperties.PayloadFormatIndicator := 1;  //0 = do not send.  1 = UTF-8 string
+  TempWillProperties.MessageExpiryInterval := 3600;
+  StringToDynArrayOfByte('SomeType', TempWillProperties.ContentType);
+  StringToDynArrayOfByte('SomeTopicName', TempWillProperties.ResponseTopic);
+  StringToDynArrayOfByte('MyCorrelationData', TempWillProperties.CorrelationData);
+  AddStringToDynOfDynArrayOfByte('Key=Value', TempWillProperties.UserProperty);
+  AddStringToDynOfDynArrayOfByte('NewKey=NewValue', TempWillProperties.UserProperty);
+
+  FillIn_PayloadWillProperties(TempWillProperties, AConnectFields.PayloadContent.WillProperties);
+  MQTT_FreeWillProperties(TempWillProperties);
+  StringToDynArrayOfByte('WillTopic', AConnectFields.PayloadContent.WillTopic);
+
+  //Please set the Will Flag in ConnectFlags below, then uncomment above code, if "Will" properties are required.
+  AConnectFields.ConnectFlags := ConnectFlags;  //bits 7-0:  User Name, Password, Will Retain, Will QoS, Will Flag, Clean Start, Reserved
+  AConnectFields.EnabledProperties := EnabledProperties;
+  AConnectFields.KeepAlive := 0; //any positive values require pinging the server if no other packet is being sent
+
+  AConnectProperties.SessionExpiryInterval := 3600; //[s]
+  AConnectProperties.ReceiveMaximum := 7000;
+  AConnectProperties.MaximumPacketSize := 10 * 1024 * 1024;
+  AConnectProperties.TopicAliasMaximum := 100;
+  AConnectProperties.RequestResponseInformation := 1;
+  AConnectProperties.RequestProblemInformation := 1;
+  AddStringToDynOfDynArrayOfByte('UserProp=Value', AConnectProperties.UserProperty);
+  StringToDynArrayOfByte('SCRAM-SHA-1', AConnectProperties.AuthenticationMethod);       //some example from spec, pag 108   the server may add to its log: "bad AUTH method"
+  StringToDynArrayOfByte('client-first-data', AConnectProperties.AuthenticationData);   //some example from spec, pag 108
+
+  AddToLog('Done preparing CONNECT data..');
+  AddToLog('');
+end;
+
+
+procedure HandleOnAfterMQTT_CONNACK(ClientInstance: DWord; var AConnAckFields: TMQTTConnAckFields; var AConnAckProperties: TMQTTConnAckProperties);
+begin
+  ConAckReceived := True;
+  AddToLog('Received CONNACK');
+
+  //AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
+  //AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
+  //AddToLog('ConnAckFields.ConnectReasonCode: ' + IntToStr(AConnAckFields.ConnectReasonCode));  //should be 0
+  //
+  //AddToLog('SessionExpiryInterval: ' + IntToStr(AConnAckProperties.SessionExpiryInterval));
+  //AddToLog('ReceiveMaximum: ' + IntToStr(AConnAckProperties.ReceiveMaximum));
+  //AddToLog('MaximumQoS: ' + IntToStr(AConnAckProperties.MaximumQoS));
+  //AddToLog('RetainAvailable: ' + IntToStr(AConnAckProperties.RetainAvailable));
+
+  if AConnAckFields.EnabledProperties and CMQTTConnAck_EnMaximumPacketSize = CMQTTConnAck_EnMaximumPacketSize then
+    AddToLog('MaximumPacketSize received: ' + IntToStr(AConnAckProperties.MaximumPacketSize))
+  else
+    AddToLog('MaximumPacketSize unknown: ' + IntToStr(AConnAckProperties.MaximumPacketSize));
+
+
+  //AddToLog('AssignedClientIdentifier: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AssignedClientIdentifier), #0, '#0', [rfReplaceAll]));
+  //AddToLog('TopicAliasMaximum: ' + IntToStr(AConnAckProperties.TopicAliasMaximum));
+  //AddToLog('ReasonString: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  //AddToLog('UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AConnAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+  //AddToLog('WildcardSubscriptionAvailable: ' + IntToStr(AConnAckProperties.WildcardSubscriptionAvailable));
+  //AddToLog('SubscriptionIdentifierAvailable: ' + IntToStr(AConnAckProperties.SubscriptionIdentifierAvailable));
+  //AddToLog('SharedSubscriptionAvailable: ' + IntToStr(AConnAckProperties.SharedSubscriptionAvailable));
+  //AddToLog('ServerKeepAlive: ' + IntToStr(AConnAckProperties.ServerKeepAlive));
+  //AddToLog('ResponseInformation: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ResponseInformation), #0, '#0', [rfReplaceAll]));
+  //AddToLog('ServerReference: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ServerReference), #0, '#0', [rfReplaceAll]));
+  //AddToLog('AuthenticationMethod: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
+  //AddToLog('AuthenticationData: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
+  //
+
+  ///////////////////////////////////////// when the server returns SessionPresentFlag set to 1, the library resends unacknowledged Publish and PubRel packets.
+  //AConnAckFields.SessionPresentFlag := 1;
+end;
+
+
+function HandleOnBeforeSendingMQTT_SUBSCRIBE(ClientInstance: DWord;  //The lower word identifies the client instance
+                                             var ASubscribeFields: TMQTTSubscribeFields;
+                                             var ASubscribeProperties: TMQTTSubscribeProperties;
+                                             ACallbackID: Word): Boolean;
+var
+  Options, QoS: Byte;
+  SubId: Word;
+begin
+  Options := 0;
+  QoS := 2;
+
+  Options := Options or QoS; //bits 1 and 0
+  //Bit 2 of the Subscription Options represents the No Local option.  - spec pag 73
+  //Bit 3 of the Subscription Options represents the Retain As Published option.  - spec pag 73
+  //Bits 4 and 5 of the Subscription Options represent the Retain Handling option.  - spec pag 73
+  //Bits 6 and 7 of the Subscription Options byte are reserved for future use. - Must be set to 0.  - spec pag 73
+
+                                                                            //Subscription identifiers are not mandatory (per spec).
+  SubId := MQTT_CreateClientToServerSubscriptionIdentifier(ClientInstance); //This function has to be called here, in this handler only. The library does not call this function other than for init purposes.
+                                                                            //If SubscriptionIdentifiers are used, then user code should free them when resubscribing or when unsubscribing.
+  ASubscribeProperties.SubscriptionIdentifier := SubId;  //For now, the user code should keep track of these identifiers and free them on resubscribing or unsubscribing.
+  AddToLog('Subscribing with new SubscriptionIdentifier: ' + IntToStr(SubId));
+
+  Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_GetCapabilities, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_FindSubControl, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  //Enable SubscriptionIdentifier only if required (allocated above with CreateClientToServerSubscriptionIdentifier) !!!
+  //The library initializes EnabledProperties to 0.
+  //A subscription is allowed to be made without a SubscriptionIdentifier.
+  ASubscribeFields.EnabledProperties := CMQTTSubscribe_EnSubscriptionIdentifier {or CMQTTSubscribe_EnUserProperty};
+
+  AddToLog('Subscribing with PacketIdentifier: ' + IntToStr(ASubscribeFields.PacketIdentifier));
+  AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
+
+  AddToLog('');
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_SUBACK(ClientInstance: DWord; var ASubAckFields: TMQTTSubAckFields; var ASubAckProperties: TMQTTSubAckProperties);
+var
+  i: Integer;
+begin
+  AddToLog('Received SUBACK');
+  SubAckReceived := True;
+  //AddToLog('ASubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
+  //AddToLog('ASubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
+  AddToLog('ASubAckFields.EnabledProperties: ' + IntToStr(ASubAckFields.EnabledProperties));
+  AddToLog('ASubAckFields.PacketIdentifier: ' + IntToStr(ASubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
+
+  AddToLog('ASubAckFields.Payload.Len: ' + IntToStr(ASubAckFields.SrcPayload.Len));
+
+  for i := 0 to ASubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
+    AddToLog('ASubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(ASubAckFields.SrcPayload.Content^[i]));
+
+  AddToLog('ASubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(ASubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  AddToLog('ASubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(ASubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+
+  AddToLog('');
+end;
+
+
+function HandleOnBeforeSendingMQTT_UNSUBSCRIBE(ClientInstance: DWord;  //The lower word identifies the client instance
+                                               var AUnsubscribeFields: TMQTTUnsubscribeFields;
+                                               var AUnsubscribeProperties: TMQTTUnsubscribeProperties;
+                                               ACallbackID: Word): Boolean;
+begin
+  Result := FillIn_UnsubscribePayload(CTopicName_WorkerToApp_GetCapabilities, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  Result := FillIn_UnsubscribePayload(CTopicName_WorkerToApp_FindSubControl, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' + CTopicName_WorkerToApp_FindSubControl + '"...');
+
+  //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_UNSUBACK(ClientInstance: DWord; var AUnsubAckFields: TMQTTUnsubAckFields; var AUnsubAckProperties: TMQTTUnsubAckProperties);
+var
+  i: Integer;
+begin
+  AddToLog('Received UNSUBACK');
+  //AddToLog('AUnsubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
+  //AddToLog('AUnsubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
+  AddToLog('AUnsubAckFields.EnabledProperties: ' + IntToStr(AUnsubAckFields.EnabledProperties));
+  AddToLog('AUnsubAckFields.PacketIdentifier: ' + IntToStr(AUnsubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
+
+  AddToLog('AUnsubAckFields.Payload.Len: ' + IntToStr(AUnsubAckFields.SrcPayload.Len));
+
+  for i := 0 to AUnsubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
+    AddToLog('AUnsubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(AUnsubAckFields.SrcPayload.Content^[i]));
+
+  AddToLog('AUnsubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(AUnsubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  AddToLog('AUnsubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AUnsubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+
+  AddToLog('');
+end;
+
+
+//This handler is used when this client publishes a message to broker.
+function HandleOnBeforeSendingMQTT_PUBLISH(ClientInstance: DWord;  //The lower word identifies the client instance (the library is able to implement multiple MQTT clients / device). The higher byte can identify the call in user handlers for various events (e.g. TOnBeforeMQTT_CONNECT).
+                                           var APublishFields: TMQTTPublishFields;                    //user code has to fill-in this parameter
+                                           var APublishProperties: TMQTTPublishProperties;            //user code has to fill-in this parameter
+                                           ACallbackID: Word): Boolean;
+var
+  Msg: string;
+  //QoS: Byte;
+  TempWorkerSpecificTask: string;
+  i: Integer;
+begin
+  Result := True;
+  case ACallbackID of
+    0:
+    begin
+      Msg := CMQTT_AppToWorkerCmd_GetCapabilities;
+      TempWorkerSpecificTask := 'DebuggingString';
+      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_GetCapabilities, APublishFields.TopicName);
+      APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
+      AddToLog('Requesting worker capabilities...');
+    end;
+
+    1:
+    begin
+      AddToLog('Publishing FindSubControl request...');
+      Msg := ActionContentStr;
+      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_FindSubControl, APublishFields.TopicName);
+
+      //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
+      //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
+      //Every worker extracts its task from this array, based on its name.
+
+      TempWorkerSpecificTask := 'DebuggingName:';
+      for i := 0 to Length(AllWorkers) - 1 do
+        TempWorkerSpecificTask := TempWorkerSpecificTask + AllWorkers[i].Name + '=' + AllWorkers[i].WorkerSpecificTask + '&';
+
+      APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
+    end
+    else
+      Msg := 'UnhandledRequest';
+  end;
+
+  //QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
+  //AddToLog('Publishing "' + Msg + '" at QoS = ' + IntToStr(QoS));  //commented, because Msg may contain bitmaps
+
+  Result := Result and StringToDynArrayOfByte(Msg, APublishFields.ApplicationMessage);
+  Result := Result and StringToDynArrayOfByte(TempWorkerSpecificTask, APublishProperties.ContentType);
+
+
+  AddToLog('');
+  //QoS can be overriden here. If users override QoS in this handler, then a a different PacketIdentifier might be allocated (depending on what is available)
+end;
+
+
+//This handler is used when this client publishes a message to broker and the broker responds with PUBACK.
+procedure HandleOnBeforeSendingMQTT_PUBACK(ClientInstance: DWord; var APubAckFields: TMQTTPubAckFields; var APubAckProperties: TMQTTPubAckProperties);
+begin
+  AddToLog('Acknowledging with PUBACK');
+  AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
+  AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
+  AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
+  AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
+
+  AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+
+  AddToLog('');
+  //This handler can be used to override what is being sent to server as a reply to PUBLISH
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_PUBACK(ClientInstance: DWord; var APubAckFields: TMQTTPubAckFields; var APubAckProperties: TMQTTPubAckProperties);
+begin
+  AddToLog('Received PUBACK');
+  //AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
+  //AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
+  //AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
+  //AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
+  //
+  //AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  //AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+  PublishAckReceived := True;
+  AddToLog('');
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_PUBLISH(ClientInstance: DWord; var APublishFields: TMQTTPublishFields; var APublishProperties: TMQTTPublishProperties);
+var
+  QoS: Byte;
+  ID: Word;
+  Topic, s, Msg: string;
+  i: Integer;
+  Content: TStringList;
+begin
+  QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
+  Msg := StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
+  ID := APublishFields.PacketIdentifier;
+  Topic := StringReplace(DynArrayOfByteToString(APublishFields.TopicName), #0, '#0', [rfReplaceAll]);
+
+  AddToLog('Received PUBLISH  ServerPacketIdentifier: ' + IntToStr(ID) +
+                                                 '  Msg: ' + Msg +
+                                                 '  QoS: ' + IntToStr(QoS) +
+                                                 '  TopicName: ' + Topic);
+
+  s := '';
+  for i := 0 to APublishProperties.SubscriptionIdentifier.Len - 1 do
+    s := s + IntToStr(APublishProperties.SubscriptionIdentifier.Content^[i]) + ', ';
+  AddToLog('SubscriptionIdentifier(s): ' + s);
+
+  Content := TStringList.Create;
+  try
+    Content.Text := Msg;
+
+    if Topic = CTopicName_WorkerToApp_GetCapabilities then
+      if WaitingForWorkerCapabilities then //This is True only for a short while (see the state machine below). Any worker which publishes after this, is ignored.
+      begin
+        SetLength(AllWorkers, Length(AllWorkers) + 1);
+        AllWorkers[Length(AllWorkers) - 1].Name := Content.Values[CProtocolParam_Name];
+        AllWorkers[Length(AllWorkers) - 1].OS := Content.Values[CProtocolParam_OS];
+        AllWorkers[Length(AllWorkers) - 1].WorkerSpecificTask := '';
+        AllWorkers[Length(AllWorkers) - 1].FileCacheInfo := TStringList.Create;
+        AllWorkers[Length(AllWorkers) - 1].FileCacheInfo.Text := FastReplace_45ToReturn(Content.Values[CProtocolParam_FileCache]);  //#4#5 separated list of files. Each item uses the CDefaultInMemFileNameHashSeparator string between name and hash.
+
+        AllWorkers[Length(AllWorkers) - 1].FilesToSend := '';
+        AllWorkers[Length(AllWorkers) - 1].ArchiveStream := nil;   //created when required
+        AllWorkers[Length(AllWorkers) - 1].Archive := nil;         //created when required
+      end;
+
+    //PublishAckReceived := True; //this should be set after all responses
+
+    //other fields which may pass metadata:
+    //APublishProperties.UserProperty;
+    //APublishProperties.ContentType;
+    //APublishProperties.CorrelationData;
+    //APublishProperties.ResponseTopic;
+  finally
+    Content.Free;
+  end;
+
+  AddToLog('');
+end;
+
+
+procedure HandleOnBeforeSending_MQTT_PUBREC(ClientInstance: DWord; var ATempPubRecFields: TMQTTPubRecFields; var ATempPubRecProperties: TMQTTPubRecProperties);
+begin
+  AddToLog('Acknowledging with PUBREC for ServerPacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
+end;
+
+
+procedure HandleOnAfterReceiving_MQTT_PUBREC(ClientInstance: DWord; var ATempPubRecFields: TMQTTPubRecFields; var ATempPubRecProperties: TMQTTPubRecProperties);
+begin
+  AddToLog('Received PUBREC for PacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
+end;
+
+
+//Sending PUBREL after the PUBREC response from server, after the client has sent a PUBLISH packet with QoS=2.
+procedure HandleOnBeforeSending_MQTT_PUBREL(ClientInstance: DWord; var ATempPubRelFields: TMQTTPubRelFields; var ATempPubRelProperties: TMQTTPubRelProperties);
+begin
+  AddToLog('Acknowledging with PUBREL for PacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
+end;
+
+
+procedure HandleOnAfterReceiving_MQTT_PUBREL(ClientInstance: DWord; var ATempPubRelFields: TMQTTPubRelFields; var ATempPubRelProperties: TMQTTPubRelProperties);
+begin
+  AddToLog('Received PUBREL for ServerPacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
+end;
+
+
+procedure HandleOnBeforeSending_MQTT_PUBCOMP(ClientInstance: DWord; var ATempPubCompFields: TMQTTPubCompFields; var ATempPubCompProperties: TMQTTPubCompProperties);
+begin
+  AddToLog('Acknowledging with PUBCOMP for PacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
+end;
+
+
+procedure HandleOnAfterReceiving_MQTT_PUBCOMP(ClientInstance: DWord; var ATempPubCompFields: TMQTTPubCompFields; var ATempPubCompProperties: TMQTTPubCompProperties);
+begin
+  AddToLog('Received PUBCOMP for ServerPacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_PINGRESP(ClientInstance: DWord);
+begin
+  AddToLog('Received PINGRESP');
+end;
+
+
+procedure HandleOnBeforeSendingMQTT_DISCONNECT(ClientInstance: DWord;  //The lower word identifies the client instance
+                                               var ADisconnectFields: TMQTTDisconnectFields;
+                                               var ADisconnectProperties: TMQTTDisconnectProperties;
+                                               ACallbackID: Word);
+begin
+  AddToLog('Sending DISCONNECT');
+  //ADisconnectFields.EnabledProperties := CMQTTDisconnect_EnSessionExpiryInterval;   //uncomment if needed
+  //ADisconnectProperties.SessionExpiryInterval := 1;
+
+  //From spec, pag 89:
+  //If the Session Expiry Interval is absent, the Session Expiry Interval in the CONNECT packet is used.
+  //If the Session Expiry Interval in the CONNECT packet was zero, then it is a Protocol Error to set a non-
+  //zero Session Expiry Interval in the DISCONNECT packet sent by the Client.
+
+  //From spec, pag 89:
+  //After sending a DISCONNECT packet the sender
+  //  MUST NOT send any more MQTT Control Packets on that Network Connection
+  //  MUST close the Network Connection
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_DISCONNECT(ClientInstance: DWord;  //The lower word identifies the client instance
+                                                var ADisconnectFields: TMQTTDisconnectFields;
+                                                var ADisconnectProperties: TMQTTDisconnectProperties);
+begin
+  AddToLog('Received DISCONNECT');
+
+  AddToLog('ADisconnectFields.EnabledProperties' + IntToStr(ADisconnectFields.EnabledProperties));
+  AddToLog('ADisconnectFields.DisconnectReasonCode' + IntToStr(ADisconnectFields.DisconnectReasonCode));
+
+  AddToLog('ADisconnectProperties.SessionExpiryInterval' + IntToStr(ADisconnectProperties.SessionExpiryInterval));
+  AddToLog('ADisconnectProperties.ReasonString' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  AddToLog('ADisconnectProperties.ServerReference' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ServerReference), #0, '#0', [rfReplaceAll]));
+  AddToLog('ADisconnectProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(ADisconnectProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+end;
+
+
+procedure HandleOnBeforeSendingMQTT_AUTH(ClientInstance: DWord;  //The lower word identifies the client instance
+                                         var AAuthFields: TMQTTAuthFields;
+                                         var AAuthProperties: TMQTTAuthProperties;
+                                         ACallbackID: Word);
+begin
+  AddToLog('Sending AUTH');
+  AAuthFields.AuthReasonCode := $19; //Example: reauth   - see spec, pag 108.
+
+  StringToDynArrayOfByte('SCRAM-SHA-1', AAuthProperties.AuthenticationMethod);       //some example from spec, pag 108
+  StringToDynArrayOfByte('client-second-data', AAuthProperties.AuthenticationData);   //some modified example from spec, pag 108
+end;
+
+
+procedure HandleOnAfterReceivingMQTT_AUTH(ClientInstance: DWord;  //The lower word identifies the client instance
+                                          var AAuthFields: TMQTTAuthFields;
+                                          var AAuthProperties: TMQTTAuthProperties);
+begin
+  AddToLog('Received AUTH');
+
+  AddToLog('AAuthFields.EnabledProperties' + IntToStr(AAuthFields.EnabledProperties));
+  AddToLog('AAuthFields.AuthReasonCode' + IntToStr(AAuthFields.AuthReasonCode));
+
+  AddToLog('AAuthProperties.ReasonString' + StringReplace(DynArrayOfByteToString(AAuthProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+  AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
+  AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
+  AddToLog('AAuthProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(AAuthProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+end;
+
+
+procedure InitHandlers;
+begin
+  OnMQTTError^ := @HandleOnMQTTError;
+  OnSendMQTT_Packet^ := @HandleOnSend_MQTT_Packet;
+  OnBeforeMQTT_CONNECT^ := @HandleOnBeforeMQTT_CONNECT;
+  OnAfterMQTT_CONNACK^ := @HandleOnAfterMQTT_CONNACK;
+  OnBeforeSendingMQTT_PUBLISH^ := @HandleOnBeforeSendingMQTT_PUBLISH;
+  OnBeforeSendingMQTT_PUBACK^ := @HandleOnBeforeSendingMQTT_PUBACK;
+  OnAfterReceivingMQTT_PUBACK^ := @HandleOnAfterReceivingMQTT_PUBACK;
+  OnAfterReceivingMQTT_PUBLISH^ := @HandleOnAfterReceivingMQTT_PUBLISH;
+  OnBeforeSendingMQTT_PUBREC^ := @HandleOnBeforeSending_MQTT_PUBREC;
+  OnAfterReceivingMQTT_PUBREC^ := @HandleOnAfterReceiving_MQTT_PUBREC;
+  OnBeforeSendingMQTT_PUBREL^ := @HandleOnBeforeSending_MQTT_PUBREL;
+  OnAfterReceivingMQTT_PUBREL^ := @HandleOnAfterReceiving_MQTT_PUBREL;
+  OnBeforeSendingMQTT_PUBCOMP^ := @HandleOnBeforeSending_MQTT_PUBCOMP;
+  OnAfterReceivingMQTT_PUBCOMP^ := @HandleOnAfterReceiving_MQTT_PUBCOMP;
+  OnBeforeSendingMQTT_SUBSCRIBE^ := @HandleOnBeforeSendingMQTT_SUBSCRIBE;
+  OnAfterReceivingMQTT_SUBACK^ := @HandleOnAfterReceivingMQTT_SUBACK;
+  OnBeforeSendingMQTT_UNSUBSCRIBE^ := @HandleOnBeforeSendingMQTT_UNSUBSCRIBE;
+  OnAfterReceivingMQTT_UNSUBACK^ := @HandleOnAfterReceivingMQTT_UNSUBACK;
+  OnAfterReceivingMQTT_PINGRESP^ := @HandleOnAfterReceivingMQTT_PINGRESP;
+  OnBeforeSendingMQTT_DISCONNECT^ := @HandleOnBeforeSendingMQTT_DISCONNECT;
+  OnAfterReceivingMQTT_DISCONNECT^ := @HandleOnAfterReceivingMQTT_DISCONNECT;
+  OnBeforeSendingMQTT_AUTH^ := @HandleOnBeforeSendingMQTT_AUTH;
+  OnAfterReceivingMQTT_AUTH^ := @HandleOnAfterReceivingMQTT_AUTH;
+end;
+
+
+type
+  TMQTTReceiveThread = class(TThread)
+  private
+    procedure AddMsgToLog(s: string);
+  protected
+    procedure Execute; override;
+  end;
+
+
+procedure TMQTTReceiveThread.AddMsgToLog(s: string);
+begin
+  AddToLog(s);
+end;
+
+
+procedure TMQTTReceiveThread.Execute;
+var
+  TempReadBuf: TDynArrayOfByte;
+  //ReadCount: Integer;
+  TempByte: Byte;
+  PacketName: string;
+  LoggedDisconnection: Boolean;
+begin
+  try
+    //ReadCount := 0;
+    InitDynArrayToEmpty(TempReadBuf);
+
+    try
+      LoggedDisconnection := False;
+      repeat
+        try
+          TempByte := IdTCPClient1.IOHandler.ReadByte;
+          AddByteToDynArray(TempByte, TempReadBuf);
+        except
+          on E: Exception do      ////////////////// ToDo: switch to EIdReadTimeout
+          begin
+            if (E.Message = 'Read timed out.') and (TempReadBuf.Len > 0) then
+            begin
+              MQTTPacketToString(TempReadBuf.Content^[0], PacketName);
+              AddMsgToLog('done receiving packet: ' + E.Message + {'   ReadCount: ' + IntToStr(ReadCount) +} '   E.ClassName: ' + E.ClassName);
+              AddMsgToLog('Buffer size: ' + IntToStr(TempReadBuf.Len) + '  Packet header: $' + IntToHex(TempReadBuf.Content^[0]) + ' (' + PacketName + ')');
+
+              SyncReceivedBuffer(TempReadBuf);
+
+              FreeDynArray(TempReadBuf);
+              //ReadCount := 0; //reset for next packet
+            end
+            else
+              if E.Message = 'Connection Closed Gracefully.' then
+                if not LoggedDisconnection then
+                begin
+                  LoggedDisconnection := True;
+                  AddMsgToLog('Disconnected from server. Cannot receive more data. Ex: ' + E.Message);
+                end;
+
+            Sleep(1);
+          end;
+        end;
+
+        //Inc(ReadCount);
+      until Terminated;
+    finally
+      AddMsgToLog('Thread done..');
+    end;
+  except
+    on E: Exception do
+      AddMsgToLog('Th ex: ' + E.Message);
+  end;
+end;
+
+
+var
+  RecTh: TMQTTReceiveThread;
+
+
+function GetAPIVersion: DWord; cdecl;
+begin
+  Result := CActionPlugin_APIVersion;
+end;
+
+
+function FillInPropertyDetails: string;
+var
+  i: Integer;
+begin
+  Result := '';
+
+  for i := 0 to CPropertiesCount - 1 do
+    Result := Result + CRequiredSubControlPropertyNames[i] + '=' + CRequiredSubControlPropertyTypes[i] + #8#7 +
+                       'DataType' + '=' + CRequiredSubControlPropertyDataTypes[i] + #8#7 +
+                       'EnumCounts' + '=' + IntToStr(CPluginEnumCounts[i]) + #8#7 +
+                       'EnumStrings' + '=' + CPluginEnumStrings[i] + #8#7 +
+                       'Hint' + '=' + CPluginHints[i] + #8#7 +
+                       'Enabled' + '=' + CPropertyEnabled[i] + #8#7 +
+                       #13#10;
+end;
+
+
+procedure GetListOfProperties(APluginReference: Pointer;                 //UIClicker passes the plugin reference to the plugin, then the plugin calls some callbacks with that reference
+                              AListOfProperties: Pointer;
+                              AListOfPropertiesLen: PDWord;
+                              AOnActionPlugin_UpdatePropertyIcons: TOnActionPlugin_UpdatePropertyIcons); cdecl;
+var
+  Properties: string;
+  i: Integer;
+  TempMemStream: TMemoryStream;
+  Bmp: TBitmap;
+begin
+  Properties := FillInPropertyDetails;
+  AListOfPropertiesLen^ := SetPointedContentFromString(Properties, AListOfProperties);
+
+  dmProperties := TdmProperties.Create(nil);
+  try
+    for i := 0 to CPropertiesCount - 1 do
+    begin
+      TempMemStream := TMemoryStream.Create;
+      Bmp := TBitmap.Create;
+      try
+        Bmp.PixelFormat := pf24bit;
+        Bmp.Width := dmProperties.imglstProperties.Width;
+        Bmp.Height := dmProperties.imglstProperties.Height;
+        Bmp.Canvas.Pen.Color := clWhite;
+        Bmp.Canvas.Brush.Color := clWhite;
+        Bmp.Canvas.Rectangle(0, 0, Bmp.Width, Bmp.Height);
+
+        dmProperties.imglstProperties.Draw(Bmp.Canvas, 0, 0, i, dsNormal, itImage);
+        Bmp.SaveToStream(TempMemStream);
+
+        AOnActionPlugin_UpdatePropertyIcons(APluginReference, TempMemStream.Memory, TempMemStream.Size);
+      finally
+        TempMemStream.Free;
+        Bmp.Free;
+      end;
+    end;
+  finally
+    dmProperties.Free;
+  end;
+end;
+
+
+
+type
+  TPluginMQTTClientHandlers = class(TComponent)
+  private
+    tmrProcessRecData: TTimer;
+
+    procedure tmrProcessRecDataTimer(Sender: TObject);
+
+    procedure HandleClientOnConnected(Sender: TObject);
+    procedure HandleClientOnDisconnected(Sender: TObject);
+  public
+    constructor Create(AOwner: TComponent); override;
+  end;
+
+
+constructor TPluginMQTTClientHandlers.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  tmrProcessRecData := TTimer.Create(Self);
+  tmrProcessRecData.Interval := 5;
+  tmrProcessRecData.OnTimer := @tmrProcessRecDataTimer;
+  tmrProcessRecData.Enabled := True;
+end;
+
+
+procedure TPluginMQTTClientHandlers.tmrProcessRecDataTimer(Sender: TObject);
+begin
+  //try
+  //  DebugPoint('ProcessReceivedBuffer timer', '');
+  //except
+  //end;
+  ProcessReceivedBuffer;
+end;
+
+
+procedure TPluginMQTTClientHandlers.HandleClientOnConnected(Sender: TObject);
+begin
+  AddToLog('Connected to broker... on port ' + IntToStr(IdTCPClient1.Port));
+end;
+
+
+procedure TPluginMQTTClientHandlers.HandleClientOnDisconnected(Sender: TObject);
+begin
+  AddToLog('Disconnected from broker...');
+  try
+    RecTh.Terminate;
+  except
+  end;
+end;
+
+
+function DoConnectToBroker: Boolean;
+begin
+  Result := False;
+  try
+    IdTCPClient1.Connect(AddressPropertyValue, StrToIntDef(PortPropertyValue, 12345));
+    IdTCPClient1.IOHandler.ReadTimeout := 1;
+
+    RecTh := TMQTTReceiveThread.Create(True);
+    RecTh.FreeOnTerminate := False;
+    RecTh.Start;
+
+    if not MQTT_CONNECT(0, 0) then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    Result := True;
+  except
+    on E: Exception do
+      AddToLog('Can''t connect.  ' + E.Message + '   Class: ' + E.ClassName);
+  end; //connect
+end;
+
+
+//procedure DoWaitForAllResponses;
+//var
+//  tk: QWord;
+//begin
+//  PublishAckReceived := False;
+//  tk := GetTickCount64;
+//  repeat
+//    Application.ProcessMessages;
+//    Sleep(1);
+//  until (GetTickCount64 - tk > 1500) or PublishAckReceived;
+//end;
+
+
+function DoDisconnect: Boolean;
+var
+  tk: QWord;
+  ClientToServerBuf: {$IFDEF SingleOutputBuffer} PMQTTBuffer; {$ELSE} PMQTTMultiBuffer; {$ENDIF}
+  Err: Word;
+begin
+  Result := False;
+  //Disconnecting:
+  if not MQTT_DISCONNECT(0, 0) then
+  begin
+    AddToLog('Can''t disconnect.');
+    Exit;
+  end;
+
+  tk := GetTickCount64;
+  repeat
+    ClientToServerBuf := MQTT_GetClientToServerBuffer(0, Err);
+    Application.ProcessMessages;
+    Sleep(10);
+  until (GetTickCount64 - tk > 1500) or ((ClientToServerBuf <> nil) and (ClientToServerBuf^.Len = 0));
+
+  RecTh.Terminate;
+  tk := GetTickCount64;
+  repeat
+    Application.ProcessMessages;
+    Sleep(1);
+  until (GetTickCount64 - tk > 1500) or RecTh.Terminated;
+  FreeAndNil(RecTh);
+
+  IdTCPClient1.Disconnect(False);
+  Result := True;
+end;
+
+
+
+type
+  TExHandler = class
+    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
+  end;
+
+var
+  FExHandler: TExHandler;
+
+
+//see https://wiki.freepascal.org/Logging_exceptions
+procedure TExHandler.CustomExceptionHandler(Sender: TObject; E: Exception);
+var
+  ClName, EMsg: string;
+begin
+  try
+    ClName := Sender.ClassName;
+  except
+    ClName := '';
+  end;
+
+  try
+    EMsg := E.Message;
+  except
+    EMsg := '';
+  end;
+
+  try
+    AddToLog('Custom exception in plugin: "' + EMsg + '"   Class: "' + ClName + '"."');
+  except
+    on EE: Exception do
+      //MessageBox(0, PChar('Ex on custom exception: ' + EE.Message), 'Plugin', MB_ICONERROR);
+  end;
+end;
+
+
+//see https://wiki.freepascal.org/Logging_exceptions
+procedure CatchUnhandledException(Obj: TObject; Addr: Pointer; FrameCount: LongInt; Frames: PPointer);
+var
+  Msg: string;
+  i: Integer;
+begin
+  try //use another try..excempt, just in case parsing the stack would raise more exceptions
+    Msg := 'Unhandled exception at adddr $' + SysBacktraceStr(Addr) + ':' + #13#10;
+
+    if Obj is Exception then
+      Msg := Msg + Exception(Obj).ClassName + ' : ' + Exception(Obj).Message
+    else
+      Msg := Msg + 'Exception object '  + Exception(Obj).ClassName + ' is not class Exception.';
+
+    Msg := Msg + #13#10;
+    Msg := Msg + BacktraceStrFunc(Addr) + #13#10;
+
+    for i := 0 to FrameCount - 1 do
+      Msg := Msg + BacktraceStrFunc(Frames[i]) + #13#10;
+
+    AddToLog('Custom exception in plugin: "' + Msg + '".');
+  except
+  end;
+end;
+
+
+procedure GetPluginSettingsFromProperties(AProperties: TStringList; AListOfVars: string);
+var
+  ListOfVars: TStringList;
+begin
+  FindSubControlActionPropertyValue := AProperties.Values[CFindSubControlActionPropertyName];
+  CredentialsFullFileNamePropertyValue := AProperties.Values[CCredentialsFullFileNamePropertyName];  //for connection to broker
+  AddressPropertyValue := AProperties.Values[CAddressPropertyName];
+  PortPropertyValue := AProperties.Values[CPortPropertyName];
+
+  ListOfVars := TStringList.Create;
+  try
+    ListOfVars.Text := AListOfVars;
+    CredentialsFullFileNamePropertyValue := EvaluateAllReplacements(ListOfVars, CredentialsFullFileNamePropertyValue);
+  finally
+    ListOfVars.Free;
+  end;
+end;
+
+
+type
+  TFSM = (SInit, SConnectToBroker, SWaitForConAck,
+          SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
+          SRequestCapabilities, SWaitForCapabilitiesResponse,
+          SGetFindSubControlActionContent, SPublishFindSubControlToAllWorkers, SWaitForPublishResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
+          SDisconnectFromBroker,
+          SDone
+         );
+
+const
+  CFSMStr: array[TFSM] of string = (
+          'SInit', 'SConnectToBroker', 'SWaitForConAck',
+          'SSubscribeToResponses', 'SWaitForResponsesSubAck',
+          'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
+          'SGetFindSubControlActionContent', 'SPublishFindSubControlToAllWorkers', 'SWaitForPublishResults',
+          'SDisconnectFromBroker',
+          'SDone'
+          );
+
+var
+  State, NextState: TFSM;
+  tk: QWord; //used for timeouts
+
+procedure ExecFSM_Part1;
+begin
+  case State of
+    SInit:
+    begin
+      FSMDone := False;
+      ConnectedSucessfully := False;
+      ConAckReceived := False;
+      SubAckReceived := False;
+      SubscribedSucessfully := False;
+      DisconnectedSuccessfully := False;
+    end;
+
+    SConnectToBroker:
+    begin
+      AddToLog('Connecting to broker.');
+      ConnectedSucessfully := DoConnectToBroker;
+
+      if ConnectedSucessfully then
+      begin
+        tk := GetTickCount64;
+        DbgPoint('Connected to broker.', '')
+      end
+      else
+        AddToLog('Can''t connect to broker.');
+    end;
+
+    SWaitForConAck:
+    begin
+      // ConAckReceived is set by handler
+    end;
+
+    SSubscribeToResponses:
+    begin
+      SubscribedSucessfully := MQTT_SUBSCRIBE(0, 0);     //subscribing with CTopicNameResult
+      if not SubscribedSucessfully then
+        AddToLog('Can''t subscribe for responses.')
+      else
+        tk := GetTickCount64;
+    end;
+
+    SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
+    begin
+      //SubAckReceived is set by handler
+    end;
+
+    SRequestCapabilities:
+    begin
+      WaitingForWorkerCapabilities := True;    //reset below
+      if not MQTT_PUBLISH(0, 0, WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
+        AddToLog('Can''t send GetCapabilities request to broker.')
+      else
+        tk := GetTickCount64;
+    end;
+
+    SWaitForCapabilitiesResponse:
+    begin
+      // Every worker has to respond with what capabilities is configured.
+      // Some can process Text, others Bmp files, others Primitives.
+      // If the FindSubControl action has only two text profiles, it makes sense to distribute the search to both workers.
+      // That means, all workers should be able to process anything. Anyway, since all have UIClicker installed, all of them should be able to do all.
+      // The only real difference between workers would be the OS (Win vs Lin), where each may have different lists of fonts and different GPU rendering settings.
+      // So, the best option would be to evenly split (as best as possible) all types of FindSubControls (Txt, Bmp, Pmtv) across all workers.
+
+      // For efficient use of the network, it would be better if all workers can respond here with the list of the bmp/pmtv files (including backgrounds),
+      // along with their MD5 hashes, so that the plugin would know what files to send to each worker.
+      // Since all backgrounds may have the same name ('Background.bmp'), this bmp should be renamed to 'Background_<MD5>.bmp'.
+      // The backgrounds are likely to change, but some of them, like menus or various window parts may stay the same.
+      // The worker should be configurable about the cache size.
+    end;
+
+    SGetFindSubControlActionContent:
+    begin
+      //This is where GetFindControlActionProperties is called (unfortunately in FSM's loop) instead of this case item.
+    end;
+
+    SPublishFindSubControlToAllWorkers:
+    begin
+      PublishAckReceived := False;
+      AddToLog('Sending FindSubControl settings to broker...');
+
+      if not MQTT_PUBLISH(0, 1, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'FindSubControl')
+        AddToLog('Can''t send FindSubControl settings to broker.')
+      else
+        tk := GetTickCount64;
+    end;
+
+    SWaitForPublishResults:
+    begin
+      // It is possible that the plugin may receive "missing files" requests.
+      // If that's the case, it should send those files, here in the same state.
+    end;
+
+    SDisconnectFromBroker:
+    begin
+      FSMDone := True;
+      DisconnectedSuccessfully := DoDisconnect;
+    end;
+
+    SDone:
+    begin
+      FSMDone := True;
+      AddToLog('Plugin done');
+    end;
+  end;
+end;
+
+
+procedure ExecFSM_Part2;
+begin
+  case State of
+    SInit:
+      NextState := SConnectToBroker;
+
+    SConnectToBroker:
+      if ConnectedSucessfully then
+        NextState := SWaitForConAck
+      else
+        NextState := SDone;
+
+    SWaitForConAck:
+    begin
+      if ConAckReceived then  //there should be one ConAckReceived event only (this plugin to broker), unlike multiple workers below
+        NextState := SSubscribeToResponses
+      else
+        if GetTickCount64 - tk > 1000 then
+          NextState := SDone //Timeout
+        else
+          NextState := SWaitForConAck;
+    end;
+
+    SSubscribeToResponses:
+      if SubscribedSucessfully then
+        NextState := SWaitForResponsesSubAck
+      else
+        NextState := SDone;
+
+    SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
+      if SubAckReceived then
+        NextState := SRequestCapabilities
+      else
+        if GetTickCount64 - tk > 1000 then
+          NextState := SDone //Timeout
+        else
+          NextState := SWaitForResponsesSubAck;
+
+    SRequestCapabilities:
+      NextState := SWaitForCapabilitiesResponse;
+
+    SWaitForCapabilitiesResponse:
+      if GetTickCount64 - tk > FindSubControlWorkerTimeout then   //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
+      begin
+        NextState := SGetFindSubControlActionContent;
+        WaitingForWorkerCapabilities := False;
+      end
+      else
+        NextState := SWaitForCapabilitiesResponse;
+
+    SGetFindSubControlActionContent:
+      NextState := SPublishFindSubControlToAllWorkers;
+
+    SPublishFindSubControlToAllWorkers:
+      NextState := SWaitForPublishResults;
+
+    SWaitForPublishResults:
+      if PublishAckReceived then
+        NextState := SDisconnectFromBroker
+      else
+        if GetTickCount64 - tk > FindSubControlWorkerTimeout then
+          NextState := SDone //Timeout
+        else
+          NextState := SWaitForPublishResults;
+
+    SDisconnectFromBroker:
+      NextState := SDone;
+
+    SDone:
+      NextState := SDone;
+  end;
+end;
+
+
+procedure ExecFSM;
+begin
+  ExecFSM_Part1;
+  ExecFSM_Part2;
+  State := NextState;
+end;
+
+
+procedure HandleOnFileContent(ACallReference, AStreamContent: Pointer; AStreamSize: Int64); cdecl;
+var
+  TempStream: TMemoryStream;
+  DestBmp: TBitmap;
+begin
+  if AStreamSize <= 0 then
+    Exit;
+
+  DestBmp := TBitmap(ACallReference); //created by caller
+
+  TempStream := TMemoryStream.Create;
+  try
+    TempStream.SetSize(AStreamSize);
+    Move(AStreamContent^, TempStream.Memory^, AStreamSize);
+    DestBmp.LoadFromStream(TempStream, AStreamSize);
+  finally
+    TempStream.Free;
+  end;
+end;
+
+
+procedure HandleOnFileContentAsRawStream(ACallReference, AStreamContent: Pointer; AStreamSize: Int64); cdecl;
+var
+  DestMemStream: TMemoryStream;
+begin
+  if AStreamSize <= 0 then
+    Exit;
+
+  DestMemStream := TMemoryStream(ACallReference); //created by caller
+  DestMemStream.SetSize(AStreamSize);
+  Move(AStreamContent^, DestMemStream.Memory^, AStreamSize);
+end;
+
+
+var
+  UsingCompression: Boolean;
+  PluginSettings: TStringList;
+
+
+function ExecutePlugin(APluginReference: Pointer;
+                       AListOfPluginSettings: Pointer;
+                       AListOfPluginSettingsLen: PDWord;
+
+                       AOnActionPlugin_GetActionCount: TOnActionPlugin_GetActionCount;
+                       AOnActionPlugin_GetActionInfoByIndex: TOnActionPlugin_GetActionInfoByIndex;
+                       AOnActionPlugin_GetActionContentByIndex: TOnActionPlugin_GetActionContentByIndex;
+                       AOnActionPlugin_ExecuteAction: TOnActionPlugin_ExecuteAction;
+                       AOnActionPlugin_GetAllTemplateVars: TOnActionPlugin_GetAllTemplateVars;
+                       AOnActionPlugin_SetTemplateVar: TOnActionPlugin_SetTemplateVar;
+                       AOnActionPlugin_DebugPoint: TOnActionPlugin_DebugPoint;
+                       AOnActionPlugin_AddToLog: TOnActionPlugin_AddToLog;
+                       AOnActionPlugin_SetResultImg: TOnActionPlugin_SetResultImg;
+                       AOnActionPlugin_LoadBitmap: TOnActionPlugin_LoadBitmap;
+                       AOnActionPlugin_GetAllowedFilesInfo: TOnActionPlugin_GetAllowedFilesInfo;
+                       AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
+                       AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot
+                       ): Boolean; cdecl;
+var
+  ActionCount, i, IndexOfFindSubControlActionProperty: Integer;
+  ResName, ResValue, PluginSettingsStr, AllVarsStr: string;
+  ListOfAllVars: TStringList;
+  TempPluginMQTTClientHandlers: TPluginMQTTClientHandlers;
+  s: string;
+  ActionTypeDWord: DWord;
+  ActionType: TClkAction;
+
+  procedure SetTemplateVar(AVarName, AVarValue: string);
+  begin
+    AOnActionPlugin_SetTemplateVar(APluginReference, @AVarName[1], @AVarValue[1]);
+  end;
+
+  procedure GetActionInfoByIndex(AIndex: Integer; out AActionName: string; var AActionType: DWord);
+  var
+    Buffer: string;
+    ActionNamePtr: Pointer;
+    NameLengthDWord: DWord;
+  begin
+    SetLength(Buffer, CMaxSharedStringLength + 1);
+    ActionNamePtr := @Buffer[1];
+    NameLengthDWord := 0;
+
+    AActionName := '';
+    AOnActionPlugin_GetActionInfoByIndex(APluginReference, AIndex, ActionNamePtr, @NameLengthDWord, @AActionType);
+    SetPointedContentToString(ActionNamePtr, AActionName);
+    SetLength(AActionName, NameLengthDWord);
+  end;
+
+  procedure GetAllTemplateVars(out AAllTemplateVars: string);  //AAllTemplateVars are encoded as CRLF separated key=value strings, ready to be used on a TStringlist
+  var
+    Buffer: string;
+    AllTemplateVarsPtr: Pointer;
+    NameLengthDWord: DWord;
+  begin
+    SetLength(Buffer, CMaxSharedStringLength + 1);
+    AllTemplateVarsPtr := @Buffer[1];
+    NameLengthDWord := 0;
+    AAllTemplateVars := '';
+
+    AOnActionPlugin_GetAllTemplateVars(APluginReference, AllTemplateVarsPtr, @NameLengthDWord);  //decode action execution results
+
+    SetPointedContentToString(AllTemplateVarsPtr, AAllTemplateVars);
+    SetLength(AAllTemplateVars, NameLengthDWord);
+  end;
+
+  function GetPluginSettings: string;
+  begin
+    SetLength(Result, CMaxSharedStringLength);
+    SetPointedContentToString(AListOfPluginSettings, Result);
+    SetLength(Result, AListOfPluginSettingsLen^);
+  end;
+
+  function BitmapIsAllowedToBeLoaded(AFnm: string): Boolean;
+  var
+    TempFileProvider: TFileProvider;
+    TempDenyReason: string;
+    FullTemplatesDir, AllowedFileDirsForServer, AllowedFileExtensionsForServer: string;
+    FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr: Pointer;
+  begin
+    TempFileProvider := TFileProvider.Create;
+    try
+      SetLength(FullTemplatesDir, CMaxSharedStringLength + 1);
+      SetLength(AllowedFileDirsForServer, CMaxSharedStringLength + 1);
+      SetLength(AllowedFileExtensionsForServer, CMaxSharedStringLength + 1);
+
+      FullTemplatesDirPtr := @FullTemplatesDir[1];
+      AllowedFileDirsForServerPtr := @AllowedFileDirsForServer[1];
+      AllowedFileExtensionsForServerPtr := @AllowedFileExtensionsForServer[1];
+
+      AOnActionPlugin_GetAllowedFilesInfo(APluginReference, FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr);
+      TempFileProvider.FullTemplatesDir := FullTemplatesDir;
+
+      TempFileProvider.AddListOfAccessibleDirs(AllowedFileDirsForServer);
+      TempFileProvider.AddListOfAccessibleFileExtensions(AllowedFileExtensionsForServer);
+
+      Result := TempFileProvider.FileIsAllowed(AFnm, TempDenyReason);
+    finally
+      TempFileProvider.Free;
+    end;
+  end;
+
+  function LoadBitmap(AFnm: string; ADestBmp: TBitmap; AFileLocation: TImageSourceFileNameLocation): Boolean;
+  begin
+    if BitmapIsAllowedToBeLoaded(AFnm) then                                      //isflDisk=0, isflMem=1
+      Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], ADestBmp, Ord(AFileLocation), @HandleOnFileContent)
+    else
+      Result := False;
+  end;
+
+  function LoadBitmapAsStream(AFnm: string; AMemStream: TMemoryStream; AFileLocation: TImageSourceFileNameLocation): Boolean;
+  begin
+    if BitmapIsAllowedToBeLoaded(AFnm) then                                      //isflDisk=0, isflMem=1
+      Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], AMemStream, Ord(AFileLocation), @HandleOnFileContentAsRawStream)
+    else
+    begin
+      AddToLog('Bitmap is not allowed to be loaded: ' + AFnm);
+      Result := False;
+    end;
+  end;
+
+  procedure GenerateSomeResultImg;
+  var
+    TempBmp, BkBmp: TBitmap;
+    TempStream: TMemoryStream;
+  begin
+    TempBmp := TBitmap.Create;
+    BkBmp := TBitmap.Create;
+    TempStream := TMemoryStream.Create;
+    try
+      TempBmp.Width := 700;
+      TempBmp.Height := 400;
+      TempBmp.Canvas.Brush.Color := clBlack;
+      TempBmp.Canvas.Pen.Color := clBlack;
+
+      if LoadBitmap(ExtractFilePath(ParamStr(0)) + 'Tests\TestFiles\Gradient30deg.bmp', BkBmp, isflDisk) then
+        TempBmp.Canvas.Draw(50, 25, BkBmp);
+
+      TempBmp.Canvas.Font.Color := clYellow;
+      TempBmp.Canvas.Font.Name := 'Courier New';
+      TempBmp.Canvas.TextOut(30, 10, 'Plugin done.');
+
+      TempBmp.SaveToStream(TempStream);
+      AOnActionPlugin_SetResultImg(APluginReference, 0, 0, 0, TempStream.Memory, TempStream.Size, TempBmp.Width, TempBmp.Height);
+    finally
+      TempStream.Free;
+      TempBmp.Free;
+      BkBmp.Free;
+    end;
+  end;
+
+  procedure SaveBitmapToExtRenderingInMemFS;
+  var
+    Bmp: TBitmap;
+    MemStream: TMemoryStream;
+  begin
+    Bmp := TBitmap.Create;
+    MemStream := TMemoryStream.Create;
+    try
+      Bmp.Width := 150;
+      Bmp.Height := 180;
+      Bmp.PixelFormat := pf24bit;
+      Bmp.Canvas.Brush.Color := clBlack;
+      Bmp.Canvas.Font.Color := clYellow;
+      Bmp.Canvas.TextOut(50, 60, 'Generated bitmap');
+      Bmp.Canvas.TextOut(50, 130, 'Generated bitmap');
+      bmp.SaveToStream(MemStream);
+
+      AOnActionPlugin_SetBitmap(APluginReference, @string('GenBmp.bmp')[1], MemStream.Memory, MemStream.Size, Bmp.Width, Bmp.Height);
+    finally
+      Bmp.Free;
+      MemStream.Free;
+    end;
+  end;
+
+  var
+    SplitActions: array of TClkFindControlOptions;
+
+  function HashFoundInFileCacheInfo(AFileCacheInfo: TStringList; AHash: string): Boolean;
+  var
+    i: Integer;
+    s: string;
+  begin
+    Result := False;
+
+    for i := 0 to AFileCacheInfo.Count - 1 do
+    begin
+      s := AFileCacheInfo.Strings[i];
+      s := Copy(s, Pos(CDefaultInMemFileNameHashSeparator, s) + Length(CDefaultInMemFileNameHashSeparator), MaxInt);
+
+      if s = AHash then
+      begin
+        Result := True;
+        Break;
+      end;
+    end;
+  end;
+
+  function GetFindSubControlContent: Boolean;
+  const
+    CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
+    CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
+    CWillMatchPrimitiveFiles = 'WillMatchPrimitiveFiles'; //0..1
+    CTxtProfilesCount_PropName = 'MatchBitmapText.Count';
+    CBmpFiles_PropName = 'MatchBitmapFiles';     // #4#5 separated paths
+    CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
+  var
+    //ActionContentStr: string; //set as global var, to be available in Publish handler
+    ActionContentPtr: Pointer;
+    ActionContentLen: DWord;
+    i, WorkersIndex: Integer;
+    ListOfFindSubControlProperties, ListOfBmps, ListOfPmtvs: TStringList;
+    MaxSplitActionsCount, TxtCount: Integer;
+    DecodedAction: TClkFindControlOptions;
+    DecodingErr: string;
+    ActionOptions: TClkActionOptions;
+    BkFileNameLocation: TImageSourceFileNameLocation;
+    TempBk: TMemoryStream;
+    TempBkStr: string;
+    BkHash: string;
+    TempArchiveHandlers: TArchiveHandlers;
+    BkSize: Int64;
+  begin
+    Result := True;
+
+    SetLength(ActionContentStr, CMaxSharedStringLength + 1);
+    ActionContentPtr := @ActionContentStr[1];
+    AOnActionPlugin_GetActionContentByIndex(APluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
+    SetLength(ActionContentStr, ActionContentLen);
+
+    //AddToLog('ActionContentStr: ' + #13#10 + ActionContentStr);
+    //
+    ListOfFindSubControlProperties := TStringList.Create;
+    try
+      ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
+      //for i := 0 to ListOfFindSubControlProperties.Count - 1 do
+      //  AddToLog('===Prop: ' + ListOfFindSubControlProperties.Strings[i]);
+
+      TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
+      MaxSplitActionsCount := TxtCount;
+
+      ListOfBmps := TStringList.Create;
+      ListOfPmtvs := TStringList.Create;
+      TempArchiveHandlers := TArchiveHandlers.Create;
+
+      for i := 0 to Length(AllWorkers) - 1 do
+      begin
+        AllWorkers[i].ArchiveStream := TMemoryStream.Create;
+        AllWorkers[i].Archive := TMemArchive.Create;
+      end;
+      try
+        ListOfBmps.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CBmpFiles_PropName]);
+        MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfBmps.Count);
+
+        ListOfPmtvs.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CPmtvFiles_PropName]);
+        MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfPmtvs.Count);
+
+        DecodingErr := SetFindControlActionProperties(ListOfFindSubControlProperties, True, nil, DecodedAction, ActionOptions);
+        if DecodingErr <> '' then
+        begin
+          AddToLog('--- Action decoding errror: ' + DecodingErr);
+          SetLength(SplitActions, 0);
+          MaxSplitActionsCount := 0; /////////////////////////////////// added later (to prevent indexing an empty SplitActions array), not sure if ok
+        end
+        else
+          SetLength(SplitActions, MaxSplitActionsCount);
+
+
+        //The number of available workers can be less than, equal or greater than the number of subproperties.
+        //The number of some subproperties can be less than, other can be greater than.
+        //If the number of all subproperty types is less than the number of workers, then the last remaining workers won't receive work.
+        //Otherwise (if it's greater), then some workers will receive more work.
+        //Delete from every action if the subproperty index is greater than MaxSplitActionsCount
+
+        if Length(AllWorkers) > 0 then
+          for i := 0 to MaxSplitActionsCount - 1 do //Length(SplitActions) - 1 do
+          begin
+            WorkersIndex := i mod Length(AllWorkers);
+
+            if i < TxtCount then
+            begin
+              AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Txt=' + IntToStr(i) + '&';
+              //
+            end;
+
+            if i < ListOfBmps.Count then
+            begin
+              AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Bmp=' + IntToStr(i) + '&';
+              AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + ListOfBmps.Strings[i] + #13#10;
+            end;
+
+            if i < ListOfPmtvs.Count then
+            begin
+              AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Pmtv=' + IntToStr(i) + '&';
+              AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + ListOfPmtvs.Strings[i] + #13#10;
+            end;
+          end;
+
+        UsingCompression := PluginSettings.ValueFromIndex[CUseCompressionPropertyIndex] = 'True';
+        if UsingCompression then
+        begin
+          TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(PluginSettings.ValueFromIndex[CCompressionAlgorithmPropertyIndex] = CCompressionAlgorithms[caLzma]));  //default min max
+
+          if TempArchiveHandlers.CompressionAlgorithm = caLzma then
+            TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(PluginSettings);
+        end;
+
+        TempArchiveHandlers.PluginProperties := PluginSettings;
+        TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+
+        for i := 0 to Length(AllWorkers) - 1 do
+        begin
+          AllWorkers[i].Archive.OpenArchive(AllWorkers[i].ArchiveStream, True);
+          AllWorkers[i].Archive.OnCompress := @TempArchiveHandlers.HandleOnCompress;
+          AllWorkers[i].Archive.OnDecompress := @TempArchiveHandlers.HandleOnDecompress;
+          AllWorkers[i].Archive.OnComputeArchiveHash := @TempArchiveHandlers.HandleOnComputeArchiveHash;
+          AllWorkers[i].Archive.Password := '';
+
+          AllWorkers[i].Archive.CompressionLevel := 9 * Ord(UsingCompression);
+        end;
+
+
+        if ListOfFindSubControlProperties.Values['ImageSource'] = '1' then //isFile
+        begin
+          BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'], 1));
+
+          AddToLog('----------- loading bitmap as stream...');
+          TempBk := TMemoryStream.Create;
+          try
+            if LoadBitmapAsStream(ListOfFindSubControlProperties.Values['SourceFileName'], TempBk, BkFileNameLocation) then
+            begin
+              BkSize := TempBk.Size;
+              BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
+
+              for i := 0 to Length(AllWorkers) - 1 do
+                if not HashFoundInFileCacheInfo(AllWorkers[i].FileCacheInfo, BkHash) then
+                  AllWorkers[i].Archive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
+            end
+            else
+            begin
+              BkSize := 0;
+              FLatestMsg := 'Error loading bitmap as stream.';
+              AddToLog('----------- ' + FLatestMsg);
+              Result := False;
+              Exit;
+            end;
+          finally
+            TempBk.Free;
+          end;
+        end;  //ListOfProperties.Values['ImageSource'] = '1'  //isFile
+
+        //////////////////////////////////////////////////////////////////////////// ToDo:  add all other files (bmps, pmtvs) to archive
+
+        for i := 0 to Length(AllWorkers) - 1 do
+        begin
+          try
+            //AddToLog('----------- closing archive at index ' + IntToStr(i));
+            AllWorkers[i].Archive.CloseArchive;
+          except
+            on E: Exception do
+            begin
+              FLatestMsg := 'Error closing archive at index ' + IntToStr(i) + '.  Ex: ' + E.Message;
+              AddToLog('----------- ' + FLatestMsg);
+              Result := False;
+            end;
+          end;
+        end;
+
+        if Length(AllWorkers) > 0 then
+        begin                                             /////////////////////////////////////// add a for loop here:   for i := 0 to Length(AllWorkers) - 1 do
+          SetLength(TempBkStr, AllWorkers[0].ArchiveStream.Size);   ////////////////////////////////////// [0]
+          AllWorkers[0].ArchiveStream.Position := 0;                                              //ActionContentStr should be different for each worker (different list of files, except the background)
+          AllWorkers[0].ArchiveStream.Read(TempBkStr[1], AllWorkers[0].ArchiveStream.Size);
+
+          if AllWorkers[0].ArchiveStream.Size = 0 then
+            AllWorkers[0].ArchiveStream.Write(string('1'), 1);  //prevent division by 0
+
+          AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(AllWorkers[0].ArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / AllWorkers[0].ArchiveStream.Size));
+
+          ActionContentStr := ActionContentStr +  ////////////////////////////// a new var is needed here, made of ActionContentStr and a worker specific "archive as string" + params
+                              '&' + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                              '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                              '&' + CProtocolParam_ImageSourceRawContent + '=' + TempBkStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
+
+        end  //if Length(AllWorkers) > 0 then
+        else
+        begin
+          FLatestMsg := 'No workers available. (A worker application might still be running, but it may be busy.)';
+          AddToLog('----------- ' + FLatestMsg);
+          Result := False;
+        end;
+      finally
+        ListOfBmps.Free;
+        ListOfPmtvs.Free;
+        TempArchiveHandlers.Free;
+
+        for i := 0 to Length(AllWorkers) - 1 do
+        begin
+          FreeAndNil(AllWorkers[i].ArchiveStream);
+          FreeAndNil(AllWorkers[i].Archive);
+        end;
+      end;
+    finally
+      ListOfFindSubControlProperties.Free;
+      AddToLog('----------- Exiting GetFindSubControlContent with ' + BoolToStr(Result, 'True', 'False') + '.');
+    end;
+  end;  //GetFindSubControlContent
+
+
+begin
+  Result := False;
+  DebugPoint := @DbgPoint;
+  SetLength(AllWorkers, 0);
+
+  try
+    IdTCPClient1 := TIdTCPClient.Create;
+    RecTh := nil;
+    FRecBufFIFO := TPollingFIFO.Create;
+    TempPluginMQTTClientHandlers := TPluginMQTTClientHandlers.Create(nil);
+    PluginSettings := TStringList.Create;
+    try
+      DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
+      DefaultPluginReference := APluginReference;
+      AddToLogCallback := AOnActionPlugin_AddToLog;
+
+      IdTCPClient1.OnConnected := @TempPluginMQTTClientHandlers.HandleClientOnConnected;
+      IdTCPClient1.OnDisconnected := @TempPluginMQTTClientHandlers.HandleClientOnDisconnected;
+
+      if not DbgPoint('Entering ExecutePlugin', '') then     //see ClkDbgSym.ppr for expected statement formats
+        Exit;
+
+      ActionCount := AOnActionPlugin_GetActionCount(APluginReference);
+      if ActionCount = 0 then
+      begin
+        ResName := CActionPlugin_ExecutionResultErrorVar;
+        ResValue := 'This plugin does not run on an empty template.';
+        AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+        Exit;
+      end;
+
+      PluginSettingsStr := GetPluginSettings;
+      PluginSettings.Text := PluginSettingsStr;
+
+      if PluginSettings.Count <> CPropertiesCount then
+      begin
+        ResName := CActionPlugin_ExecutionResultErrorVar;
+        ResValue := 'Cannot get the list of plugin properties.';
+        AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+        Exit;
+      end;
+
+      GetAllTemplateVars(AllVarsStr);
+      GetPluginSettingsFromProperties(PluginSettings, AllVarsStr);
+
+      s := 'unset action';
+      IndexOfFindSubControlActionProperty := -1;
+      for i := 0 to ActionCount - 1 do
+      begin
+        GetActionInfoByIndex(i, s, ActionTypeDWord);
+        AddToLog('Found action [' + IntToStr(i) + ']: ' + s);
+
+        if ActionTypeDWord <> $FFFFFFFF then
+        begin
+          ActionType := TClkAction(ActionTypeDWord);
+
+          if ActionType in [acFindSubControl, acPlugin] then
+            if s = PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] then   //the current action name ([i]) matches FindSubControl property
+            begin
+              IndexOfFindSubControlActionProperty := i;
+              Break;
+            end;
+        end;
+      end;
+
+      if IndexOfFindSubControlActionProperty = -1 then
+      begin
+        ResName := CActionPlugin_ExecutionResultErrorVar;
+        ResValue := 'FindSubControl action not configured.';
+        AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
+        AddToLog(ResValue);
+        Exit;
+      end;
+
+      WorkerQoS := StrToIntDef(PluginSettings.ValueFromIndex[CWorkerQoSPropertyIndex], 2);
+      WorkerQoS := Min(Max(WorkerQoS, 1), 2);  //limited to 1..2
+      FindSubControlWorkerTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlWorkerTimeoutPropertyIndex], 2);
+      FindSubControlWorkerTimeout := Min(Max(FindSubControlWorkerTimeout, 50), 60000);  //limited to 50..60000
+
+      SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
+
+      Application.Initialize;
+      FExHandler := TExHandler.Create;
+      ExceptProc := @CatchUnhandledException;
+      Application.OnException := @FExHandler.CustomExceptionHandler;
+
+      MQTT_Init;
+
+      if MQTT_CreateClient then
+      begin
+        try
+          InitHandlers;
+
+          repeat
+            ExecFSM;
+
+            if State = SGetFindSubControlActionContent then
+            begin
+              try
+                if not GetFindSubControlContent then
+                begin
+                  AddToLog('Stopping FSM, because GetFindSubControlContent returned False.');
+                  FSMDone := True;
+                end;
+              except
+                on EFSM: Exception do
+                begin
+                  AddToLog('Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message);
+                  FSMDone := True;
+                end;
+              end;
+            end;
+
+            Application.ProcessMessages;
+            Sleep(1);
+          until FSMDone;
+        finally
+          AddToLog('Last FSM state: ' + CFSMStr[State]);
+          MQTT_DestroyClient(0);
+        end;
+      end
+      else
+      begin
+        AddToLog('Can''t create client...');
+        Result := False;
+        Exit;
+      end;
+
+      TempPluginMQTTClientHandlers.tmrProcessRecData.Enabled := False;
+
+      Result := DisconnectedSuccessfully;
+
+
+    finally
+      try
+        Application.ProcessMessages; //process last logging data
+
+        if not Result then
+        begin
+          ResName := CActionPlugin_ExecutionResultErrorVar;
+          ResValue := FLatestMsg;
+          AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+        end;
+      except
+      end;
+
+      FreeAndNil(IdTCPClient1);
+      FreeAndNil(FRecBufFIFO);
+      FreeAndNil(TempPluginMQTTClientHandlers);
+      FreeAndNil(PluginSettings);
+
+      try
+        for i := 0 to Length(AllWorkers) - 1 do
+          FreeAndNil(AllWorkers[i].FileCacheInfo);
+      except
+        on E: Exception do
+          AddToLog('Cannot free FileCacheInfo at index ' + IntToStr(i));
+      end;
+
+      SetLength(AllWorkers, 0);
+
+      if RecTh <> nil then
+        FreeAndNil(RecTh);
+    end;
+
+    GenerateSomeResultImg;
+    SaveBitmapToExtRenderingInMemFS;
+
+    //AOnActionPlugin_Screenshot(APluginReference, @string('ScreenshotSettings')[1]);
+  except
+    on E: Exception do
+    begin
+      ResName := CActionPlugin_ExecutionResultErrorVar;
+      ResValue := 'Plugin exception: "' + E.Message + '".';
+      AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+    end;
+  end;
+end;
+
+
+exports
+  GetAPIVersion,
+  GetListOfProperties,
+  ExecutePlugin;
+
+begin
+end.
+

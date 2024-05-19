@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="FindSubControlWorker.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmFindSubControlWorkerMain"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="924"/>
+        <CursorPos X="21" Y="937"/>
+        <UsageCount Value="23"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MiscUtils\DynArrays.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MiscUtils\PollingFIFO.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MQTTClient\Lib\MQTTClient.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MQTTClient\Lib\MQTTUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\DistFindSubControlCommonConsts.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="24"/>
+        <CursorPos X="38" Y="37"/>
+        <UsageCount Value="22"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MQTTClient\Lib\MQTTUnsubscribeCtrl.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="31"/>
+        <CursorPos X="35" Y="44"/>
+        <UsageCount Value="10"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="29">
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="326" Column="93" TopLine="320"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="367" Column="19" TopLine="354"/>
+      </Position>
+      <Position>
+        <Filename Value="..\DistFindSubControlCommonConsts.pas"/>
+        <Caret Line="41" Column="46" TopLine="19"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="370" Column="25" TopLine="357"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="372" Column="35" TopLine="364"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="421" Column="37" TopLine="404"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="63" Column="5" TopLine="44"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="455" Column="33" TopLine="446"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="500" Column="48" TopLine="493"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="9" Column="30"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="633" Column="15" TopLine="617"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="634" Column="15" TopLine="618"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="644" Column="54" TopLine="643"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="9" Column="16"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="929" TopLine="917"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="39" Column="38" TopLine="27"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="965" Column="33" TopLine="963"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="966" Column="33" TopLine="964"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="310" Column="36" TopLine="291"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="974" Column="39" TopLine="958"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="309" Column="13" TopLine="298"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="308" Column="29" TopLine="287"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="309" Column="42" TopLine="287"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="68" Column="38" TopLine="53"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="975" Column="37" TopLine="969"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="976" Column="37" TopLine="970"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="980" Column="25" TopLine="967"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="963" Column="28" TopLine="948"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="932" Column="32" TopLine="920"/>
+      </Position>
+      <Position>
+        <Filename Value="FindSubControlWorkerMainForm.pas"/>
+        <Caret Line="934" Column="32" TopLine="922"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>

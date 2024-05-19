@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="109"/>
+        <CursorPos X="59" Y="123"/>
+        <UsageCount Value="80"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\UIClicker\ClickerUtils\ClickerActionPlugins.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="5"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="57"/>
+        <CursorPos X="50" Y="68"/>
+        <UsageCount Value="80"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\UIClicker\ClickerUtils\ClickerUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="469"/>
+        <CursorPos X="10" Y="482"/>
+        <UsageCount Value="80"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\UIClicker\ClickerClient\DllUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="80"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\MiscUtils\DynArrays.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="80"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\MiscUtils\PollingFIFO.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="131"/>
+        <CursorPos X="14" Y="51"/>
+        <UsageCount Value="77"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\MQTTClient\Lib\MQTTClient.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="234"/>
+        <CursorPos X="10" Y="275"/>
+        <UsageCount Value="71"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\MQTTClient\Lib\MQTTUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="132"/>
+        <CursorPos X="27" Y="146"/>
+        <UsageCount Value="71"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="DistFindSubControlCommonConsts.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="25"/>
+      </Unit>
+      <Unit>
+        <Filename Value="B:\MQTTClient\Lib\MQTTClient.pas"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="24"/>
+      </Unit>
+      <Unit>
+        <Filename Value="B:\MQTTClient\Lib\MQTTUtils.pas"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="24"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\classes\classesh.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <UsageCount Value="5"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\win32\classes.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="Classes"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="204"/>
+        <CursorPos X="17" Y="230"/>
+        <UsageCount Value="5"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\sysutils\datih.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <UsageCount Value="6"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\win\sysutils.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="SysUtils"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="127"/>
+        <CursorPos X="10" Y="140"/>
+        <UsageCount Value="6"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\UIClicker\ClickerUtils\ClickerExtraUtils.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="23"/>
+        <CursorPos X="13" Y="36"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\UIClicker\ClickerUtils\ClickerIniFiles.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="391"/>
+        <CursorPos X="22" Y="32"/>
+        <UsageCount Value="20"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="29">
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="93" Column="10" TopLine="80"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="974" Column="14" TopLine="952"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="103" Column="30" TopLine="88"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="60" Column="36" TopLine="40"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="72" Column="19" TopLine="60"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="821" Column="85" TopLine="808"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="954" Column="28" TopLine="930"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="102" Column="36" TopLine="89"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="232" Column="51" TopLine="220"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="963" Column="6" TopLine="17"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="32" Column="47" TopLine="17"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="61" Column="43" TopLine="39"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="961" Column="39" TopLine="942"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1376" Column="30" TopLine="1368"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1186" Column="58" TopLine="1173"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1224" Column="24" TopLine="1214"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1235" Column="39" TopLine="1214"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1186" Column="94" TopLine="1173"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1196" Column="51" TopLine="1188"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="1379" Column="54" TopLine="1362"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="102" Column="39" TopLine="80"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="44" Column="38" TopLine="24"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="125" Column="34" TopLine="113"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="246" Column="37" TopLine="233"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="245" Column="46" TopLine="231"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="246" Column="16" TopLine="233"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="124" Column="59" TopLine="109"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="246" Column="29" TopLine="234"/>
+      </Position>
+      <Position>
+        <Filename Value="UIClickerDistFindSubControl.ppr"/>
+        <Caret Line="245" Column="38" TopLine="233"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+  <Debugging>
+    <BreakPoints>
+      <Item>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="UIClickerDistFindSubControl.ppr"/>
+        <Line Value="1030"/>
+      </Item>
+      <Item>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="UIClickerDistFindSubControl.ppr"/>
+        <Line Value="371"/>
+      </Item>
+    </BreakPoints>
+  </Debugging>
+</CONFIG>
