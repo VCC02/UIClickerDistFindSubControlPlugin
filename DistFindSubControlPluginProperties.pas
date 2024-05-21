@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 18;
+  CAdditionalPropertiesCount = 19;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -42,27 +42,29 @@ const
   CAddressPropertyIndex = 2;
   CPortPropertyIndex = 3;
   CWorkerQoSPropertyIndex = 4;
-  CFindSubControlWorkerTimeoutPropertyIndex = 5;
-  CTextRenderingOSPropertyIndex = 6;
-  CListOfMultiValuePropertyNamesPropertyIndex = 7;
-  CUseCompressionPropertyIndex = 8;
-  CCompressionAlgorithmPropertyIndex = 9;
+  CGetWorkerCapabilitiesTimeoutPropertyIndex= 5;
+  CFindSubControlWorkerTimeoutPropertyIndex = 6;
+  CTextRenderingOSPropertyIndex = 7;
+  CListOfMultiValuePropertyNamesPropertyIndex = 8;
+  CUseCompressionPropertyIndex = 9;
+  CCompressionAlgorithmPropertyIndex = 10;
 
-  CLzmaEndOfStreamPropertyIndex = 10; //EOS
-  CLzmaAlgorithmPropertyIndex = 11;
-  CLzmaNumBenchMarkPassesPropertyIndex = 12;
-  CLzmaDictionarySizePropertyIndex = 13;
-  CLzmaMatchFinderPropertyIndex = 14;
-  CLzmaLiteralContextPropertyIndex = 15;
-  CLzmaLiteralPosBitsPropertyIndex = 16;
-  CLzmaPosBitsPropertyIndex = 17;
-  CLzmaFastBytesPropertyIndex = 18;
+  CLzmaEndOfStreamPropertyIndex = 11; //EOS
+  CLzmaAlgorithmPropertyIndex = 12;
+  CLzmaNumBenchMarkPassesPropertyIndex = 13;
+  CLzmaDictionarySizePropertyIndex = 14;
+  CLzmaMatchFinderPropertyIndex = 15;
+  CLzmaLiteralContextPropertyIndex = 16;
+  CLzmaLiteralPosBitsPropertyIndex = 17;
+  CLzmaPosBitsPropertyIndex = 18;
+  CLzmaFastBytesPropertyIndex = 19;
 
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
   CAddressPropertyName = 'Address';
   CPortPropertyName = 'Port';
   CWorkerQoSPropertyName = 'WorkerQoS';  //QoS between plugin and workers
+  CGetWorkerCapabilitiesTimeoutPropertyName = 'GetWorkerCapabilitiesTimeout';  //waiting timeout for every worker to present its capabilites
   CFindSubControlWorkerTimeoutPropertyName = 'FindSubControlWorkerTimeout'; //waiting timeout for every worker processing
   CTextRenderingOSPropertyName = 'TextRenderingOS'; //Enum-like property, which selects betwen 'Win', 'Lin' and 'Win+Lin'.
   CListOfMultiValuePropertyNamesPropertyName = 'ListOfMultiValuePropertyNames';  //Used in case CFindSubControlActionPropertyName points to a plugin action. It tells this plugin what properties to use, to split the action.
@@ -87,6 +89,7 @@ const
     CAddressPropertyName,
     CPortPropertyName,
     CWorkerQoSPropertyName,
+    CGetWorkerCapabilitiesTimeoutPropertyName,
     CFindSubControlWorkerTimeoutPropertyName,
     CTextRenderingOSPropertyName,
     CListOfMultiValuePropertyNamesPropertyName,
@@ -114,6 +117,7 @@ const
     'TextWithArrow', //Address
     'SpinText',      //Port
     'SpinText',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
+    'TextWithArrow', //GetWorkerCapabilitiesTimeout
     'TextWithArrow', //FindSubControlWorkerTimeout
     'EnumCombo',
     'TextWithArrow', //ListOfMultiValue
@@ -138,6 +142,7 @@ const
     CDTString, //Address
     CDTInteger,      //Port
     CDTInteger,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
+    CDTInteger, //GetWorkerCapabilitiesTimeout
     CDTInteger, //FindSubControlWorkerTimeout
     CDTEnum, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     CDTString, //ListOfMultiValue
@@ -162,6 +167,7 @@ const
     0, //Address
     0,      //Port
     0,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
+    0, //GetWorkerCapabilitiesTimeout
     0, //FindSubControlWorkerTimeout
     3, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     0, //ListOfMultiValue
@@ -186,6 +192,7 @@ const
     '', //Address
     '',      //Port
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
+    '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
     'Win' + #4#5 + 'Lin' + #4#5 + 'Win+Lin' + #4#5, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     '', //ListOfMultiValue
@@ -206,11 +213,12 @@ const
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
     'Name of a FindSubControl action, from the same template as this plugin, which will be sent and executed remotely.', //FindSubControlActionPropertyName
 
-    'Full file path of a ini file, containing MQTT credentials. It has a plugin specific format.', //CredentialsFullFileName
-    'Hostname or IP address of the MQTT broker, where this plugin conntects to.', //Address
-    'Port of the MQTT broker, where this plugin conntects to.',      //Port
+    'Full file path of a ini file, containing MQTT credentials. The file has a plugin specific format.', //CredentialsFullFileName
+    'Hostname or IP address of the MQTT broker, where this plugin connects to.', //Address
+    'Port number of the MQTT broker, where this plugin connects to.',      //Port
     'Quality of service, used by MQTT communication. Can be 1 or 2.',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
-    'Timeout until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.', //FindSubControlWorkerTimeout
+    'Timeout in ms, until the plugin no longer waits for all workers to present their capabilities.' + #4#5 + 'Workers which miss this timeout won''t receive work.',
+    'Timeout in ms, until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.', //FindSubControlWorkerTimeout
     'Target operating system where this action should be executed.' + #4#5 + 'If this setting matches the existing worker OS, then the FindSubControl action is executed there.' + #4#5 + 'This is useful, because of different rendering settings or different lists of font types.',
     'Used in case the configured FindSubControl action points to a plugin action.' + #4#5 + 'It tells this plugin what properties to use, to distribute the action between multiple workers.' + #4#5 + 'If a FindSubControl action is configured, this property is ignored and the action is distributed by Txt profiles, Bmp files and Pmtv files.',
     'Enables compression of transferred bitmaps.', //UseCompression
@@ -219,12 +227,12 @@ const
     'Default value: False.', //EndOfStream
     'Default value: 2.',     //Algorithm
     'Default value: 10. Valid range: [0..10].',    //LzmaNumBenchMarkPassesPropertyName,
-    'Default value: 23.' + #4#5 + 'E.g.: A value of 73000 gives 2503 bytes from a 307KB BMP.',    //LzmaDictionarySizePropertyName,
+    'Default value: 23.' + #4#5 + 'E.g.: A value of 1048576 results in both a high compression ratio and a fast compression.',    //LzmaDictionarySizePropertyName,
     'Default value: 1.',     //LzmaMatchFinderPropertyName,
     'Default value: 3. Valid range: [0..8].',     //LzmaLiteralContextPropertyName,
     'Default value: 0.',     //LzmaLiteralPosBitsPropertyName,
     'Default value: 2.',     //LzmaPosBitsPropertyName,
-    'Default value: 128. Valid range: [5, 273].' + #4#5 + 'E.g.: A value of 273 gives the best compression.'   //LzmaFastBytesPropertyName
+    'Default value: 128. Valid range: [5, 273].' + #4#5 + 'E.g.: A value of 273 gives the best compression. A value of 5 results in the fastest compression.'   //LzmaFastBytesPropertyName
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -234,21 +242,22 @@ const
     '', //Address
     '',      //Port
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
+    '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
     '', //'EnumCombo',     //TextRenderingOS    - EnumCombo cannot be used until the plugin API allows defining property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     '', //ListOfMultiValue
-    '', //UseCompression    //this is  [8]
-    'PropertyValue[8]==True',  //CompressionAlgorithm    //this is  [9]
+    '', //UseCompression    //this is  [9]
+    'PropertyValue[9]==True',  //CompressionAlgorithm    //this is  [10]
 
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaEndOfStreamPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaAlgorithmPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaDictionarySizePropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaMatchFinderPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaLiteralContextPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaLiteralPosBitsPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma',  //LzmaPosBitsPropertyName,
-    'PropertyValue[8]==True' + #5#6 + 'PropertyValue[9]==Lzma'   //LzmaFastBytesPropertyName
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaEndOfStreamPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaAlgorithmPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaDictionarySizePropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaMatchFinderPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaLiteralContextPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaLiteralPosBitsPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaPosBitsPropertyName,
+    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma'   //LzmaFastBytesPropertyName
   );
 
 

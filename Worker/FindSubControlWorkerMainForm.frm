@@ -36,11 +36,11 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Left = 8
     Height = 70
     Top = 180
-    Width = 480
+    Width = 504
     Anchors = [akLeft, akBottom]
     Caption = 'MQTT'
     ClientHeight = 50
-    ClientWidth = 476
+    ClientWidth = 500
     TabOrder = 1
     object lbeAddress: TLabeledEdit
       Left = 8
@@ -57,7 +57,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
       Text = '127.0.0.1'
     end
     object lbePort: TLabeledEdit
-      Left = 99
+      Left = 96
       Height = 23
       Top = 19
       Width = 45
@@ -71,23 +71,32 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
       Text = '1883'
     end
     object lbeClientID: TLabeledEdit
-      Left = 152
+      Left = 144
       Height = 23
       Top = 19
-      Width = 320
+      Width = 280
       Anchors = [akLeft, akBottom]
       Color = 16640708
       EditLabel.Height = 15
-      EditLabel.Width = 320
+      EditLabel.Width = 280
       EditLabel.Caption = 'ClientID'
       ReadOnly = True
       TabOrder = 2
     end
+    object btnDisconnect: TButton
+      Left = 432
+      Height = 25
+      Top = 17
+      Width = 69
+      Caption = 'Disconnect'
+      TabOrder = 3
+      OnClick = btnDisconnectClick
+    end
   end
   object grpExtServer: TGroupBox
-    Left = 496
+    Left = 512
     Height = 70
-    Top = 180
+    Top = 181
     Width = 321
     Anchors = [akLeft, akBottom]
     Caption = 'ExtServer'
@@ -153,7 +162,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     end
   end
   object lbeUIClickerPort: TLabeledEdit
-    Left = 824
+    Left = 840
     Height = 23
     Top = 216
     Width = 45

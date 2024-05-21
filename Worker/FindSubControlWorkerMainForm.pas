@@ -44,6 +44,7 @@ type
   { TfrmFindSubControlWorkerMain }
 
   TfrmFindSubControlWorkerMain = class(TForm)
+    btnDisconnect: TButton;
     chkExtServerKeepAlive: TCheckBox;
     chkExtServerActive: TCheckBox;
     grpExtServer: TGroupBox;
@@ -67,6 +68,7 @@ type
     tmrProcessLog: TTimer;
     tmrProcessRecData: TTimer;
     tmrStartup: TTimer;
+    procedure btnDisconnectClick(Sender: TObject);
     procedure chkExtServerActiveChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -554,6 +556,7 @@ var
   CompressionAlgorithm: string;
   TempArchiveHandlers: TArchiveHandlers;
   MemArchive: TMemArchive;
+  tk: QWord;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := DynArrayOfByteToString(APublishFields.ApplicationMessage); //StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -620,9 +623,12 @@ begin
           MemArchive.CompressionLevel := 0;
 
         try
+          tk := GetTickCount64;
           MemArchive.OpenArchive(MemStream, False);
+          tk := GetTickCount64 - tk;
           try
             MemArchive.ExtractToStream(CBackgroundFileNameInArchive, DecompressedStream);
+            AddToLog('Decompressed archive in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size) + '  Background decompressed size: ' + IntToStr(DecompressedStream.Size));
 
             SaveBackgroundBmpToInMemFS(DecompressedStream);
 
@@ -652,76 +658,11 @@ begin
         TempArchiveHandlers.Free;
         MemArchive.Free;
       end;
-
-      //try
-      //  if UsingCompression then
-      //  begin
-      //    case CompressionAlgorithmsStrToType(CompressionAlgorithm) of
-      //      caZlib:
-      //        ExtractStreamZLib(MemStream, DecompressedStream);    //'Background.bmp'
-      //
-      //      caLzma:
-      //        ExtractStreamLzma(MemStream, DecompressedStream);    //'Background.bmp'
-      //
-      //      else
-      //        frmFindSubControlWorkerMain.AddToLog('=============== unsupported compression algorithm: ' + CompressionAlgorithm);
-      //    end;
-      //  end;
-      //
-      //  try
-      //    if UsingCompression then
-      //    begin
-      //      SaveBackgroundBmpToInMemFS(DecompressedStream);
-      //
-      //      DecompressedStream.Position := 0;
-      //      frmFindSubControlWorkerMain.imgFindSubControlBackground.Picture.Bitmap.LoadFromStream(DecompressedStream);
-      //
-      //      CmdResult := SendBackgroundBmpToServer(DecompressedStream);
-      //    end
-      //    else
-      //    begin
-      //      SaveBackgroundBmpToInMemFS(MemStream);
-      //
-      //      MemStream.Position := 0;
-      //      frmFindSubControlWorkerMain.imgFindSubControlBackground.Picture.Bitmap.LoadFromStream(MemStream);
-      //
-      //      CmdResult := SendBackgroundBmpToServer(MemStream);
-      //    end;
-      //
-      //    if CmdResult = CREResp_ErrResponseOK then
-      //      frmFindSubControlWorkerMain.AddToLog('BMP sent to UIClicker successfully.')
-      //    else
-      //    begin
-      //      frmFindSubControlWorkerMain.AddToLog('Error sending BMP to UIClicker: ' + CmdResult);
-      //      /////////////////// Set result to False
-      //    end;
-      //  except
-      //    on E: Exception do
-      //    begin
-      //      frmFindSubControlWorkerMain.AddToLog('Error decompressing bmp: "' + E.Message + '"  MemStream.Size = ' + IntToStr(MemStream.Size));
-      //      /////////////////// Set result to False
-      //    end;
-      //  end;
-      //except
-      //  on E: Exception do
-      //  begin
-      //    frmFindSubControlWorkerMain.AddToLog('Error decompressing bmp: "' + E.Message + '"  MemStream.Size = ' + IntToStr(MemStream.Size));
-      //    /////////////////// Set result to False
-      //  end;
-      //end;
-
-
-      //SetVarRequest.ListOfVarNames := '$RenderBmpExternally()$';
-      //SetVarRequest.ListOfVarValues := 'http://127.0.0.1:43444$#4#5$Cmd=GetGradientImage$#4#5$Filename=Background.bmp$#4#5$';   //'=' = '%3D'
-      //SetVarRequest.ListOfVarEvalBefore := '0'; //do not evaluate above strings
-      //frmFindSubControlWorkerMain.IdHTTP1.Get('http://127.0.0.1:5444/ExecuteSetVarAction?StackLevel=0&' + GetSetVarActionProperties(SetVarRequest));
     finally
       MemStream.Free;
       DecompressedStream.Free;
     end;
-
   end;
-
 
   frmFindSubControlWorkerMain.AddToLog('');
 end;
@@ -1077,16 +1018,19 @@ begin
             ProcessBufferLengthResult := MQTT_ProcessBufferLength(TempReadBuf, PacketSize);
 
             if ProcessBufferLengthResult <> CMQTTDecoderNoErr then
-              SuccessfullyDecoded := False
-            else
-              if ProcessBufferLengthResult = CMQTTDecoderIncompleteBuffer then  //PacketSize is successfully decoded, but the packet is incomplete
+            begin
+              SuccessfullyDecoded := False;
+
+              if (ProcessBufferLengthResult = CMQTTDecoderIncompleteBuffer) and (PacketSize > 0) then  //PacketSize is successfully decoded, but the packet is incomplete
               begin
                 //to get a complete packet, the number of bytes to be read next is PacketSize - TempReadBuf.Len.
-                frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadTimeout := 1000;
+                frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadTimeout := 10;
+
                 SetLength(TempArr, 0);
                 frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadBytes(TempArr, PacketSize - TempReadBuf.Len);
 
-                if Length(TempArr) > 0 then //it should be >0, otherwise there should be a read timeout excption
+                if Length(TempArr) > 0 then //it should be >0, otherwise there should be a read timeout exception
+                begin
                   if not AddBufferToDynArrayOfByte(@TempArr[0], Length(TempArr), TempReadBuf) then
                   begin
                     AddToLog('Out of memory on allocating TempReadBuf, for multiple bytes.');
@@ -1095,12 +1039,15 @@ begin
                   end
                   else
                   begin
+                    SetLength(TempArr, 0);
                     ProcessBufferLengthResult := MQTT_ProcessBufferLength(TempReadBuf, PacketSize);
-                    SuccessfullyDecoded := ProcessBufferLengthResult <> CMQTTDecoderNoErr;
+                    SuccessfullyDecoded := ProcessBufferLengthResult = CMQTTDecoderNoErr;
                   end;
+                end;
 
-                frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadTimeout := 10;
+                frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadTimeout := 10; //restore timeout, in case the above is increased
               end;
+            end;
 
             if SuccessfullyDecoded then
             begin
@@ -1180,13 +1127,16 @@ begin
       Sleep(10);
     until (GetTickCount64 - tk > 1500) or ((ClientToServerBuf <> nil) and (ClientToServerBuf^.Len = 0));
 
-    Th.Terminate;
-    tk := GetTickCount64;
-    repeat
-      Application.ProcessMessages;
-      Sleep(10);
-    until (GetTickCount64 - tk > 1500) or Th.Terminated;
-    FreeAndNil(Th);
+    if Th <> nil then
+    begin
+      Th.Terminate;
+      tk := GetTickCount64;
+      repeat
+        Application.ProcessMessages;
+        Sleep(10);
+      until (GetTickCount64 - tk > 1500) or Th.Terminated;
+      FreeAndNil(Th);
+    end;
 
     IdTCPClient1.Disconnect(False);
   finally
@@ -1233,6 +1183,42 @@ begin
     lblServerInfo.Font.Color := clGray;
     lblServerInfo.Hint := '';
   end;
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.btnDisconnectClick(Sender: TObject);
+var
+  tk: QWord;
+  ClientToServerBuf: {$IFDEF SingleOutputBuffer} PMQTTBuffer; {$ELSE} PMQTTMultiBuffer; {$ENDIF}
+  Err: Word;
+begin
+  //if not MQTT_DISCONNECT(0, 0) then
+  //begin
+  //  AddToLog('Can''t prepare MQTTDisconnect packet.');
+  //  Exit;
+  //end;
+
+  //try
+  //  tk := GetTickCount64;
+  //  repeat
+  //    ClientToServerBuf := MQTT_GetClientToServerBuffer(0, Err);
+  //    Application.ProcessMessages;
+  //    Sleep(10);
+  //  until (GetTickCount64 - tk > 1500) or ((ClientToServerBuf <> nil) and (ClientToServerBuf^.Len = 0));
+  //except
+  //end;
+
+  tmrProcessRecData.Enabled := False;
+  tmrProcessLog.Enabled := False;
+  Th.Terminate;
+  tk := GetTickCount64;
+  repeat
+    Application.ProcessMessages;
+    Sleep(10);
+  until (GetTickCount64 - tk > 1500) or Th.Terminated;
+  FreeAndNil(Th);
+
+  IdTCPClient1.Disconnect(False);
 end;
 
 
