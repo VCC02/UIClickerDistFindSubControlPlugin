@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 19;
+  CAdditionalPropertiesCount = 22;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -44,20 +44,24 @@ const
   CWorkerQoSPropertyIndex = 4;
   CGetWorkerCapabilitiesTimeoutPropertyIndex= 5;
   CFindSubControlWorkerTimeoutPropertyIndex = 6;
-  CTextRenderingOSPropertyIndex = 7;
-  CListOfMultiValuePropertyNamesPropertyIndex = 8;
-  CUseCompressionPropertyIndex = 9;
-  CCompressionAlgorithmPropertyIndex = 10;
+  CWorkerCapabilitiesSourcePropertyIndex = 7;
+  CLoadWorkerCapabilitiesCacheActionPropertyIndex = 8;
+  CSaveWorkerCapabilitiesCacheActionPropertyIndex = 9;
 
-  CLzmaEndOfStreamPropertyIndex = 11; //EOS
-  CLzmaAlgorithmPropertyIndex = 12;
-  CLzmaNumBenchMarkPassesPropertyIndex = 13;
-  CLzmaDictionarySizePropertyIndex = 14;
-  CLzmaMatchFinderPropertyIndex = 15;
-  CLzmaLiteralContextPropertyIndex = 16;
-  CLzmaLiteralPosBitsPropertyIndex = 17;
-  CLzmaPosBitsPropertyIndex = 18;
-  CLzmaFastBytesPropertyIndex = 19;
+  CTextRenderingOSPropertyIndex = 10;
+  CListOfMultiValuePropertyNamesPropertyIndex = 11;
+  CUseCompressionPropertyIndex = 12;
+  CCompressionAlgorithmPropertyIndex = 13;
+
+  CLzmaEndOfStreamPropertyIndex = 14; //EOS
+  CLzmaAlgorithmPropertyIndex = 15;
+  CLzmaNumBenchMarkPassesPropertyIndex = 16;
+  CLzmaDictionarySizePropertyIndex = 17;
+  CLzmaMatchFinderPropertyIndex = 18;
+  CLzmaLiteralContextPropertyIndex = 19;
+  CLzmaLiteralPosBitsPropertyIndex = 20;
+  CLzmaPosBitsPropertyIndex = 21;
+  CLzmaFastBytesPropertyIndex = 22;
 
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
@@ -66,6 +70,10 @@ const
   CWorkerQoSPropertyName = 'WorkerQoS';  //QoS between plugin and workers
   CGetWorkerCapabilitiesTimeoutPropertyName = 'GetWorkerCapabilitiesTimeout';  //waiting timeout for every worker to present its capabilites
   CFindSubControlWorkerTimeoutPropertyName = 'FindSubControlWorkerTimeout'; //waiting timeout for every worker processing
+  CWorkerCapabilitiesSourcePropertyName = 'WorkerCapabilitiesSource';
+  CLoadWorkerCapabilitiesCacheActionPropertyName = 'LoadWorkerCapabilitiesCacheAction';  //can be a "LoadSetVarFromFile", a "CallTemplate" etc.
+  CSaveWorkerCapabilitiesCacheActionPropertyName = 'SaveWorkerCapabilitiesCacheAction';  //can be a "SaveSetVarToFile", a "CallTemplate" etc.
+
   CTextRenderingOSPropertyName = 'TextRenderingOS'; //Enum-like property, which selects betwen 'Win', 'Lin' and 'Win+Lin'.
   CListOfMultiValuePropertyNamesPropertyName = 'ListOfMultiValuePropertyNames';  //Used in case CFindSubControlActionPropertyName points to a plugin action. It tells this plugin what properties to use, to split the action.
   CUseCompressionPropertyName = 'UseCompression';
@@ -91,6 +99,10 @@ const
     CWorkerQoSPropertyName,
     CGetWorkerCapabilitiesTimeoutPropertyName,
     CFindSubControlWorkerTimeoutPropertyName,
+    CWorkerCapabilitiesSourcePropertyName,
+    CLoadWorkerCapabilitiesCacheActionPropertyName,
+    CSaveWorkerCapabilitiesCacheActionPropertyName,
+
     CTextRenderingOSPropertyName,
     CListOfMultiValuePropertyNamesPropertyName,
     CUseCompressionPropertyName,
@@ -119,20 +131,24 @@ const
     'SpinText',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     'TextWithArrow', //GetWorkerCapabilitiesTimeout
     'TextWithArrow', //FindSubControlWorkerTimeout
+    'EnumCombo',     //WorkerCapabilitiesSource
+    'TextWithArrow', //LoadWorkerCapabilitiesCacheAction
+    'TextWithArrow', //SaveWorkerCapabilitiesCacheAction
+
     'EnumCombo',
     'TextWithArrow', //ListOfMultiValue
     'BooleanCombo',  //UseCompression
     'EnumCombo',     //CompressionAlgorithm
 
-    'BooleanCombo',  //LzmaEndOfStreamPropertyName,
-    'EnumCombo',     //LzmaAlgorithmPropertyName,
-    'SpinText',      //LzmaNumBenchMarkPassesPropertyName,
-    'TextWithArrow', //LzmaDictionarySizePropertyName,
-    'EnumCombo',     //LzmaMatchFinderPropertyName,
-    'SpinText',      //LzmaLiteralContextPropertyName,
-    'EnumCombo',     //LzmaLiteralPosBitsPropertyName,
-    'EnumCombo',     //LzmaPosBitsPropertyName,
-    'SpinText'       //LzmaFastBytesPropertyName
+    'BooleanCombo',  //LzmaEndOfStream,
+    'EnumCombo',     //LzmaAlgorithm,
+    'SpinText',      //LzmaNumBenchMarkPasses,
+    'TextWithArrow', //LzmaDictionarySize,
+    'EnumCombo',     //LzmaMatchFinder,
+    'SpinText',      //LzmaLiteralContext,
+    'EnumCombo',     //LzmaLiteralPosBits,
+    'EnumCombo',     //LzmaPosBits,
+    'SpinText'       //LzmaFastBytes
   );
 
   CRequiredSubControlPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
@@ -144,6 +160,10 @@ const
     CDTInteger,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     CDTInteger, //GetWorkerCapabilitiesTimeout
     CDTInteger, //FindSubControlWorkerTimeout
+    CDTEnum,    //WorkerCapabilitiesSource
+    CDTString,  //LoadWorkerCapabilitiesCacheAction
+    CDTString,  //SaveWorkerCapabilitiesCacheAction
+
     CDTEnum, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     CDTString, //ListOfMultiValue
     CDTBool,   //UseCompression
@@ -169,6 +189,10 @@ const
     0,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     0, //GetWorkerCapabilitiesTimeout
     0, //FindSubControlWorkerTimeout
+    3, //'EnumCombo',     //WorkerCapabilitiesSource
+    0, //LoadWorkerCapabilitiesCacheAction
+    0, //SaveWorkerCapabilitiesCacheAction
+
     3, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     0, //ListOfMultiValue
     0, //UseCompression
@@ -194,6 +218,10 @@ const
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
+    'wcsReqCapAndFindSubControl' + #4#5 + 'wcsReqCapAndUpdateCache' + #4#5 + 'wcsLoadCacheAndFindSubControl', //WorkerCapabilitiesSource
+    '', //LoadWorkerCapabilitiesCacheAction
+    '', //SaveWorkerCapabilitiesCacheAction
+
     'Win' + #4#5 + 'Lin' + #4#5 + 'Win+Lin' + #4#5, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     '', //ListOfMultiValue
     '',  //UseCompression
@@ -219,6 +247,10 @@ const
     'Quality of service, used by MQTT communication. Can be 1 or 2.',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     'Timeout in ms, until the plugin no longer waits for all workers to present their capabilities.' + #4#5 + 'Workers which miss this timeout won''t receive work.',
     'Timeout in ms, until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.', //FindSubControlWorkerTimeout
+    '- When set to wcsReqCapAndFindSubControl, the plugin requests capabilities from workers, then it requests the FindSubControl operation.' + #4#5 + '- When set to wcsReqCapAndUpdateCache, the plugin requests capabilities from workers, then it executes the action configured to SaveWorkerCapabilitiesCacheAction.' + #4#5 + '- When set to wcsLoadCacheAndFindSubControl, the plugin executes the action configured to LoadWorkerCapabilitiesCacheAction, then it requests the FindSubControl operation.', //WorkerCapabilitiesSource
+    'Name of a "LoadSetVarFromFile", "CallTemplate" or "Plugin" action, which loads the worker capabilities into specific variables.', //LoadWorkerCapabilitiesCacheAction
+    'Name of a "SaveSetVarToFile", "CallTemplate" or "Plugin" action, which saves the worker capabilities into specific variables.', //SaveWorkerCapabilitiesCacheAction
+
     'Target operating system where this action should be executed.' + #4#5 + 'If this setting matches the existing worker OS, then the FindSubControl action is executed there.' + #4#5 + 'This is useful, because of different rendering settings or different lists of font types.',
     'Used in case the configured FindSubControl action points to a plugin action.' + #4#5 + 'It tells this plugin what properties to use, to distribute the action between multiple workers.' + #4#5 + 'If a FindSubControl action is configured, this property is ignored and the action is distributed by Txt profiles, Bmp files and Pmtv files.',
     'Enables compression of transferred bitmaps.', //UseCompression
@@ -244,20 +276,24 @@ const
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
+    '', //WorkerCapabilitiesSource                                   [7]
+    'PropertyValue[7]==wcsLoadCacheAndFindSubControl', //LoadWorkerCapabilitiesCacheAction   [8]
+    'PropertyValue[7]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [9]
+
     '', //'EnumCombo',     //TextRenderingOS    - EnumCombo cannot be used until the plugin API allows defining property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     '', //ListOfMultiValue
-    '', //UseCompression    //this is  [9]
-    'PropertyValue[9]==True',  //CompressionAlgorithm    //this is  [10]
+    '', //UseCompression    //this is  [12]
+    'PropertyValue[12]==True',  //CompressionAlgorithm    //this is  [13]
 
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaEndOfStreamPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaAlgorithmPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaDictionarySizePropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaMatchFinderPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaLiteralContextPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaLiteralPosBitsPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma',  //LzmaPosBitsPropertyName,
-    'PropertyValue[9]==True' + #5#6 + 'PropertyValue[10]==Lzma'   //LzmaFastBytesPropertyName
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaEndOfStreamPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaAlgorithmPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaDictionarySizePropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaMatchFinderPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaLiteralContextPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaLiteralPosBitsPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaPosBitsPropertyName,
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma'   //LzmaFastBytesPropertyName
   );
 
 
