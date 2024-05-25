@@ -296,6 +296,35 @@ const
     'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma'   //LzmaFastBytesPropertyName
   );
 
+  CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
+    '', //FindSubControlActionPropertyName
+
+    '', //CredentialsFullFileName
+    '127.0.0.1', //Address
+    '1883',      //Port
+    '1',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
+    '500', //GetWorkerCapabilitiesTimeout
+    '2000', //FindSubControlWorkerTimeout
+    'wcsReqCapAndFindSubControl', //WorkerCapabilitiesSource
+    '', //LoadWorkerCapabilitiesCacheAction
+    '', //SaveWorkerCapabilitiesCacheAction
+
+    'Win', //TextRenderingOS    - property details
+    '', //ListOfMultiValue
+    'True',  //UseCompression
+    'Lzma', //CompressionAlgorithm  'EnumCombo'
+
+    'False', //LzmaEndOfStreamPropertyName,
+    '2', //LzmaAlgorithmPropertyName,
+    '10', //LzmaNumBenchMarkPassesPropertyName,
+    '1048576', //LzmaDictionarySizePropertyName,
+    '1', //LzmaMatchFinderPropertyName,
+    '3', //LzmaLiteralContextPropertyName,
+    '0', //LzmaLiteralPosBitsPropertyName,
+    '0', //LzmaPosBitsPropertyName,
+    '5'  //LzmaFastBytesPropertyName
+  );
+
 
 implementation
 

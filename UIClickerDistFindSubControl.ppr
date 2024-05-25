@@ -892,6 +892,7 @@ begin
                        'EnumStrings' + '=' + CPluginEnumStrings[i] + #8#7 +
                        'Hint' + '=' + CPluginHints[i] + #8#7 +
                        'Enabled' + '=' + CPropertyEnabled[i] + #8#7 +
+                       'DefaultValues' + '=' + CPluginDefaultValues[i] + #8#7 +
                        #13#10;
 end;
 
