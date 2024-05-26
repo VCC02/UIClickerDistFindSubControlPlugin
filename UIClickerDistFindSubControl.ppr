@@ -41,7 +41,7 @@ uses
   MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties;
 
 type
-  TStringArr = array of string;
+  //TStringArr = array of string;
 
   TArrayOfString = array[0..0] of string;
   PArrayOfString = ^TArrayOfString;
@@ -879,24 +879,6 @@ begin
 end;
 
 
-function FillInPropertyDetails: string;
-var
-  i: Integer;
-begin
-  Result := '';
-
-  for i := 0 to CPropertiesCount - 1 do
-    Result := Result + CRequiredSubControlPropertyNames[i] + '=' + CRequiredSubControlPropertyTypes[i] + #8#7 +
-                       'DataType' + '=' + CRequiredSubControlPropertyDataTypes[i] + #8#7 +
-                       'EnumCounts' + '=' + IntToStr(CPluginEnumCounts[i]) + #8#7 +
-                       'EnumStrings' + '=' + CPluginEnumStrings[i] + #8#7 +
-                       'Hint' + '=' + CPluginHints[i] + #8#7 +
-                       'Enabled' + '=' + CPropertyEnabled[i] + #8#7 +
-                       'DefaultValues' + '=' + CPluginDefaultValues[i] + #8#7 +
-                       #13#10;
-end;
-
-
 procedure GetListOfProperties(APluginReference: Pointer;                 //UIClicker passes the plugin reference to the plugin, then the plugin calls some callbacks with that reference
                               AListOfProperties: Pointer;
                               AListOfPropertiesLen: PDWord;
@@ -1569,8 +1551,8 @@ var
     end;
   end;
 
-  var
-    SplitActions: array of TClkFindControlOptions;
+  //var
+  //  SplitActions: array of TClkFindControlOptions;
 
   function HashFoundInFileCacheInfo(AFileCacheInfo: TStringList; AHash: string): Boolean;
   var
@@ -1655,11 +1637,11 @@ var
         if DecodingErr <> '' then
         begin
           AddToLog('--- Action decoding errror: ' + DecodingErr);
-          SetLength(SplitActions, 0);
+          //SetLength(SplitActions, 0);
           MaxSplitActionsCount := 0; /////////////////////////////////// added later (to prevent indexing an empty SplitActions array), not sure if ok
         end
         else
-          SetLength(SplitActions, MaxSplitActionsCount);
+          ;//SetLength(SplitActions, MaxSplitActionsCount);
 
 
         //The number of available workers can be less than, equal or greater than the number of subproperties.

@@ -26,9 +26,6 @@
     </RunParams>
     <RequiredPackages>
       <Item>
-        <PackageName Value="pl_VirtualTrees"/>
-      </Item>
-      <Item>
         <PackageName Value="pl_DCP"/>
       </Item>
       <Item>

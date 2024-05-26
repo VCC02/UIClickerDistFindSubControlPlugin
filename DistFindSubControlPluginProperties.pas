@@ -326,7 +326,32 @@ const
   );
 
 
+function FillInPropertyDetails: string;
+
+
 implementation
+
+
+uses
+  ClickerActionPlugins;
+
+
+function FillInPropertyDetails: string;
+var
+  i: Integer;
+begin
+  Result := '';
+
+  for i := 0 to CPropertiesCount - 1 do
+    Result := Result + CRequiredSubControlPropertyNames[i] + '=' + CRequiredSubControlPropertyTypes[i] + #8#7 +
+                       CPluginPropertyAttr_DataType + '=' + CRequiredSubControlPropertyDataTypes[i] + #8#7 +
+                       CPluginPropertyAttr_EnumCounts + '=' + IntToStr(CPluginEnumCounts[i]) + #8#7 +
+                       CPluginPropertyAttr_EnumStrings + '=' + CPluginEnumStrings[i] + #8#7 +
+                       CPluginPropertyAttr_Hint + '=' + CPluginHints[i] + #8#7 +
+                       CPluginPropertyAttr_Enabled + '=' + CPropertyEnabled[i] + #8#7 +
+                       CPluginPropertyAttr_DefaultValue + '=' + CPluginDefaultValues[i] + #8#7 +
+                       #13#10;
+end;
 
 end.
 
