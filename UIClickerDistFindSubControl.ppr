@@ -1782,7 +1782,7 @@ var
                 if LoadBitmapAsStream(TempFilesToSend.Strings[j], TempMemFile, isflDisk) then
                 begin
                   AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
-                  //
+                  AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.');
                 end
                 else
                 begin

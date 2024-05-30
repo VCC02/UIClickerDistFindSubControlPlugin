@@ -515,11 +515,11 @@ begin
 end;
 
 
-function SendBackgroundBmpToServer(AContent: TMemoryStream): string;
+function SendFileToUIClicker(AContent: TMemoryStream; AFilename: string): string;
 begin
   Result := SendFileToServer('http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/' +
                                                    CRECmd_SetRenderedFile + '?' +
-                                                   CREParam_FileName + '=' + 'Background.bmp',
+                                                   CREParam_FileName + '=' + AFilename,
                              AContent);
 end;
 
@@ -557,6 +557,7 @@ var
   TempArchiveHandlers: TArchiveHandlers;
   MemArchive: TMemArchive;
   tk: QWord;
+  ListOfArchiveFiles: TStringList;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := DynArrayOfByteToString(APublishFields.ApplicationMessage); //StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -635,14 +636,38 @@ begin
             DecompressedStream.Position := 0;
             frmFindSubControlWorkerMain.imgFindSubControlBackground.Picture.Bitmap.LoadFromStream(DecompressedStream);
 
-            CmdResult := SendBackgroundBmpToServer(DecompressedStream);
+            CmdResult := SendFileToUIClicker(DecompressedStream, 'Background.bmp');
 
             if CmdResult = CREResp_ErrResponseOK then
-              frmFindSubControlWorkerMain.AddToLog('BMP sent to UIClicker successfully.')
+              frmFindSubControlWorkerMain.AddToLog(CBackgroundFileNameInArchive + ' sent to UIClicker successfully.')
             else
             begin
-              frmFindSubControlWorkerMain.AddToLog('Error sending BMP to UIClicker: ' + CmdResult);
+              frmFindSubControlWorkerMain.AddToLog('Error sending "' + CBackgroundFileNameInArchive + '" to UIClicker: ' + CmdResult);
               /////////////////// Set result to False
+            end;
+
+            ListOfArchiveFiles := TStringList.Create;
+            try
+              MemArchive.GetListOfFiles(ListOfArchiveFiles);
+              for i := 0 to ListOfArchiveFiles.Count - 1 do
+                if ListOfArchiveFiles.Strings[i] <> CBackgroundFileNameInArchive then
+                begin
+                  DecompressedStream.Clear;
+                  MemArchive.ExtractToStream(ListOfArchiveFiles.Strings[i], DecompressedStream);
+                  SaveBackgroundBmpToInMemFS(DecompressedStream);
+
+                  CmdResult := SendFileToUIClicker(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+
+                  if CmdResult = CREResp_ErrResponseOK then
+                    frmFindSubControlWorkerMain.AddToLog('"' + ListOfArchiveFiles.Strings[i] + '" sent to UIClicker successfully.')
+                  else
+                  begin
+                    frmFindSubControlWorkerMain.AddToLog('Error sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker: ' + CmdResult);
+                    /////////////////// Set result to False
+                  end;
+                end;
+            finally
+              ListOfArchiveFiles.Free;
             end;
           finally
             MemArchive.CloseArchive;
@@ -1016,6 +1041,8 @@ begin
           begin
             SuccessfullyDecoded := True;                                         //PacketSize should be the expected size, which can be greater than TempReadBuf.Len
             ProcessBufferLengthResult := MQTT_ProcessBufferLength(TempReadBuf, PacketSize);
+
+            //AddToLog('----- PacketSize: ' + IntToStr(PacketSize) + '  Len: ' + IntToStr(TempReadBuf.Len) + '  buffer: ' + FastReplace_0To1(Copy(DynArrayOfByteToString(TempReadBuf), 1, 30)));
 
             if ProcessBufferLengthResult <> CMQTTDecoderNoErr then
             begin
