@@ -1472,10 +1472,9 @@ var
     SetLength(Result, AListOfPluginSettingsLen^);
   end;
 
-  function BitmapIsAllowedToBeLoaded(AFnm: string): Boolean;
+  function BitmapIsAllowedToBeLoaded(AFnm: string; out ADenyReason: string): Boolean;
   var
     TempFileProvider: TFileProvider;
-    TempDenyReason: string;
     FullTemplatesDir, AllowedFileDirsForServer, AllowedFileExtensionsForServer: string;
     FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr: Pointer;
   begin
@@ -1490,32 +1489,40 @@ var
       AllowedFileExtensionsForServerPtr := @AllowedFileExtensionsForServer[1];
 
       AOnActionPlugin_GetAllowedFilesInfo(APluginReference, FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr);
+      FullTemplatesDir := Copy(FullTemplatesDir, 1, Pos(#0, FullTemplatesDir) - 1);
+      AllowedFileDirsForServer := Copy(AllowedFileDirsForServer, 1, Pos(#0, AllowedFileDirsForServer) - 1);
+      AllowedFileExtensionsForServer := Copy(AllowedFileExtensionsForServer, 1, Pos(#0, AllowedFileExtensionsForServer) - 1);
+
       TempFileProvider.FullTemplatesDir := FullTemplatesDir;
 
       TempFileProvider.AddListOfAccessibleDirs(AllowedFileDirsForServer);
       TempFileProvider.AddListOfAccessibleFileExtensions(AllowedFileExtensionsForServer);
 
-      Result := TempFileProvider.FileIsAllowed(AFnm, TempDenyReason);
+      Result := TempFileProvider.FileIsAllowed(AFnm, ADenyReason);
     finally
       TempFileProvider.Free;
     end;
   end;
 
   function LoadBitmap(AFnm: string; ADestBmp: TBitmap; AFileLocation: TImageSourceFileNameLocation): Boolean;
+  var
+    TempDenyReason: string;
   begin
-    if BitmapIsAllowedToBeLoaded(AFnm) then                                      //isflDisk=0, isflMem=1
+    if BitmapIsAllowedToBeLoaded(AFnm, TempDenyReason) then                                      //isflDisk=0, isflMem=1
       Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], ADestBmp, Ord(AFileLocation), @HandleOnFileContent)
     else
       Result := False;
   end;
 
   function LoadBitmapAsStream(AFnm: string; AMemStream: TMemoryStream; AFileLocation: TImageSourceFileNameLocation): Boolean;
+  var
+    TempDenyReason: string;
   begin
-    if BitmapIsAllowedToBeLoaded(AFnm) then                                      //isflDisk=0, isflMem=1
+    if BitmapIsAllowedToBeLoaded(AFnm, TempDenyReason) then                                      //isflDisk=0, isflMem=1
       Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], AMemStream, Ord(AFileLocation), @HandleOnFileContentAsRawStream)
     else
     begin
-      AddToLog('Bitmap is not allowed to be loaded: ' + AFnm);
+      AddToLog('Bitmap is not allowed to be loaded: "' + AFnm + '"   ' + TempDenyReason);
       Result := False;
     end;
   end;
@@ -1736,7 +1743,7 @@ var
         begin
           BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'], 1));
 
-          AddToLog('----------- loading background bitmap as stream...');
+          AddToLog('----------- loading background bitmap as stream and adding it to archive...');
           TempBk := TMemoryStream.Create;
           try
             if LoadBitmapAsStream(ListOfFindSubControlProperties.Values['SourceFileName'], TempBk, BkFileNameLocation) then
@@ -1771,6 +1778,7 @@ var
             begin
               TempMemFile := TMemoryStream.Create;
               try
+                AddToLog('----------- loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
                 if LoadBitmapAsStream(TempFilesToSend.Strings[j], TempMemFile, isflDisk) then
                 begin
                   AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
