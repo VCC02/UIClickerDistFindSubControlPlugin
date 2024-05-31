@@ -515,12 +515,62 @@ begin
 end;
 
 
-function SendFileToUIClicker(AContent: TMemoryStream; AFilename: string): string;
+function SendFileToUIClickerWithLoc(AContent: TMemoryStream; AFilename, InMemLoc: string): string;
 begin
   Result := SendFileToServer('http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/' +
-                                                   CRECmd_SetRenderedFile + '?' +
+                                                   InMemLoc + '?' +
                                                    CREParam_FileName + '=' + AFilename,
                              AContent);
+end;
+
+
+function SendFileToUIClicker_SrvInMem(AContent: TMemoryStream; AFilename: string): string;   //used for most files
+begin
+  Result := SendFileToUIClickerWithLoc(AContent, AFilename, CRECmd_SendFileToServer);
+end;
+
+
+function SendFileToUIClicker_ExtRndInMem(AContent: TMemoryStream; AFilename: string): string;   //used for background
+begin
+  Result := SendFileToUIClickerWithLoc(AContent, AFilename, CRECmd_SetRenderedFile);
+end;
+
+
+const
+  CBackgroundFileNameForUIClicker = 'Background.bmp';
+
+function SendExecuteFindSubControlAction(AActionContent: string): string;
+var
+  TempFindSubControl: TClkFindControlOptions;
+  TempActionOptions: TClkActionOptions;
+  ActionContentList: TStringList;
+  ConversionResult, UIClickerAddr: string;
+begin
+  ActionContentList := TStringList.Create;
+  try
+    ActionContentList.Text := StringReplace(AActionContent, '&', #13#10, [rfReplaceAll]);
+    ConversionResult := SetFindControlActionProperties(ActionContentList, True, @frmFindSubControlWorkerMain.AddToLog, TempFindSubControl, TempActionOptions);
+    if ConversionResult <> '' then
+    begin
+      frmFindSubControlWorkerMain.AddToLog('ConversionResult: ' + ConversionResult);
+      Result := ConversionResult;
+      Exit;
+    end;
+  finally
+    ActionContentList.Free;
+  end;
+
+  TempFindSubControl.ImageSource := isFile;
+  TempFindSubControl.SourceFileName := CBackgroundFileNameForUIClicker;
+  TempFindSubControl.ImageSourceFileNameLocation := isflMem;
+
+  UIClickerAddr := 'http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/';
+  Result := ExecuteFindSubControlAction(UIClickerAddr,
+                                        TempFindSubControl,
+                                        'Action_' + DateTimeToStr(Now),
+                                        1000,
+                                        CREParam_FileLocation_ValueMem,
+                                        True);
 end;
 
 
@@ -543,6 +593,8 @@ end;
 
 
 procedure HandleOnAfterReceivingMQTT_PUBLISH(ClientInstance: DWord; var APublishFields: TMQTTPublishFields; var APublishProperties: TMQTTPublishProperties);
+const
+  CImageSourceRawContentParam: string = '&' + CProtocolParam_ImageSourceRawContent + '=';
 var
   QoS: Byte;
   ID: Word;
@@ -558,6 +610,7 @@ var
   MemArchive: TMemArchive;
   tk: QWord;
   ListOfArchiveFiles: TStringList;
+  PosImageSourceRawContent: Integer;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := DynArrayOfByteToString(APublishFields.ApplicationMessage); //StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -590,10 +643,15 @@ begin
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)    //////////////////// start rendering
     frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
-    BmpStr := Copy(Msg, Pos('&' + CProtocolParam_ImageSourceRawContent + '=', Msg) + Length('&' + CProtocolParam_ImageSourceRawContent + '='), MaxInt);
+
+    PosImageSourceRawContent := Pos(CImageSourceRawContentParam, Msg);
+    BmpStr := Copy(Msg, PosImageSourceRawContent + Length(CImageSourceRawContentParam), MaxInt);
+
     UsingCompression := Copy(Msg, Pos('&' + CProtocolParam_UsingCompression + '=', Msg) + Length('&' + CProtocolParam_UsingCompression + '='), 1) = '1';
     CompressionAlgorithm := Copy(Msg, Pos('&' + CProtocolParam_CompressionAlgorithm + '=', Msg) + Length('&' + CProtocolParam_CompressionAlgorithm + '='), 30);  //assumes the name of the algorithm is not longer than 30
     CompressionAlgorithm := Copy(CompressionAlgorithm, 1, Pos('&', CompressionAlgorithm) - 1);
+
+    Msg := Copy(Msg, 1, PosImageSourceRawContent - 1); //discard archive
 
     //frmFindSubControlWorkerMain.AddToLog('BmpStr: ' + FastReplace_0To1(BmpStr));
     //frmFindSubControlWorkerMain.AddToLog('=============== UsingCompression: ' + BoolToStr(UsingCompression, 'True', 'False'));
@@ -636,15 +694,8 @@ begin
             DecompressedStream.Position := 0;
             frmFindSubControlWorkerMain.imgFindSubControlBackground.Picture.Bitmap.LoadFromStream(DecompressedStream);
 
-            CmdResult := SendFileToUIClicker(DecompressedStream, 'Background.bmp');
-
-            if CmdResult = CREResp_ErrResponseOK then
-              frmFindSubControlWorkerMain.AddToLog(CBackgroundFileNameInArchive + ' sent to UIClicker successfully.')
-            else
-            begin
-              frmFindSubControlWorkerMain.AddToLog('Error sending "' + CBackgroundFileNameInArchive + '" to UIClicker: ' + CmdResult);
-              /////////////////// Set result to False
-            end;
+            CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, CBackgroundFileNameForUIClicker);
+            frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
 
             ListOfArchiveFiles := TStringList.Create;
             try
@@ -656,15 +707,10 @@ begin
                   MemArchive.ExtractToStream(ListOfArchiveFiles.Strings[i], DecompressedStream);
                   SaveBackgroundBmpToInMemFS(DecompressedStream);
 
-                  CmdResult := SendFileToUIClicker(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+                  /////////////////////////////////////////////////////// verify cache here
 
-                  if CmdResult = CREResp_ErrResponseOK then
-                    frmFindSubControlWorkerMain.AddToLog('"' + ListOfArchiveFiles.Strings[i] + '" sent to UIClicker successfully.')
-                  else
-                  begin
-                    frmFindSubControlWorkerMain.AddToLog('Error sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker: ' + CmdResult);
-                    /////////////////// Set result to False
-                  end;
+                  CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+                  frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
                 end;
             finally
               ListOfArchiveFiles.Free;
@@ -687,6 +733,12 @@ begin
       MemStream.Free;
       DecompressedStream.Free;
     end;
+
+    //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
+    frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
+    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + FastReplace_87ToReturn(SendExecuteFindSubControlAction(Msg)));
+
+    //call CRECmd_GetResultedDebugImage
   end;
 
   frmFindSubControlWorkerMain.AddToLog('');
