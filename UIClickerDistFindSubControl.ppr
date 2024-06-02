@@ -62,6 +62,8 @@ type
     CompressionTime: QWord;   //for statistics only
     WorkerActionContentStr: string; //What is being sent via MQTT to a worker. This field contains action params, ArchiveStream and various other compression params.
     TxtCntW, BmpCntW, PmtvCntW: Integer; //counts per worker
+    ResponseReceived: Boolean;    //Most dest UIClicker will timeout, because they won't find the search bmp. At least one should find.
+    FindSubControlFound: Boolean; //At least one worker should have this property set to True, to pass the action.
   end;
 
   TWorkerArr = array of TWorker;
@@ -70,7 +72,7 @@ var
   IdTCPClient1: TIdTCPClient;
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
   DebugPoint: TDbgPoint;
-  PublishAckReceived: Boolean;
+  AtLeastOneWorkerFoundTheSubControl: Boolean;
   FLatestMsg: string = '';
   ConnectedSucessfully, ConAckReceived, SubAckReceived, SubscribedSucessfully, DisconnectedSuccessfully: Boolean;
   WaitingForWorkerCapabilities: Boolean;
@@ -87,6 +89,7 @@ var
   WorkerQoS: Integer;
   GetWorkerCapabilitiesTimeout: Integer;
   FindSubControlWorkerTimeout: Integer;
+  FSMError: string;
 
 
 procedure AddToLog(AMsg: string);  //thread safe
@@ -525,8 +528,36 @@ begin
   //
   //AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
   //AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  PublishAckReceived := True;
   AddToLog('');
+end;
+
+
+function GetAllWorkers_ResponseReceived: Boolean;
+var
+  i: Integer;
+begin
+  Result := False;
+  for i := 0 to Length(AllWorkers) - 1 do
+    if AllWorkers[i].ResponseReceived and AllWorkers[i].FindSubControlFound then
+    begin
+      Result := True;
+      Break;
+    end;
+end;
+
+
+function GetWorkerIndexByName(AWorkerName: string): Integer;
+var
+  i: Integer;
+begin
+  Result := -1;
+
+  for i := 0 to Length(AllWorkers) - 1 do
+    if AllWorkers[i].Name = AWorkerName then
+    begin
+      Result := i;
+      Break;
+    end;
 end;
 
 
@@ -537,6 +568,7 @@ var
   Topic, s, Msg: string;
   i: Integer;
   Content: TStringList;
+  WorkerIndex: Integer;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -574,15 +606,27 @@ begin
         AllWorkers[Length(AllWorkers) - 1].TxtCntW := 0;
         AllWorkers[Length(AllWorkers) - 1].BmpCntW := 0;
         AllWorkers[Length(AllWorkers) - 1].PmtvCntW := 0;
+
+        AllWorkers[Length(AllWorkers) - 1].ResponseReceived := False;
+        AllWorkers[Length(AllWorkers) - 1].FindSubControlFound := False;
       end;
 
-    //PublishAckReceived := True; //this should be set after all responses
+    if Topic = CTopicName_WorkerToApp_FindSubControl then
+    begin
+      WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
+      if WorkerIndex = -1 then
+        AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
+      else
+        AllWorkers[WorkerIndex].ResponseReceived := True;
+
+      AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_ResponseReceived;   //this should be set after all responses
+    end;
 
     //other fields which may pass metadata:
     //APublishProperties.UserProperty;
     //APublishProperties.ContentType;
     //APublishProperties.CorrelationData;
-    //APublishProperties.ResponseTopic;
+    //APublishProperties.ResponseTopic;     //this should match the CTopicName_AppToWorker_FindSubControl topic   (i.e. AppToWorker)
   finally
     Content.Free;
   end;
@@ -1139,7 +1183,7 @@ type
   TFSM = (SInit, SConnectToBroker, SWaitForConAck,
           SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
           SRequestCapabilities, SWaitForCapabilitiesResponse,
-          SGetFindSubControlActionContent, SPublishFindSubControlToAllWorkers, SWaitForPublishResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
+          SGetFindSubControlActionContent, SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
           SDisconnectFromBroker,
           SDone
          );
@@ -1149,7 +1193,7 @@ const
           'SInit', 'SConnectToBroker', 'SWaitForConAck',
           'SSubscribeToResponses', 'SWaitForResponsesSubAck',
           'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
-          'SGetFindSubControlActionContent', 'SPublishFindSubControlToAllWorkers', 'SWaitForPublishResults',
+          'SGetFindSubControlActionContent', 'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
           'SDisconnectFromBroker',
           'SDone'
           );
@@ -1184,7 +1228,10 @@ begin
         DbgPoint('Connected to broker.', '')
       end
       else
-        AddToLog('Can''t connect to broker.');
+      begin
+        FSMError := 'Can''t connect to broker.';
+        AddToLog(FSMError);
+      end;
     end;
 
     SWaitForConAck:
@@ -1196,7 +1243,10 @@ begin
     begin
       SubscribedSucessfully := MQTT_SUBSCRIBE(0, 0);     //subscribing with CTopicNameResult
       if not SubscribedSucessfully then
-        AddToLog('Can''t subscribe for responses.')
+      begin
+        FSMError := 'Can''t subscribe for responses.';
+        AddToLog(FSMError);
+      end
       else
         tk := GetTickCount64;
     end;
@@ -1210,7 +1260,10 @@ begin
     begin
       WaitingForWorkerCapabilities := True;    //reset below
       if not MQTT_PUBLISH(0, 0, WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
-        AddToLog('Can''t send GetCapabilities request to broker.')
+      begin
+        FSMError := 'Can''t send GetCapabilities request to broker.';
+        AddToLog(FSMError);
+      end
       else
         tk := GetTickCount64;
     end;
@@ -1238,19 +1291,22 @@ begin
 
     SPublishFindSubControlToAllWorkers:
     begin
-      PublishAckReceived := False;
+      AtLeastOneWorkerFoundTheSubControl := False;
       AddToLog('Sending FindSubControl settings to broker...');
 
       for i := 0 to Length(AllWorkers) - 1 do
       begin
         if not MQTT_PUBLISH(0, 1 or i shl 8, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'FindSubControl')
-          AddToLog('Can''t send FindSubControl settings to broker for worker[' + IntToStr(i) + '].')
+        begin
+          FSMError := 'Can''t send FindSubControl settings to broker for worker[' + IntToStr(i) + '].';
+          AddToLog(FSMError);
+        end
         else
           tk := GetTickCount64;
       end;
     end;
 
-    SWaitForPublishResults:
+    SWaitForFindSubControlResults:
     begin
       // It is possible that the plugin may receive "missing files" requests.
       // If that's the case, it should send those files, here in the same state.
@@ -1325,7 +1381,8 @@ begin
     begin
       if Length(AllWorkers) > 255 then
       begin
-        AddToLog('Too many workers (' + IntToStr(Length(AllWorkers)) + '). Please modify the index encoding to raise the limit above 255.');
+        FSMError := 'Too many workers (' + IntToStr(Length(AllWorkers)) + '). Please modify the index encoding to raise the limit above 255.';
+        AddToLog(FSMError);
         NextState := SDone;
       end
       else
@@ -1333,16 +1390,20 @@ begin
     end;
 
     SPublishFindSubControlToAllWorkers:
-      NextState := SWaitForPublishResults;
+      NextState := SWaitForFindSubControlResults;
 
-    SWaitForPublishResults:
-      if PublishAckReceived then
+    SWaitForFindSubControlResults:
+      if AtLeastOneWorkerFoundTheSubControl then
         NextState := SDisconnectFromBroker
       else
         if GetTickCount64 - tk > FindSubControlWorkerTimeout then
-          NextState := SDone //Timeout
+        begin
+          NextState := SDone; //Timeout
+          FSMError := 'Timeout waiting for workers to find the SubControl.';
+          AddToLog(FSMError);
+        end
         else
-          NextState := SWaitForPublishResults;
+          NextState := SWaitForFindSubControlResults;
 
     SDisconnectFromBroker:
       NextState := SDone;
@@ -1420,7 +1481,7 @@ function ExecutePlugin(APluginReference: Pointer;
                        ): Boolean; cdecl;
 var
   ActionCount, i, IndexOfFindSubControlActionProperty: Integer;
-  ResName, ResValue, PluginSettingsStr, AllVarsStr: string;
+  PluginSettingsStr, AllVarsStr: string;
   ListOfAllVars: TStringList;
   TempPluginMQTTClientHandlers: TPluginMQTTClientHandlers;
   s: string;
@@ -1833,6 +1894,7 @@ var
             AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(AllWorkers[i].ArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / AllWorkers[i].ArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(AllWorkers[i].CompressionTime / 1000, ffNumber, 15, 3) + 's.');
 
             AllWorkers[i].WorkerActionContentStr := ActionContentStr +
+                                '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - CFindSubControlTimeoutDiff)) +
                                 '&' + AllWorkers[i].WorkerSpecificTask
                                     + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                                 '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
@@ -1888,9 +1950,7 @@ begin
       ActionCount := AOnActionPlugin_GetActionCount(APluginReference);
       if ActionCount = 0 then
       begin
-        ResName := CActionPlugin_ExecutionResultErrorVar;
-        ResValue := 'This plugin does not run on an empty template.';
-        AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'This plugin does not run on an empty template.');
         Exit;
       end;
 
@@ -1899,9 +1959,7 @@ begin
 
       if PluginSettings.Count <> CPropertiesCount then
       begin
-        ResName := CActionPlugin_ExecutionResultErrorVar;
-        ResValue := 'Cannot get the list of plugin properties.';
-        AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Cannot get the list of plugin properties.');
         Exit;
       end;
 
@@ -1930,11 +1988,7 @@ begin
 
       if IndexOfFindSubControlActionProperty = -1 then
       begin
-        ResName := CActionPlugin_ExecutionResultErrorVar;
-        ResValue := 'FindSubControl action not configured.';
-        AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
-        AddToLog(ResValue);
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'FindSubControl action not configured.');
         Exit;
       end;
 
@@ -1953,6 +2007,7 @@ begin
       Application.OnException := @FExHandler.CustomExceptionHandler;
 
       MQTT_Init;
+      FSMError := '';
 
       if MQTT_CreateClient then
       begin
@@ -1998,17 +2053,14 @@ begin
 
       Result := DisconnectedSuccessfully;
 
-
+      if FSMError <> '' then
+        FLatestMsg := FSMError;
     finally
       try
         Application.ProcessMessages; //process last logging data
 
         if not Result then
-        begin
-          ResName := CActionPlugin_ExecutionResultErrorVar;
-          ResValue := FLatestMsg;
-          AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
-        end;
+          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
       except
       end;
 
@@ -2037,11 +2089,7 @@ begin
     //AOnActionPlugin_Screenshot(APluginReference, @string('ScreenshotSettings')[1]);
   except
     on E: Exception do
-    begin
-      ResName := CActionPlugin_ExecutionResultErrorVar;
-      ResValue := 'Plugin exception: "' + E.Message + '".';
-      AOnActionPlugin_SetTemplateVar(APluginReference, @ResName[1], @ResValue[1]);
-    end;
+      SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Plugin exception: "' + E.Message + '".');
   end;
 end;
 

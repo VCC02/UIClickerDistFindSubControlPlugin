@@ -545,10 +545,19 @@ var
   TempActionOptions: TClkActionOptions;
   ActionContentList: TStringList;
   ConversionResult, UIClickerAddr: string;
+  FindSubControlTimeout: Integer;
 begin
   ActionContentList := TStringList.Create;
   try
     ActionContentList.Text := StringReplace(AActionContent, '&', #13#10, [rfReplaceAll]);
+
+    FindSubControlTimeout := StrToIntDef(ActionContentList.Values[CPropertyName_ActionTimeout], -2);
+    if FindSubControlTimeout = -2 then
+    begin
+      FindSubControlTimeout := CMinFindSubControlActionTimeout;
+      frmFindSubControlWorkerMain.AddToLog('=============== Did not receive a valid action timeout. Setting to minimum: ' + IntToStr(FindSubControlTimeout) + 'ms.');
+    end;
+
     ConversionResult := SetFindControlActionProperties(ActionContentList, True, @frmFindSubControlWorkerMain.AddToLog, TempFindSubControl, TempActionOptions);
     if ConversionResult <> '' then
     begin
@@ -568,7 +577,7 @@ begin
   Result := ExecuteFindSubControlAction(UIClickerAddr,
                                         TempFindSubControl,
                                         'Action_' + DateTimeToStr(Now),
-                                        1000,
+                                        FindSubControlTimeout, //The HTTP client has its own timeout, currently hardcoded to 1s for connection and 1h for response.
                                         CREParam_FileLocation_ValueMem,
                                         True);
 end;
