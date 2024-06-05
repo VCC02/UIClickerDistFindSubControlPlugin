@@ -422,6 +422,10 @@ begin
 end;
 
 
+var
+  FindSubControlResponse: string;
+
+
 //This handler is used when this client publishes a message to broker.
 function HandleOnBeforeSendingMQTT_PUBLISH(ClientInstance: DWord;  //The lower word identifies the client instance (the library is able to implement multiple MQTT clients / device). The higher byte can identify the call in user handlers for various events (e.g. TOnBeforeMQTT_CONNECT).
                                            var APublishFields: TMQTTPublishFields;                    //user code has to fill-in this parameter
@@ -452,7 +456,7 @@ begin
 
     1:
     begin
-      Msg := 'In work. FindSubControl result.';
+      Msg := FindSubControlResponse; //'In work. FindSubControl result.';
 
     end;
 
@@ -536,9 +540,6 @@ begin
 end;
 
 
-const
-  CBackgroundFileNameForUIClicker = 'Background.bmp';
-
 function SendExecuteFindSubControlAction(AActionContent: string): string;
 var
   TempFindSubControl: TClkFindControlOptions;
@@ -620,6 +621,7 @@ var
   tk: QWord;
   ListOfArchiveFiles: TStringList;
   PosImageSourceRawContent: Integer;
+  TempFindSubControlResponse: string;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := DynArrayOfByteToString(APublishFields.ApplicationMessage); //StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -644,7 +646,7 @@ begin
   if Topic = CTopicName_AppToWorker_GetCapabilities then
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)
-    if not MQTT_PUBLISH(0, 0, QoS) then
+    if not MQTT_PUBLISH(ClientInstance, 0, QoS) then
       frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities');
   end;
 
@@ -745,7 +747,14 @@ begin
 
     //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
     frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
-    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + FastReplace_87ToReturn(SendExecuteFindSubControlAction(Msg)));
+
+    TempFindSubControlResponse := SendExecuteFindSubControlAction(Msg);
+    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + FastReplace_87ToReturn(TempFindSubControlResponse));
+
+    FindSubControlResponse := TempFindSubControlResponse;
+    MQTT_PUBLISH(ClientInstance, 1, QoS);
+    if not MQTT_PUBLISH(0, 0, QoS) then
+      frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities');
 
     //call CRECmd_GetResultedDebugImage
   end;
