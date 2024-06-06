@@ -123,8 +123,68 @@ uses
   , DistFindSubControlCommonConsts, ClickerUtils, Types, ClickerActionProperties,
   ClickerActionsClient, ClickerExtraUtils, MemArchive;
 
+type
+  TResponse = record
+    Msg: string; //List of UIClicker variables and one or more archived result images.
+    SlotInUse: Boolean; //When true, the array item (a.k.a. slot) is waiting for Publish handler to process it. Another item should be used then.
+  end;
+
+  TResponseArr = array of TResponse;
+
 var
   AssignedClientID: string;
+  Responses: TResponseArr;
+
+
+function GetFirstAvailableResponseSlotIndex: Integer;
+var
+  i: Integer;
+begin
+  Result := -1;
+  for i := 0 to Length(Responses) - 1 do
+    if not Responses[i].SlotInUse then
+    begin
+      Result := i;
+      Break;
+    end;
+end;
+
+
+function AddItemToResponses(AMsg: string): Integer;
+var
+  AvailableIndex: Integer;
+begin
+  AvailableIndex := GetFirstAvailableResponseSlotIndex;
+  if AvailableIndex = -1 then
+  begin
+    SetLength(Responses, Length(Responses) + 1);
+    AvailableIndex := Length(Responses) - 1;
+  end;
+
+  Responses[AvailableIndex].Msg := AMsg;
+  Responses[AvailableIndex].SlotInUse := True;
+  Result := AvailableIndex;
+end;
+
+
+function ProcessResponse(AIndex: Integer): string;
+begin
+  Result := 'Error processing slot';
+  if (AIndex < 0) or (AIndex > Length(Responses)) then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Bad slot index: ' + IntToStr(AIndex));
+    Exit;
+  end;
+
+  if not Responses[AIndex].SlotInUse then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Requested to process an unused slot at index: ' + IntToStr(AIndex));
+    Exit;
+  end;
+
+  Responses[AIndex].SlotInUse := False;
+  Result := Responses[AIndex].Msg;
+end;
 
 
 procedure HandleOnMQTTError(ClientInstance: DWord; AErr: Word; APacketType: Byte);
@@ -422,10 +482,6 @@ begin
 end;
 
 
-var
-  FindSubControlResponse: string;
-
-
 //This handler is used when this client publishes a message to broker.
 function HandleOnBeforeSendingMQTT_PUBLISH(ClientInstance: DWord;  //The lower word identifies the client instance (the library is able to implement multiple MQTT clients / device). The higher byte can identify the call in user handlers for various events (e.g. TOnBeforeMQTT_CONNECT).
                                            var APublishFields: TMQTTPublishFields;                    //user code has to fill-in this parameter
@@ -456,7 +512,7 @@ begin
 
     1:
     begin
-      Msg := FindSubControlResponse; //'In work. FindSubControl result.';
+      Msg := ProcessResponse(ACallbackID shr 8);
 
     end;
 
@@ -622,6 +678,7 @@ var
   ListOfArchiveFiles: TStringList;
   PosImageSourceRawContent: Integer;
   TempFindSubControlResponse: string;
+  ResponseIndex: Integer;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := DynArrayOfByteToString(APublishFields.ApplicationMessage); //StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -751,13 +808,12 @@ begin
     TempFindSubControlResponse := SendExecuteFindSubControlAction(Msg);
     frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + FastReplace_87ToReturn(TempFindSubControlResponse));
 
-    FindSubControlResponse := TempFindSubControlResponse;
-    MQTT_PUBLISH(ClientInstance, 1, QoS);
-    if not MQTT_PUBLISH(0, 0, QoS) then
-      frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities');
+    ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
+    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then
+      frmFindSubControlWorkerMain.AddToLog('Cannot respond with FindSubControl result.');
 
     //call CRECmd_GetResultedDebugImage
-  end;
+  end; //if Topic = CTopicName_AppToWorker_FindSubControl
 
   frmFindSubControlWorkerMain.AddToLog('');
 end;
