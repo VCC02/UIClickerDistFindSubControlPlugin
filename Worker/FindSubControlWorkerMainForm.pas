@@ -132,7 +132,7 @@ type
   TResponseArr = array of TResponse;
 
 var
-  AssignedClientID: string;
+  AssignedClientID, TopicWithWorkerName: string;
   Responses: TResponseArr;
 
 
@@ -308,6 +308,7 @@ begin
 
   AssignedClientID := StringReplace(DynArrayOfByteToString(AConnAckProperties.AssignedClientIdentifier), #0, '#0', [rfReplaceAll]);
   frmFindSubControlWorkerMain.lbeClientID.Text := AssignedClientID;
+  TopicWithWorkerName := CTopicName_AppToWorker_FindSubControl + '_' + AssignedClientID;
 
   frmFindSubControlWorkerMain.AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
   frmFindSubControlWorkerMain.AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
@@ -372,7 +373,7 @@ begin
     Exit;
   end;
 
-  Result := FillIn_SubscribePayload(CTopicName_AppToWorker_FindSubControl, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  Result := FillIn_SubscribePayload(TopicWithWorkerName, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
   begin
     frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
@@ -444,14 +445,14 @@ begin
     Exit;
   end;
 
-  Result := FillIn_UnsubscribePayload(CTopicName_AppToWorker_FindSubControl, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  Result := FillIn_UnsubscribePayload(TopicWithWorkerName, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
   if not Result then
   begin
     frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
     Exit;
   end;
 
-  frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + CTopicName_AppToWorker_FindSubControl + '"...');
+  frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + TopicWithWorkerName + '"...');
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
 end;
@@ -512,7 +513,8 @@ begin
 
     1:
     begin
-      Msg := ProcessResponse(ACallbackID shr 8);
+      Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
+             ProcessResponse(ACallbackID shr 8);
 
     end;
 
@@ -596,6 +598,12 @@ begin
 end;
 
 
+function GetUIClickerAddr: string;
+begin
+  Result := 'http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/';
+end;
+
+
 function SendExecuteFindSubControlAction(AActionContent: string): string;
 var
   TempFindSubControl: TClkFindControlOptions;
@@ -630,13 +638,48 @@ begin
   TempFindSubControl.SourceFileName := CBackgroundFileNameForUIClicker;
   TempFindSubControl.ImageSourceFileNameLocation := isflMem;
 
-  UIClickerAddr := 'http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/';
+  UIClickerAddr := GetUIClickerAddr;
   Result := ExecuteFindSubControlAction(UIClickerAddr,
                                         TempFindSubControl,
                                         'Action_' + DateTimeToStr(Now),
                                         FindSubControlTimeout, //The HTTP client has its own timeout, currently hardcoded to 1s for connection and 1h for response.
                                         CREParam_FileLocation_ValueMem,
                                         True);
+end;
+
+
+function SendGetDebugImageFromServer(AActionContent: string): string;
+var
+  TempStream: TMemoryStream;
+  TempMatchBitmapAlgorithm: string;
+  Params: TStringList;
+begin
+  Params := TStringList.Create;
+  try
+    Params.Text := StringReplace(AActionContent, '&', #13#10, [rfReplaceAll]);
+    TempMatchBitmapAlgorithm := Params.Values['MatchBitmapAlgorithm'];
+  finally
+    Params.Free;
+  end;
+
+  TempStream := TMemoryStream.Create;
+  try
+    Result := GetDebugImageFromServerAsStream(GetUIClickerAddr, 0, TempStream, TempMatchBitmapAlgorithm = '1');
+    if TempStream.Size > 0 then
+    begin
+      SetLength(Result, TempStream.Size);
+      TempStream.Read(Result[1], TempStream.Size);
+    end;
+  finally
+    TempStream.Free;
+  end;
+end;
+
+
+procedure SaveBmpToInMemFS(AContent: TMemoryStream; ABackgroundFnm: string);
+begin
+  if not frmFindSubControlWorkerMain.FInMemFS.FileExistsInMem(ABackgroundFnm) then
+    frmFindSubControlWorkerMain.FInMemFS.SaveFileToMem(ABackgroundFnm, AContent.Memory, AContent.Size);
 end;
 
 
@@ -647,8 +690,7 @@ begin
   Hash := ComputeHash(AContent.Memory, AContent.Size);
   BackgroundFnm := 'Background_' + Hash + '.bmp';
 
-  if not frmFindSubControlWorkerMain.FInMemFS.FileExistsInMem(BackgroundFnm) then
-    frmFindSubControlWorkerMain.FInMemFS.SaveFileToMem(BackgroundFnm, AContent.Memory, AContent.Size);
+  SaveBmpToInMemFS(AContent, BackgroundFnm);
 end;
 
 
@@ -707,7 +749,7 @@ begin
       frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities');
   end;
 
-  if Topic = CTopicName_AppToWorker_FindSubControl then
+  if Topic = TopicWithWorkerName then
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)    //////////////////// start rendering
     frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
@@ -773,7 +815,7 @@ begin
                 begin
                   DecompressedStream.Clear;
                   MemArchive.ExtractToStream(ListOfArchiveFiles.Strings[i], DecompressedStream);
-                  SaveBackgroundBmpToInMemFS(DecompressedStream);
+                  SaveBmpToInMemFS(DecompressedStream, ListOfArchiveFiles.Strings[i]);
 
                   /////////////////////////////////////////////////////// verify cache here
 
@@ -804,16 +846,18 @@ begin
 
     //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
     frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
-
     TempFindSubControlResponse := SendExecuteFindSubControlAction(Msg);
     frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + FastReplace_87ToReturn(TempFindSubControlResponse));
+
+    //TempFindSubControlResponse can be concatenated here with the string version of the result image
+    TempFindSubControlResponse := TempFindSubControlResponse {+ #8#7} + 'DebugImage=' + SendGetDebugImageFromServer(Msg);
 
     ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
     if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then
       frmFindSubControlWorkerMain.AddToLog('Cannot respond with FindSubControl result.');
 
     //call CRECmd_GetResultedDebugImage
-  end; //if Topic = CTopicName_AppToWorker_FindSubControl
+  end; //if Topic = TopicWithWorkerName
 
   frmFindSubControlWorkerMain.AddToLog('');
 end;

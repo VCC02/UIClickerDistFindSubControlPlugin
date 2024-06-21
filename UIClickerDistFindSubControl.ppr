@@ -73,6 +73,7 @@ var
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
   DebugPoint: TDbgPoint;
   AtLeastOneWorkerFoundTheSubControl: Boolean;
+  WorkerRespondedCount: Word;
   FLatestMsg: string = '';
   ConnectedSucessfully, ConAckReceived, SubAckReceived, SubscribedSucessfully, DisconnectedSuccessfully: Boolean;
   WaitingForWorkerCapabilities: Boolean;
@@ -469,11 +470,11 @@ begin
 
     1:
     begin
-      AddToLog('Publishing FindSubControl request...');
-
       CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
       Msg := AllWorkers[CurrentWorkerIndex].WorkerActionContentStr;
-      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_FindSubControl, APublishFields.TopicName);
+      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_FindSubControl + '_' + AllWorkers[CurrentWorkerIndex].Name, APublishFields.TopicName);
+
+      AddToLog('Publishing FindSubControl request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
 
       //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
       //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
@@ -617,7 +618,10 @@ begin
       if WorkerIndex = -1 then
         AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
       else
+      begin
+        Inc(WorkerRespondedCount);
         AllWorkers[WorkerIndex].ResponseReceived := True;
+      end;
 
       AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_ResponseReceived;   //this should be set after all responses
     end;
@@ -1215,6 +1219,7 @@ begin
       SubAckReceived := False;
       SubscribedSucessfully := False;
       DisconnectedSuccessfully := False;
+      tk := GetTickCount64;
     end;
 
     SConnectToBroker:
@@ -1292,6 +1297,7 @@ begin
     SPublishFindSubControlToAllWorkers:
     begin
       AtLeastOneWorkerFoundTheSubControl := False;
+      WorkerRespondedCount := 0;
       AddToLog('Sending FindSubControl settings to broker...');
 
       for i := 0 to Length(AllWorkers) - 1 do
@@ -1304,6 +1310,8 @@ begin
         else
           tk := GetTickCount64;
       end;
+
+      AddToLog('Done sending FindSubControl settings');
     end;
 
     SWaitForFindSubControlResults:
@@ -1399,7 +1407,14 @@ begin
         if GetTickCount64 - tk > FindSubControlWorkerTimeout then
         begin
           NextState := SDone; //Timeout
-          FSMError := 'Timeout waiting for workers to find the SubControl.';
+
+          if WorkerRespondedCount = 0 then
+            FSMError := 'Timeout waiting for workers to find the SubControl.'
+          else
+            FSMError := 'None of the responding workers found the SubControl.';
+
+          FSMError := FSMError + 'ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';
+
           AddToLog(FSMError);
         end
         else
@@ -1673,6 +1688,7 @@ var
     CTxtProfilesCount_PropName = 'MatchBitmapText.Count';
     CBmpFiles_PropName = 'MatchBitmapFiles';     // #4#5 separated paths
     CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
+    CPrecisionTimeout_PropName = 'PrecisionTimeout';
   var
     ActionContentStr: string;
     ActionContentPtr: Pointer;
@@ -1705,6 +1721,14 @@ var
       ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
       //for i := 0 to ListOfFindSubControlProperties.Count - 1 do
       //  AddToLog('===Prop: ' + ListOfFindSubControlProperties.Strings[i]);
+
+      if ListOfFindSubControlProperties.Values[CPrecisionTimeout_PropName] <> '1' then
+      begin
+        FLatestMsg := 'Error: Bad action configuration. This plugin requires that the "PrecisionTimeout" property of the configured FindSubControl action, to be set to True.';
+        AddToLog(FLatestMsg);
+        Result := False;
+        Exit;
+      end;
 
       TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
       MaxSplitActionsCount := TxtCount;
@@ -1941,6 +1965,13 @@ begin
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
 
+      if FLatestMsg <> '' then
+        FLatestMsg := FLatestMsg + ' +++ Error: This plugin hasn''t been unloaded successfully on previous execution.';
+
+      FLatestMsg := FLatestMsg + ' /// Starting plugin...';
+      AddToLog(FLatestMsg);
+      FLatestMsg := '';
+
       IdTCPClient1.OnConnected := @TempPluginMQTTClientHandlers.HandleClientOnConnected;
       IdTCPClient1.OnDisconnected := @TempPluginMQTTClientHandlers.HandleClientOnDisconnected;
 
@@ -2008,6 +2039,7 @@ begin
 
       MQTT_Init;
       FSMError := '';
+      State := SInit;
 
       if MQTT_CreateClient then
       begin
@@ -2037,9 +2069,12 @@ begin
             Application.ProcessMessages;
             Sleep(1);
           until FSMDone;
+
+          AddToLog('-----------  Exiting FSM');
         finally
           AddToLog('Last FSM state: ' + CFSMStr[State]);
           MQTT_DestroyClient(0);
+          AddToLog('Client module destroyed successfully...');
         end;
       end
       else
@@ -2050,6 +2085,7 @@ begin
       end;
 
       TempPluginMQTTClientHandlers.tmrProcessRecData.Enabled := False;
+      AddToLog('Stopped MQTT timer...');
 
       Result := DisconnectedSuccessfully;
 
@@ -2077,6 +2113,10 @@ begin
           AddToLog('Cannot free FileCacheInfo at index ' + IntToStr(i));
       end;
 
+
+      FLatestMsg := 'Cleaning up all worker info...';
+      AddToLog(FLatestMsg);
+      SetTemplateVar(CActionPlugin_DebuggingVar, FLatestMsg);
       SetLength(AllWorkers, 0);
 
       if RecTh <> nil then
@@ -2085,6 +2125,10 @@ begin
 
     GenerateSomeResultImg;
     SaveBitmapToExtRenderingInMemFS;
+
+    FLatestMsg := 'Exiting plugin...';
+    AddToLog(FLatestMsg);
+    SetTemplateVar(CActionPlugin_DebuggingVar, FLatestMsg);
 
     //AOnActionPlugin_Screenshot(APluginReference, @string('ScreenshotSettings')[1]);
   except
