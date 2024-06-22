@@ -6,7 +6,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   Caption = 'FindSubControl Worker'
   ClientHeight = 251
   ClientWidth = 1254
-  LCLVersion = '8.2'
+  LCLVersion = '8.4'
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -36,11 +36,11 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Left = 8
     Height = 70
     Top = 180
-    Width = 504
+    Width = 480
     Anchors = [akLeft, akBottom]
     Caption = 'MQTT'
     ClientHeight = 50
-    ClientWidth = 500
+    ClientWidth = 476
     TabOrder = 1
     object lbeAddress: TLabeledEdit
       Left = 8
@@ -74,17 +74,17 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
       Left = 144
       Height = 23
       Top = 19
-      Width = 280
+      Width = 256
       Anchors = [akLeft, akBottom]
       Color = 16640708
       EditLabel.Height = 15
-      EditLabel.Width = 280
+      EditLabel.Width = 256
       EditLabel.Caption = 'ClientID'
       ReadOnly = True
       TabOrder = 2
     end
     object btnDisconnect: TButton
-      Left = 432
+      Left = 408
       Height = 25
       Top = 17
       Width = 69
@@ -94,7 +94,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     end
   end
   object grpExtServer: TGroupBox
-    Left = 512
+    Left = 488
     Height = 70
     Top = 181
     Width = 321
@@ -102,6 +102,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Caption = 'ExtServer'
     ClientHeight = 50
     ClientWidth = 317
+    Enabled = False
     TabOrder = 2
     object lbeExtServerPort: TLabeledEdit
       Left = 8
@@ -162,13 +163,13 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     end
   end
   object lbeUIClickerPort: TLabeledEdit
-    Left = 840
+    Left = 817
     Height = 23
     Top = 216
-    Width = 45
+    Width = 72
     Anchors = [akLeft, akBottom]
     EditLabel.Height = 15
-    EditLabel.Width = 45
+    EditLabel.Width = 72
     EditLabel.Caption = 'UIClickerPort'
     EditLabel.ParentFont = False
     ParentFont = False

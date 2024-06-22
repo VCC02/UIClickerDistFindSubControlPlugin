@@ -123,9 +123,6 @@
       </Options>
     </Linking>
     <Other>
-      <ConfigFile>
-        <WriteConfigFilePath Value=""/>
-      </ConfigFile>
       <CustomOptions Value="-d_UsingDynTFT
 -dMaxMMAtProjectLevel
 -dMMFreeBlocks
@@ -144,6 +141,9 @@
       </Item>
       <Item>
         <Name Value="EFOpenError"/>
+      </Item>
+      <Item>
+        <Name Value="EIdReadTimeout"/>
       </Item>
     </Exceptions>
   </Debugging>

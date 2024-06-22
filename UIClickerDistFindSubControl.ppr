@@ -64,6 +64,8 @@ type
     TxtCntW, BmpCntW, PmtvCntW: Integer; //counts per worker
     ResponseReceived: Boolean;    //Most dest UIClicker will timeout, because they won't find the search bmp. At least one should find.
     FindSubControlFound: Boolean; //At least one worker should have this property set to True, to pass the action.
+    Response: string;
+    ResponseBitmapStream: TMemoryStream;
   end;
 
   TWorkerArr = array of TWorker;
@@ -533,7 +535,7 @@ begin
 end;
 
 
-function GetAllWorkers_ResponseReceived: Boolean;
+function GetAllWorkers_AtLeastOneFound: Boolean;
 var
   i: Integer;
 begin
@@ -570,6 +572,10 @@ var
   i: Integer;
   Content: TStringList;
   WorkerIndex: Integer;
+  TempResponseArchiveStr: string;
+  ArchiveStream: TMemoryStream;
+  Archive: TMemArchive;
+  TempArchiveHandlers: TArchiveHandlers;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -577,7 +583,7 @@ begin
   Topic := StringReplace(DynArrayOfByteToString(APublishFields.TopicName), #0, '#0', [rfReplaceAll]);
 
   AddToLog('Received PUBLISH  ServerPacketIdentifier: ' + IntToStr(ID) +
-                                                 '  Msg: ' + Msg +
+                                                 '  Msg: ' + Copy(Msg, 1, Pos(CProtocolParam_ResultImageArchive + '=', Msg) - 1) +
                                                  '  QoS: ' + IntToStr(QoS) +
                                                  '  TopicName: ' + Topic);
 
@@ -610,6 +616,9 @@ begin
 
         AllWorkers[Length(AllWorkers) - 1].ResponseReceived := False;
         AllWorkers[Length(AllWorkers) - 1].FindSubControlFound := False;
+        AllWorkers[Length(AllWorkers) - 1].Response := 'unset';
+
+        AllWorkers[Length(AllWorkers) - 1].ResponseBitmapStream := TMemoryStream.Create; //created here, destroyed on returning to app
       end;
 
     if Topic = CTopicName_WorkerToApp_FindSubControl then
@@ -621,9 +630,57 @@ begin
       begin
         Inc(WorkerRespondedCount);
         AllWorkers[WorkerIndex].ResponseReceived := True;
+        AllWorkers[WorkerIndex].Response := Content.Values['$ExecAction_Err$'];  /////////////// there is also CActionPlugin_ExecutionResultErrorVar, but the response is set to $ExecAction_Err$
+        AllWorkers[WorkerIndex].FindSubControlFound := AllWorkers[WorkerIndex].Response = '';
+
+        TempResponseArchiveStr := Copy(Msg, Pos(CProtocolParam_ResultImageArchive + '=', Msg) + Length(CProtocolParam_ResultImageArchive + '='), MaxInt);
+        //Delete(TempResponseArchiveStr, Length(TempResponseArchiveStr) - 1, 2); //delete last #13#10
+        AddToLog('Decoded response archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
+        TempResponseArchiveStr := Copy(TempResponseArchiveStr, 1, StrToIntDef(Content.Values[CProtocolParam_ResponseArchiveSize], Length(TempResponseArchiveStr)));
+        AddToLog('Received response archive size: ' + Content.Values[CProtocolParam_ResponseArchiveSize]);
+        TempResponseArchiveStr := HexToString(TempResponseArchiveStr);
+        AddToLog('Received response raw archive size: ' + IntToStr(Length(TempResponseArchiveStr)) + '   (* 2 = ' + IntToStr(Length(TempResponseArchiveStr) shl 1) + ')');
+
+        ArchiveStream := TMemoryStream.Create;
+        Archive := TMemArchive.Create;
+        TempArchiveHandlers := TArchiveHandlers.Create;
+        try
+          TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+          ArchiveStream.Write(TempResponseArchiveStr[1], Length(TempResponseArchiveStr));
+
+          //AddToLog('First 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, 1, 10)));
+          //AddToLog('Last 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, Length(TempResponseArchiveStr) - 9, 10)));
+          AddToLog('Computing Archive hash.. Size = ' + IntToStr(ArchiveStream.Size));
+          try
+            AddToLog('Archive hash: ' + ClickerExtraUtils.ComputeHash(ArchiveStream.Memory, ArchiveStream.Size));
+          except
+            on E: Exception do
+              AddToLog('Ex on computing archive hash: ' + E.Message);
+          end;
+
+          Archive.OnCompress := @TempArchiveHandlers.HandleOnCompress;
+          Archive.OnDecompress := @TempArchiveHandlers.HandleOnDecompress;
+          Archive.OnComputeArchiveHash := @TempArchiveHandlers.HandleOnComputeArchiveHash;
+
+          try
+            Archive.OpenArchive(ArchiveStream, False);
+            try
+              Archive.ExtractToStream(CResultFileNameInArchive, AllWorkers[WorkerIndex].ResponseBitmapStream);
+            finally
+              Archive.CloseArchive;
+            end;
+          except
+            on E: Exception do
+              AddToLog('Ex on extracting archive: ' + E.Message);
+          end;
+        finally
+          ArchiveStream.Free;
+          Archive.Free;
+          TempArchiveHandlers.Free;
+        end;
       end;
 
-      AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_ResponseReceived;   //this should be set after all responses
+      AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_AtLeastOneFound;   //this should be set after all responses
     end;
 
     //other fields which may pass metadata:
@@ -779,6 +836,7 @@ end;
 type
   TMQTTReceiveThread = class(TThread)
   private
+    FDone: Boolean;
     procedure AddMsgToLog(s: string);
   protected
     procedure Execute; override;
@@ -803,6 +861,8 @@ var
   SuccessfullyDecoded: Boolean;
   ProcessBufferLengthResult: Word;
 begin
+  FDone := False;
+
   try
     //ReadCount := 0;
     InitDynArrayToEmpty(TempReadBuf);
@@ -924,6 +984,8 @@ begin
     on E: Exception do
       AddMsgToLog('Th ex: ' + E.Message);
   end;
+
+  FDone := True;
 end;
 
 
@@ -1021,11 +1083,26 @@ end;
 
 
 procedure TPluginMQTTClientHandlers.HandleClientOnDisconnected(Sender: TObject);
+var
+  tk: QWord;
 begin
   AddToLog('Disconnected from broker...');
   try
     RecTh.Terminate;
+    tk := GetTickCount64;
+    repeat
+      Application.ProcessMessages;
+      Sleep(1);
+
+      if GetTickCount64 - tk > 2000 then
+      begin
+        AddToLog('+++++++++++++++++++ Timeout waiting for RecTh to terminate.');
+        Break;
+      end;
+    until RecTh.FDone;
   except
+    on E: Exception do
+      AddToLog('+++++++++++++++++++ Ex on terminating RecTh: ' + E.Message);
   end;
 end;
 
@@ -1741,6 +1818,7 @@ var
       begin
         AllWorkers[i].ArchiveStream := TMemoryStream.Create;
         AllWorkers[i].Archive := TMemArchive.Create;
+        //AllWorkers[i].ResponseBitmapStream := TMemoryStream.Create;   //do not create here
       end;
       try
         ListOfBmps.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CBmpFiles_PropName]);
@@ -1809,7 +1887,6 @@ var
             TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(PluginSettings);
         end;
 
-        TempArchiveHandlers.PluginProperties := PluginSettings;
         TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
 
         for i := 0 to Length(AllWorkers) - 1 do
@@ -1940,6 +2017,7 @@ var
         begin
           FreeAndNil(AllWorkers[i].ArchiveStream);
           FreeAndNil(AllWorkers[i].Archive);
+          //FreeAndNil(AllWorkers[i].ResponseBitmapStream); //do not destroy here
         end;
       end;
     finally
@@ -2105,6 +2183,26 @@ begin
       FreeAndNil(TempPluginMQTTClientHandlers);
       FreeAndNil(PluginSettings);
 
+
+      if Length(AllWorkers) = 0 then
+      begin
+        GenerateSomeResultImg;
+        AddToLog('No available workers for result image.');
+      end
+      else
+        if AllWorkers[0].ResponseBitmapStream.Size = 0 then
+        begin
+          GenerateSomeResultImg;
+          AddToLog('Worker[0] returned an empty result image.');
+        end
+        else
+        begin
+          AOnActionPlugin_SetResultImg(APluginReference, 0, 0, 0, AllWorkers[0].ResponseBitmapStream.Memory, AllWorkers[0].ResponseBitmapStream.Size, -1, -1);
+          FreeAndNil(AllWorkers[0].ResponseBitmapStream);
+          AddToLog('Result image set from worker[0].');
+        end;
+
+
       try
         for i := 0 to Length(AllWorkers) - 1 do
           FreeAndNil(AllWorkers[i].FileCacheInfo);
@@ -2123,7 +2221,6 @@ begin
         FreeAndNil(RecTh);
     end;
 
-    GenerateSomeResultImg;
     SaveBitmapToExtRenderingInMemFS;
 
     FLatestMsg := 'Exiting plugin...';

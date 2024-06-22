@@ -60,20 +60,25 @@ const
   CProtocolParam_ImageSourceRawContent = 'ImageSourceRawContent';
   CProtocolParam_UsingCompression = 'UsingCompression';
   CProtocolParam_CompressionAlgorithm = 'CompressionAlgorithm';
+  CProtocolParam_ResponseArchiveSize = 'ResponseArchiveSize';
+  CProtocolParam_ResultImageArchive = 'ResponseArchiveDebugImage';
 
   CBackgroundFileNameInArchive = '_:\Background.bmp'; //a name which cannot be used as OS's file system
   CBackgroundFileNameForUIClicker = 'Background.bmp';
+  CResultFileNameInArchive = 'Result.bmp';
+
 
   CFindSubControlTimeoutDiff = 1500; //Difference between plugin timeout and the actual FindSubControl action timeout. This is available for compressing, decompressing and transmission (Main_UIClicker.plugin <-> broker <-> worker <-> Dest.UIClicker)
   CMinFindSubControlActionTimeout = 100; //Minimum FindSubControl action timeout, set as default in case the computed one results in a a smaller value. This means that the destination UIClicker should still have at least this value as action timeout. Greater values may lead to successful processing of FindSubControl, but failed plugin action (because of total plugin timeout).
                                          //Please update the FindSubControlWorkerTimeout property hint (on CPluginHints constant) if modifying these values.
+
+
 type
   TOnAddToLogNoObj = procedure(AMsg: string);
 
   TArchiveHandlers = class
   private
     FCompressionAlgorithm: TCompressionAlgorithm;
-    FPluginProperties: TStringList;  //set from outside
     FLzmaOptions: TplLzmaOptions;
     FOnAddToLogNoObj: TOnAddToLogNoObj;
 
@@ -86,7 +91,6 @@ type
     function HandleOnDecompress(AArchiveStream, APlainStream: TMemoryStream): Boolean;
 
     property CompressionAlgorithm: TCompressionAlgorithm read FCompressionAlgorithm write FCompressionAlgorithm;
-    property PluginProperties: TStringList write FPluginProperties;
     property LzmaOptions: TplLzmaOptions write FLzmaOptions;
 
     property OnAddToLogNoObj: TOnAddToLogNoObj write FOnAddToLogNoObj;
@@ -96,6 +100,7 @@ type
 function CompressionAlgorithmsStrToType(AStr: string): TCompressionAlgorithm;
 procedure FillInLzmaOptionsFromPluginProperties(APluginProperties: TStringList; var ADestLzmaOptions: TplLzmaOptions); overload;
 function FillInLzmaOptionsFromPluginProperties(APluginProperties: TStringList): TplLzmaOptions; overload;
+function FillInDefaultLzmaOptionsFromPluginProperties: TplLzmaOptions;
 
 
 implementation
@@ -141,6 +146,20 @@ begin
 end;
 
 
+function FillInDefaultLzmaOptionsFromPluginProperties: TplLzmaOptions;
+begin
+  Result.Algorithm := 2;
+  Result.DictionarySize := 1048576;
+  Result.EOS := False;
+  Result.MatchFinder := 1;
+  Result.NumBenchMarkPasses := 10;
+  Result.Fb := 5;
+  Result.Lc := 3;
+  Result.Lp := 0;
+  Result.Pb := 0;
+end;
+
+
 constructor TArchiveHandlers.Create;
 begin
   inherited Create;
@@ -177,7 +196,6 @@ begin
   if FCompressionAlgorithm = caLzma then
   begin
     //DoOnAddToLogNoObj('Compressing with Lzma ' + ComputeHash(APlainStream.Memory, APlainStream.Size));
-    FillInLzmaOptionsFromPluginProperties(FPluginProperties, FLzmaOptions);
     CompressStreamLzma(APlainStream, AArchiveStream, FLzmaOptions);
   end
   else

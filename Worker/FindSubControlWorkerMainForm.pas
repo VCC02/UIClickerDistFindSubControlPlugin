@@ -604,6 +604,12 @@ begin
 end;
 
 
+procedure AddToLog(AMsg: string);
+begin
+  frmFindSubControlWorkerMain.AddToLog(AMsg);
+end;
+
+
 function SendExecuteFindSubControlAction(AActionContent: string): string;
 var
   TempFindSubControl: TClkFindControlOptions;
@@ -648,11 +654,15 @@ begin
 end;
 
 
-function SendGetDebugImageFromServer(AActionContent: string): string;
+function SendGetDebugImageFromServer(AActionContent: string; AUsingCompression: Boolean; ACompressionAlgorithm: string): string;
 var
-  TempStream: TMemoryStream;
+  TempStream, ArchiveStream: TMemoryStream;
   TempMatchBitmapAlgorithm: string;
   Params: TStringList;
+  MemArchive: TMemArchive;
+  TempArchiveHandlers: TArchiveHandlers;
+  PluginSettings: TStringList;
+  TempLzmaOptions: TplLzmaOptions;
 begin
   Params := TStringList.Create;
   try
@@ -665,10 +675,66 @@ begin
   TempStream := TMemoryStream.Create;
   try
     Result := GetDebugImageFromServerAsStream(GetUIClickerAddr, 0, TempStream, TempMatchBitmapAlgorithm = '1');
+
     if TempStream.Size > 0 then
     begin
-      SetLength(Result, TempStream.Size);
-      TempStream.Read(Result[1], TempStream.Size);
+      AddToLog('Archiving the result image.');
+
+      MemArchive := TMemArchive.Create;
+      ArchiveStream := TMemoryStream.Create;
+      TempArchiveHandlers := TArchiveHandlers.Create;
+      try
+        TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+
+        MemArchive.OnCompress := @TempArchiveHandlers.HandleOnCompress;
+        MemArchive.OnDecompress := @TempArchiveHandlers.HandleOnDecompress;
+        MemArchive.OnComputeArchiveHash := @TempArchiveHandlers.HandleOnComputeArchiveHash;
+
+        if AUsingCompression then
+        begin
+          MemArchive.CompressionLevel := 9;
+          TempArchiveHandlers.CompressionAlgorithm := CompressionAlgorithmsStrToType(ACompressionAlgorithm);
+        end
+        else
+          MemArchive.CompressionLevel := 0;
+
+        if TempArchiveHandlers.CompressionAlgorithm = caLzma then
+        begin
+          PluginSettings := TStringList.Create;
+          try
+            ///////////////////////// get PluginSettings from plugin using FillInLzmaOptionsFromPluginProperties
+            TempLzmaOptions := FillInDefaultLzmaOptionsFromPluginProperties;  /////////////////////////this call should be replaced with getting the options from plugin
+            TempArchiveHandlers.LzmaOptions := TempLzmaOptions;
+          finally
+            PluginSettings.Free;
+          end;
+        end;
+
+        try
+          MemArchive.OpenArchive(ArchiveStream, True);
+          try
+            TempStream.Position := 0;
+            MemArchive.AddFromStream(CResultFileNameInArchive, TempStream);   //eventually, there will be multiple results
+          finally
+            MemArchive.CloseArchive;
+          end;
+
+          AddToLog('Computing Archive hash.. Size = ' + IntToStr(ArchiveStream.Size));
+          AddToLog('Archive hash: ' + ClickerExtraUtils.ComputeHash(ArchiveStream.Memory, ArchiveStream.Size));
+        except
+          on E: Exception do
+            AddToLog('----------- Ex on archiving result image: "' + E.Message + '"  CompressionAlgorithm = ' + IntToStr(Ord(TempArchiveHandlers.CompressionAlgorithm)) + '  CompressionLevel = ' + IntToStr(MemArchive.CompressionLevel));
+        end;
+
+
+        SetLength(Result, ArchiveStream.Size);
+        ArchiveStream.Position := 0;
+        ArchiveStream.Read(Result[1], ArchiveStream.Size);
+      finally
+        MemArchive.Free;
+        ArchiveStream.Free;
+        TempArchiveHandlers.Free;
+      end;
     end;
   finally
     TempStream.Free;
@@ -694,12 +760,6 @@ begin
 end;
 
 
-procedure AddToLog(AMsg: string);
-begin
-  frmFindSubControlWorkerMain.AddToLog(AMsg);
-end;
-
-
 procedure HandleOnAfterReceivingMQTT_PUBLISH(ClientInstance: DWord; var APublishFields: TMQTTPublishFields; var APublishProperties: TMQTTPublishProperties);
 const
   CImageSourceRawContentParam: string = '&' + CProtocolParam_ImageSourceRawContent + '=';
@@ -719,7 +779,7 @@ var
   tk: QWord;
   ListOfArchiveFiles: TStringList;
   PosImageSourceRawContent: Integer;
-  TempFindSubControlResponse: string;
+  TempFindSubControlResponse, TempResponseArchiveStr: string;
   ResponseIndex: Integer;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
@@ -807,6 +867,16 @@ begin
             CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, CBackgroundFileNameForUIClicker);
             frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
 
+            if CmdResult = 'Client exception: Connect timed out.' then
+            begin
+              TempFindSubControlResponse := '$ExecAction_Err$=Timeout sending the background bitmap to UIClicker.';
+              ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
+              if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+                frmFindSubControlWorkerMain.AddToLog('Cannot respond with FindSubControl result on sending background image to UIClicker.');
+
+              Exit;
+            end;
+
             ListOfArchiveFiles := TStringList.Create;
             try
               MemArchive.GetListOfFiles(ListOfArchiveFiles);
@@ -821,6 +891,16 @@ begin
 
                   CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
                   frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
+
+                  if CmdResult = 'Client exception: Connect timed out.' then
+                  begin
+                    TempFindSubControlResponse := '$ExecAction_Err$=Timeout sending bitmap "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker.';
+                    ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
+                    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then   //ideally, there should be a single MQTT_PUBLISH call like this
+                      frmFindSubControlWorkerMain.AddToLog('Cannot respond with FindSubControl result on sending background image to UIClicker.');
+
+                    Exit;
+                  end;
                 end;
             finally
               ListOfArchiveFiles.Free;
@@ -846,14 +926,23 @@ begin
 
     //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
     frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
-    TempFindSubControlResponse := SendExecuteFindSubControlAction(Msg);
-    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + FastReplace_87ToReturn(TempFindSubControlResponse));
+    TempFindSubControlResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(Msg));
+    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + TempFindSubControlResponse);
 
-    //TempFindSubControlResponse can be concatenated here with the string version of the result image
-    TempFindSubControlResponse := TempFindSubControlResponse {+ #8#7} + 'DebugImage=' + SendGetDebugImageFromServer(Msg);
+    AddToLog('Compressing result image = ' + BoolToStr(UsingCompression, 'True', 'False'));
+    TempResponseArchiveStr := SendGetDebugImageFromServer(Msg, UsingCompression, CompressionAlgorithm);
+    AddToLog('Resulted archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
+    //AddToLog('First 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, 1, 10)));
+    //AddToLog('Last 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, Length(TempResponseArchiveStr) - 9, 10)));
+
+    TempResponseArchiveStr := StringToHex(TempResponseArchiveStr);
+    AddToLog('Resulted hex archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
+
+    TempFindSubControlResponse := TempFindSubControlResponse + CProtocolParam_ResponseArchiveSize + '=' + IntToStr(Length(TempResponseArchiveStr)) + #13#10;
+    TempFindSubControlResponse := TempFindSubControlResponse {+ #8#7} + CProtocolParam_ResultImageArchive + '=' + TempResponseArchiveStr;
 
     ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
-    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then
+    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
       frmFindSubControlWorkerMain.AddToLog('Cannot respond with FindSubControl result.');
 
     //call CRECmd_GetResultedDebugImage
