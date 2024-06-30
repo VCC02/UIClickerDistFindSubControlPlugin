@@ -523,7 +523,7 @@ begin
   end;
 
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
-  frmFindSubControlWorkerMain.AddToLog('Publishing "' + Msg + '" at QoS = ' + IntToStr(QoS));
+  //frmFindSubControlWorkerMain.AddToLog('Publishing "' + Msg + '" at QoS = ' + IntToStr(QoS));   //commented because Msg contains an archive, which can be even more than 2MB (hex encoded)
 
   Result := Result and StringToDynArrayOfByte(Msg, APublishFields.ApplicationMessage);
 

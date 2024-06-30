@@ -1935,6 +1935,7 @@ var
     CBmpFiles_PropName = 'MatchBitmapFiles';     // #4#5 separated paths
     CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
     CPrecisionTimeout_PropName = 'PrecisionTimeout';
+    CFullBackgroundImageInResult_PropName = 'FullBackgroundImageInResult';
   var
     ActionContentStr: string;
     ActionContentPtr: Pointer;
@@ -1971,6 +1972,9 @@ var
         Result := False;
         Exit;
       end;
+
+      if ListOfFindSubControlProperties.Values[CFullBackgroundImageInResult_PropName] <> '0' then
+        AddToLog('Warning: The "' + CFullBackgroundImageInResult_PropName + '" property, of the configured FindSubControl action, is set to True. This will cause resulted debugging images to have full size, which will take longer to be compressed and transferred.');
 
       TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
       MaxSplitActionsCount := TxtCount;

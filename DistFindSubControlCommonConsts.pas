@@ -67,7 +67,7 @@ const
   CBackgroundFileNameForUIClicker = 'Background.bmp';
   CResultFileNameInArchive = 'Result.bmp';
 
-
+                               //original value: 1500
   CFindSubControlTimeoutDiff = 1500; //Difference between plugin timeout and the actual FindSubControl action timeout. This is available for compressing, decompressing and transmission (Main_UIClicker.plugin <-> broker <-> worker <-> Dest.UIClicker)
   CMinFindSubControlActionTimeout = 100; //Minimum FindSubControl action timeout, set as default in case the computed one results in a a smaller value. This means that the destination UIClicker should still have at least this value as action timeout. Greater values may lead to successful processing of FindSubControl, but failed plugin action (because of total plugin timeout).
                                          //Please update the FindSubControlWorkerTimeout property hint (on CPluginHints constant) if modifying these values.
