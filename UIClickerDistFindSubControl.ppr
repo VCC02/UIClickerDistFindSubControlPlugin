@@ -88,6 +88,7 @@ var
   CredentialsFullFileNamePropertyValue: string;  //for connection to broker
   AddressPropertyValue: string;
   PortPropertyValue: string;
+  VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore: string;
 
   WorkerQoS: Integer;
   GetWorkerCapabilitiesTimeout: Integer;
@@ -460,6 +461,8 @@ var
   CurrentWorkerIndex: Byte;
 begin
   Result := True;
+  TempWorkerSpecificTask := 'Task not set.';
+
   case ACallbackID and $FF of
     0:
     begin
@@ -1255,6 +1258,38 @@ begin
 end;
 
 
+procedure GetAllVarsAndValuesFromVarsForWorkers(AVarsForWorkers: string; AListOfAllVars: TStringList; out AAllNames, AAllValues, AAllEvalBefore: string);
+var
+  ListOfVarsForWorkers: TStringList;
+  i: Integer;
+  VarName, VarValue: string;
+  AllNames, AllValues, AllEvalBefore: string;
+begin
+  ListOfVarsForWorkers := TStringList.Create;
+  try
+    AVarsForWorkers := StringReplace(AVarsForWorkers, ', ', #13#10, [rfReplaceAll]);
+    AVarsForWorkers := StringReplace(AVarsForWorkers, ',', #13#10, [rfReplaceAll]);
+
+    ListOfVarsForWorkers.Text := AVarsForWorkers;
+
+    AllNames := '';
+    AllValues := '';
+    AllEvalBefore := '';
+    for i := 0 to ListOfVarsForWorkers.Count - 1 do
+    begin
+      VarName := ListOfVarsForWorkers.Strings[i];
+      VarValue := AListOfAllVars.Values[VarName];
+
+      AAllNames := AAllNames + VarName + #4#5;
+      AAllValues := AAllValues + VarValue + #4#5;
+      AAllEvalBefore := AAllEvalBefore + '0' + #4#5;
+    end;
+  finally
+    ListOfVarsForWorkers.Free;
+  end;
+end;
+
+
 procedure GetPluginSettingsFromProperties(AProperties: TStringList; AListOfVars: string);
 var
   ListOfVars: TStringList;
@@ -1268,6 +1303,9 @@ begin
   try
     ListOfVars.Text := AListOfVars;
     CredentialsFullFileNamePropertyValue := EvaluateAllReplacements(ListOfVars, CredentialsFullFileNamePropertyValue);
+
+    // AProperties.Values[CVariablesForWorkersPropertyName] is a comma-separated list of vars
+    GetAllVarsAndValuesFromVarsForWorkers(AProperties.Values[CVariablesForWorkersPropertyName], ListOfVars, VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore);
   finally
     ListOfVars.Free;
   end;
@@ -1853,11 +1891,27 @@ var
           finally
             TempMemFile.Free;
           end;
+        end; //for j
+
+        TempMemFile := TMemoryStream.Create;
+        try
+          TempMemFile.Write(VarsForWorkers_Names[1], Length(VarsForWorkers_Names));
+          AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Names, TempMemFile);
+          TempMemFile.Clear;
+
+          TempMemFile.Write(VarsForWorkers_Values[1], Length(VarsForWorkers_Values));
+          AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Values, TempMemFile);
+          TempMemFile.Clear;
+
+          TempMemFile.Write(VarsForWorkers_EvalBefore[1], Length(VarsForWorkers_EvalBefore));
+          AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_EvalBefore, TempMemFile);
+        finally
+          TempMemFile.Free;
         end;
       finally
         TempFilesToSend.Free;
       end;
-    end;
+    end; //for i
   end;
 
 
@@ -2094,6 +2148,7 @@ begin
   Result := False;
   DebugPoint := @DbgPoint;
   SetLength(AllWorkers, 0);
+  FLatestMsg := 'Error message not set.';
 
   try
     IdTCPClient1 := TIdTCPClient.Create;
@@ -2201,7 +2256,8 @@ begin
               except
                 on EFSM: Exception do
                 begin
-                  AddToLog('Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message);
+                  FSMError := FSMError + 'Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message;
+                  AddToLog(FSMError);
                   FSMDone := True;
                 end;
               end;

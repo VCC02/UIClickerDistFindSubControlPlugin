@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 22;
+  CAdditionalPropertiesCount = 23;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -89,6 +89,8 @@ const
   CLzmaPosBitsPropertyName = 'LzmaPosBits';
   CLzmaFastBytesPropertyName = 'LzmaFastBytes';
 
+  CVariablesForWorkersPropertyName = 'VariablesForWorkers';
+
 
   CRequiredSubControlPropertyNames: array[0..CPropertiesCount - 1] of string = (  //these are the expected FindSubControl property names, configured in plugin properties
     CFindSubControlActionPropertyName,
@@ -116,7 +118,9 @@ const
     CLzmaLiteralContextPropertyName,
     CLzmaLiteralPosBitsPropertyName,
     CLzmaPosBitsPropertyName,
-    CLzmaFastBytesPropertyName
+    CLzmaFastBytesPropertyName,
+
+    CVariablesForWorkersPropertyName
   );
 
   //property details: (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
@@ -148,7 +152,8 @@ const
     'SpinText',      //LzmaLiteralContext,
     'EnumCombo',     //LzmaLiteralPosBits,
     'EnumCombo',     //LzmaPosBits,
-    'SpinText'       //LzmaFastBytes
+    'SpinText',      //LzmaFastBytes
+    'TextWithArrow'  //VariablesForWorkers
   );
 
   CRequiredSubControlPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
@@ -177,7 +182,9 @@ const
     CDTInteger, //LzmaLiteralContextPropertyName,
     CDTEnum,    //LzmaLiteralPosBitsPropertyName,
     CDTEnum,    //LzmaPosBitsPropertyName,
-    CDTInteger  //LzmaFastBytesPropertyName
+    CDTInteger, //LzmaFastBytesPropertyName
+
+    CDTString   //VariablesForWorkers
   );
 
   CPluginEnumCounts: array[0..CPropertiesCount - 1] of Integer = (
@@ -206,7 +213,9 @@ const
     0, //LzmaLiteralContextPropertyName,
     5, //LzmaLiteralPosBitsPropertyName,
     5, //LzmaPosBitsPropertyName,
-    0  //LzmaFastBytesPropertyName
+    0, //LzmaFastBytesPropertyName
+
+    0  //VariablesForWorkers
   );
 
   CPluginEnumStrings: array[0..CPropertiesCount - 1] of string = (
@@ -235,7 +244,9 @@ const
     '0', //LzmaLiteralContextPropertyName,
     '0' + #4#5 + '1' + #4#5 + '2' + #4#5 + '3' + #4#5 + '4' + #4#5, //LzmaLiteralPosBitsPropertyName,
     '0' + #4#5 + '1' + #4#5 + '2' + #4#5 + '3' + #4#5 + '4' + #4#5, //LzmaPosBitsPropertyName,
-    '0'  //LzmaFastBytesPropertyName
+    '0', //LzmaFastBytesPropertyName
+
+    ''  //VariablesForWorkers
   );
 
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
@@ -264,7 +275,9 @@ const
     'Default value: 3. Valid range: [0..8].',     //LzmaLiteralContextPropertyName,
     'Default value: 0.',     //LzmaLiteralPosBitsPropertyName,
     'Default value: 2.',     //LzmaPosBitsPropertyName,
-    'Default value: 128. Valid range: [5, 273].' + #4#5 + 'E.g.: A value of 273 gives the best compression. A value of 5 results in the fastest compression.'   //LzmaFastBytesPropertyName
+    'Default value: 128. Valid range: [5, 273].' + #4#5 + 'E.g.: A value of 273 gives the best compression. A value of 5 results in the fastest compression.',   //LzmaFastBytesPropertyName
+
+    'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.'//VariablesForWorkers
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -293,7 +306,9 @@ const
     'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaLiteralContextPropertyName,
     'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaLiteralPosBitsPropertyName,
     'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaPosBitsPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma'   //LzmaFastBytesPropertyName
+    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaFastBytesPropertyName
+
+    '' //VariablesForWorkers
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -322,7 +337,8 @@ const
     '3', //LzmaLiteralContextPropertyName,
     '0', //LzmaLiteralPosBitsPropertyName,
     '0', //LzmaPosBitsPropertyName,
-    '5'  //LzmaFastBytesPropertyName
+    '5', //LzmaFastBytesPropertyName
+    '$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$'  //VariablesForWorkers
   );
 
 

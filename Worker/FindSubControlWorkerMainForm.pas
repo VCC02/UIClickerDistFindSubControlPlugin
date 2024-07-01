@@ -760,6 +760,45 @@ begin
 end;
 
 
+function SendVarsToWorkers(AMemArchiveWithVars: TMemArchive): string;
+var
+  TempFileContent: TMemoryStream;
+  VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore: string;
+  TempSetVarOptions: TClkSetVarOptions;
+begin
+  TempFileContent := TMemoryStream.Create;
+  try
+    AMemArchiveWithVars.ExtractToStream(CVarsForWorkersInArchive_Names, TempFileContent);
+    TempFileContent.Position := 0;
+    SetLength(VarsForWorkers_Names, TempFileContent.Size);
+    TempFileContent.Read(VarsForWorkers_Names[1], TempFileContent.Size);
+
+    TempFileContent.Clear;
+
+    AMemArchiveWithVars.ExtractToStream(CVarsForWorkersInArchive_Values, TempFileContent);
+    TempFileContent.Position := 0;
+    SetLength(VarsForWorkers_Values, TempFileContent.Size);
+    TempFileContent.Read(VarsForWorkers_Values[1], TempFileContent.Size);
+
+    TempFileContent.Clear;
+
+    AMemArchiveWithVars.ExtractToStream(CVarsForWorkersInArchive_EvalBefore, TempFileContent);
+    TempFileContent.Position := 0;
+    SetLength(VarsForWorkers_EvalBefore, TempFileContent.Size);
+    TempFileContent.Read(VarsForWorkers_EvalBefore[1], TempFileContent.Size);
+  finally
+    TempFileContent.Free;
+  end;
+
+  TempSetVarOptions.ListOfVarNames := VarsForWorkers_Names;
+  TempSetVarOptions.ListOfVarValues := VarsForWorkers_Values;
+  TempSetVarOptions.ListOfVarEvalBefore := VarsForWorkers_EvalBefore;
+  TempSetVarOptions.FailOnException := False;
+
+  Result := ExecuteSetVarAction(GetUIClickerAddr, TempSetVarOptions, False);
+end;
+
+
 function ProcessFindSubControlRequest(AAppMsg: string; out AResponse, AErrMsg: string): Boolean;
 const
   CImageSourceRawContentParam: string = '&' + CProtocolParam_ImageSourceRawContent + '=';
@@ -833,6 +872,7 @@ begin
 
           CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, CBackgroundFileNameForUIClicker);
           frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
+          DecompressedStream.Clear;
 
           if CmdResult = 'Client exception: Connect timed out.' then
           begin
@@ -842,11 +882,25 @@ begin
             Exit;
           end;
 
+          CmdResult := SendVarsToWorkers(TempMemArchive);
+          frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker. Response: ' + CmdResult);
+
+          if CmdResult = 'Client exception: Connect timed out.' then
+          begin
+            AResponse := '$ExecAction_Err$=Timeout sending vars to UIClicker.';
+            AErrMsg := 'Cannot respond with FindSubControl result on sending vars to UIClicker.';
+            Result := False;
+            Exit;
+          end;
+
           ListOfArchiveFiles := TStringList.Create;
           try
             TempMemArchive.GetListOfFiles(ListOfArchiveFiles);
             for i := 0 to ListOfArchiveFiles.Count - 1 do
-              if ListOfArchiveFiles.Strings[i] <> CBackgroundFileNameInArchive then
+              if (ListOfArchiveFiles.Strings[i] <> CBackgroundFileNameInArchive) and
+                 (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_Names) and
+                 (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_Values) and
+                 (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_EvalBefore) then
               begin
                 DecompressedStream.Clear;
                 TempMemArchive.ExtractToStream(ListOfArchiveFiles.Strings[i], DecompressedStream);
