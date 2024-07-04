@@ -81,6 +81,11 @@ var
   WaitingForWorkerCapabilities: Boolean;
   FSMDone: Boolean;
   AllWorkers: TWorkerArr;
+  AllWorkerBackgroundBmpStr: string;
+
+  BkArchiveStream: TMemoryStream;
+  BkArchive: TMemArchive;
+  BkCompressionTime: QWord;   //for statistics only
 
   AddToLogCallback: TOnActionPlugin_AddToLog;
 
@@ -94,6 +99,7 @@ var
   GetWorkerCapabilitiesTimeout: Integer;
   FindSubControlWorkerTimeout: Integer;
   FSMError: string;
+  FindSubControlTimeoutDiff: Integer;
 
 
 procedure AddToLog(AMsg: string);  //thread safe
@@ -353,18 +359,26 @@ begin
   Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_GetCapabilities, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
   begin
-    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
+    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters (GetCapabilities).');
     Exit;
   end;
 
   AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
 
+  Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_SendBackground, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters (SendBackground).');
+    Exit;
+  end;
+
   Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_FindSubControl, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
   begin
-    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
+    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters (FindSubControl).');
     Exit;
   end;
+
 
   //Enable SubscriptionIdentifier only if required (allocated above with CreateClientToServerSubscriptionIdentifier) !!!
   //The library initializes EnabledProperties to 0.
@@ -413,6 +427,13 @@ begin
     Exit;
   end;
 
+  Result := FillIn_UnsubscribePayload(CTopicName_WorkerToApp_SendBackground, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
   Result := FillIn_UnsubscribePayload(CTopicName_WorkerToApp_FindSubControl, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
   if not Result then
   begin
@@ -420,7 +441,7 @@ begin
     Exit;
   end;
 
-  AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' + CTopicName_WorkerToApp_FindSubControl + '"...');
+  AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' + CTopicName_WorkerToApp_SendBackground + '" and "' + CTopicName_WorkerToApp_FindSubControl + '"...');
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
 end;
@@ -464,7 +485,7 @@ begin
   TempWorkerSpecificTask := 'Task not set.';
 
   case ACallbackID and $FF of
-    0:
+    CCallbackID_GetCapabilities:
     begin
       Msg := CMQTT_AppToWorkerCmd_GetCapabilities;
       TempWorkerSpecificTask := 'DebuggingString';
@@ -473,7 +494,38 @@ begin
       AddToLog('Requesting worker capabilities...');
     end;
 
-    1:
+    CCallbackID_SendBackgroundToAll:
+    begin
+      Msg := AllWorkerBackgroundBmpStr;
+      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_SendBackground, APublishFields.TopicName);
+
+      AddToLog('Publishing SendBackground request to all workers...  Topic: ' + CTopicName_AppToWorker_SendBackground + '   Len(Msg): ' + IntToStr(Length(Msg)));
+
+      //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
+      //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
+      //Every worker extracts its task from this array, based on its name.
+
+      TempWorkerSpecificTask := 'DebuggingName:';
+      APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
+    end;
+
+    CCallbackID_SendBackgroundToSome:
+    begin
+      CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
+      Msg := AllWorkerBackgroundBmpStr;
+      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_SendBackground + '_' + AllWorkers[CurrentWorkerIndex].Name, APublishFields.TopicName);
+
+      AddToLog('Publishing SendBackground request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
+
+      //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
+      //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
+      //Every worker extracts its task from this array, based on its name.
+
+      TempWorkerSpecificTask := 'DebuggingName:';
+      APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
+    end;
+
+    CCallbackID_SendFindSubControl:
     begin
       CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
       Msg := AllWorkers[CurrentWorkerIndex].WorkerActionContentStr;
@@ -680,6 +732,23 @@ begin
                            FastReplace_45ToReturn(Content.Values[CProtocolParam_FileCache]) //#4#5 separated list of files. Each item uses the CDefaultInMemFileNameHashSeparator string between name and hash.
                           );
 
+
+    if Topic = CTopicName_WorkerToApp_SendBackground then
+    begin
+      WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
+      if WorkerIndex = -1 then
+        AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
+      else
+      begin
+        if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
+        begin
+          Inc(WorkerRespondedCount);
+          AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with success when sending background image.');
+        end
+        else
+          AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with error when sending background image: ' + Content.Values['$ExecAction_Err$']);
+      end;
+    end;
 
     if Topic = CTopicName_WorkerToApp_FindSubControl then
     begin
@@ -1089,7 +1158,13 @@ begin
   //  DebugPoint('ProcessReceivedBuffer timer', '');
   //except
   //end;
-  ProcessReceivedBuffer;
+
+  try
+    ProcessReceivedBuffer;
+  except
+    on E: Exception do
+      AddToLog('_________________ Ex on processing received data: ' + E.Message);
+  end;
 end;
 
 
@@ -1316,7 +1391,9 @@ type
   TFSM = (SInit, SConnectToBroker, SWaitForConAck,
           SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
           SRequestCapabilities, SWaitForCapabilitiesResponse,
-          SGetFindSubControlActionContent, SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
+          SGetFindSubControlActionContent,
+          SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
+          SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
           SDisconnectFromBroker,
           SDone
          );
@@ -1326,7 +1403,9 @@ const
           'SInit', 'SConnectToBroker', 'SWaitForConAck',
           'SSubscribeToResponses', 'SWaitForResponsesSubAck',
           'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
-          'SGetFindSubControlActionContent', 'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
+          'SGetFindSubControlActionContent',
+          'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
+          'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
           'SDisconnectFromBroker',
           'SDone'
           );
@@ -1393,7 +1472,7 @@ begin
     SRequestCapabilities:
     begin
       WaitingForWorkerCapabilities := True;    //reset below
-      if not MQTT_PUBLISH(0, 0, WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
+      if not MQTT_PUBLISH(0, CCallbackID_GetCapabilities, WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
       begin
         FSMError := 'Can''t send GetCapabilities request to broker.';
         AddToLog(FSMError);
@@ -1423,15 +1502,36 @@ begin
       //This is where GetFindControlActionProperties is called (unfortunately in FSM's loop) instead of this case item.
     end;
 
+    SPublishBackgroundImageToAllWorkers:
+    begin
+      AtLeastOneWorkerFoundTheSubControl := False;
+      WorkerRespondedCount := 0;
+
+      AddToLog('Sending background image to broker...');
+      if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
+      begin
+        FSMError := 'Can''t send background image to all workers.';
+        AddToLog(FSMError);
+      end
+      else
+        tk := GetTickCount64;
+      AddToLog('Done sending background image.');
+    end;
+
+    SWaitForBackgroundImageResults:
+    begin
+
+    end;
+
     SPublishFindSubControlToAllWorkers:
     begin
       AtLeastOneWorkerFoundTheSubControl := False;
       WorkerRespondedCount := 0;
-      AddToLog('Sending FindSubControl settings to broker...');
 
+      AddToLog('Sending FindSubControl settings to broker...');
       for i := 0 to Length(AllWorkers) - 1 do
       begin
-        if not MQTT_PUBLISH(0, 1 or i shl 8, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'FindSubControl')
+        if not MQTT_PUBLISH(0, CCallbackID_SendFindSubControl or (i shl 8), WorkerQoS) then   //notice CallbackID = 3     (i.e. 'FindSubControl')
         begin
           FSMError := 'Can''t send FindSubControl settings to broker for worker[' + IntToStr(i) + '].';
           AddToLog(FSMError);
@@ -1439,8 +1539,7 @@ begin
         else
           tk := GetTickCount64;
       end;
-
-      AddToLog('Done sending FindSubControl settings');
+      AddToLog('Done sending FindSubControl settings.');
     end;
 
     SWaitForFindSubControlResults:
@@ -1523,8 +1622,36 @@ begin
         NextState := SDone;
       end
       else
-        NextState := SPublishFindSubControlToAllWorkers;
+        NextState := SPublishBackgroundImageToAllWorkers;
     end;
+
+    SPublishBackgroundImageToAllWorkers:
+      NextState := SWaitForBackgroundImageResults;
+
+    SWaitForBackgroundImageResults:
+      if GetTickCount64 - tk > FindSubControlWorkerTimeout then   //not sure what timeout to use here
+      begin
+        NextState := SDone; //Timeout
+
+        if WorkerRespondedCount = 0 then
+          FSMError := 'Timeout waiting for workers to send the background image to their local UIClicker.'
+        else
+          FSMError := 'Some of the responding workers could not send the the background image to their local UIClicker.';
+
+        FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';
+
+        AddToLog(FSMError);
+      end
+      else
+      begin
+        NextState := SWaitForBackgroundImageResults;
+
+        if WorkerRespondedCount >= Length(AllWorkers) then
+        begin
+          NextState := SPublishFindSubControlToAllWorkers;
+          AddToLog('All workers responded after having the background image in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
+        end;
+      end;
 
     SPublishFindSubControlToAllWorkers:
       NextState := SWaitForFindSubControlResults;
@@ -1542,7 +1669,7 @@ begin
           else
             FSMError := 'None of the responding workers found the SubControl.';
 
-          FSMError := FSMError + 'ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';
+          FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';
 
           AddToLog(FSMError);
         end
@@ -1823,6 +1950,14 @@ var
 
       AllWorkers[i].Archive.CompressionLevel := 9 * Ord(UsingCompression);
     end;
+
+    BkArchive.OpenArchive(BkArchiveStream, True);
+    BkArchive.OnCompress := @AArchiveHandlers.HandleOnCompress;
+    BkArchive.OnDecompress := @AArchiveHandlers.HandleOnDecompress;
+    BkArchive.OnComputeArchiveHash := @AArchiveHandlers.HandleOnComputeArchiveHash;
+    BkArchive.Password := '';
+
+    BkArchive.CompressionLevel := 9 * Ord(UsingCompression);
   end;
 
 
@@ -1844,10 +1979,7 @@ var
         begin
           ABackgroundSize := TempBk.Size;
           BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
-
-          for i := 0 to Length(AllWorkers) - 1 do
-            if not HashFoundInFileCacheInfo(AllWorkers[i].FileCacheInfo, BkHash) then
-              AllWorkers[i].Archive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
+          BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
         end
         else
         begin
@@ -1873,6 +2005,7 @@ var
       TempFilesToSend := TStringList.Create;
       try
         TempFilesToSend.Text := AllWorkers[i].FilesToSend;
+
         for j := 0 to TempFilesToSend.Count - 1 do
         begin
           TempMemFile := TMemoryStream.Create;
@@ -1978,6 +2111,22 @@ var
         end;
       end;
     end;
+
+    try
+      BkCompressionTime := GetTickCount64;
+      try
+        BkArchive.CloseArchive;
+      finally
+        BkCompressionTime := GetTickCount64 - BkCompressionTime;
+      end;
+    except
+      on E: Exception do
+      begin
+        FLatestMsg := 'Error closing archive with background image.  Ex: ' + E.Message;
+        AddToLog('----------- ' + FLatestMsg);
+        Result := False;
+      end;
+    end;
   end;
 
   function GetFindSubControlContent: Boolean;
@@ -2043,6 +2192,9 @@ var
         AllWorkers[i].Archive := TMemArchive.Create;
         //AllWorkers[i].ResponseBitmapStream := TMemoryStream.Create;   //do not create here
       end;
+      BkArchiveStream := TMemoryStream.Create;
+      BkArchive := TMemArchive.Create;
+
       try
         ListOfBmps.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CBmpFiles_PropName]);
         MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfBmps.Count);
@@ -2080,23 +2232,46 @@ var
 
         TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
         OpenWorkerArchivesForAddingBitmaps(TempArchiveHandlers);
+        try
+          //for cropping, the following properties have to be read from ListOfFindSubControlProperties
+          //InitialRectangle_Left
+          //InitialRectangle_LeftOffset
+          //Top, Right, Bottom
 
-        if not AddBackgroundBitmapToWorkerArchives(ListOfFindSubControlProperties.Values['ImageSource'],
-                                                   ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
-                                                   ListOfFindSubControlProperties.Values['SourceFileName'],
-                                                   BkSize) then
-        begin
-          FLatestMsg := 'Error loading background bitmap as stream.';
-          AddToLog('----------- ' + FLatestMsg);
-          Result := False;
-          Exit;
+          if not AddBackgroundBitmapToWorkerArchives(ListOfFindSubControlProperties.Values['ImageSource'],
+                                                     ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
+                                                     ListOfFindSubControlProperties.Values['SourceFileName'],
+                                                     BkSize) then
+          begin
+            FLatestMsg := 'Error loading background bitmap as stream.';
+            AddToLog('----------- ' + FLatestMsg);
+            Result := False;
+            Exit;
+          end;
+
+          AddBitmapsToWorkerArchives;
+        finally
+          CloseWorkerArchives;
         end;
 
-        AddBitmapsToWorkerArchives;
-        CloseWorkerArchives;
+        AddToLog('-----------');
+        AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
+        AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
+
 
         if Length(AllWorkers) > 0 then
         begin
+          SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
+          BkArchiveStream.Position := 0;
+          BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
+
+          if BkArchiveStream.Size = 0 then
+            BkArchiveStream.Write(string('1'), 1);  //prevent division by 0
+
+          AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                             '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                            '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
+
           for i := 0 to Length(AllWorkers) - 1 do
           begin
             SetLength(TempBkStr, AllWorkers[i].ArchiveStream.Size);
@@ -2106,11 +2281,8 @@ var
             if AllWorkers[i].ArchiveStream.Size = 0 then
               AllWorkers[i].ArchiveStream.Write(string('1'), 1);  //prevent division by 0
 
-            AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
-            AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(AllWorkers[i].ArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / AllWorkers[i].ArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(AllWorkers[i].CompressionTime / 1000, ffNumber, 15, 3) + 's.');
-
             AllWorkers[i].WorkerActionContentStr := ActionContentStr +
-                                '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - CFindSubControlTimeoutDiff)) +
+                                '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - FindSubControlTimeoutDiff)) +
                                 '&' + AllWorkers[i].WorkerSpecificTask
                                     + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                                 '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
@@ -2134,6 +2306,9 @@ var
           FreeAndNil(AllWorkers[i].Archive);
           //FreeAndNil(AllWorkers[i].ResponseBitmapStream); //do not destroy here
         end;
+
+        FreeAndNil(BkArchiveStream);
+        FreeAndNil(BkArchive);
       end;
     finally
       ListOfFindSubControlProperties.Free;
@@ -2221,10 +2396,15 @@ begin
 
       WorkerQoS := StrToIntDef(PluginSettings.ValueFromIndex[CWorkerQoSPropertyIndex], 2);
       WorkerQoS := Min(Max(WorkerQoS, 1), 2);  //limited to 1..2
+
       GetWorkerCapabilitiesTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CGetWorkerCapabilitiesTimeoutPropertyIndex], 2);
       GetWorkerCapabilitiesTimeout := Min(Max(GetWorkerCapabilitiesTimeout, 50), 60000);  //limited to 50..60000
+
       FindSubControlWorkerTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlWorkerTimeoutPropertyIndex], 2);
       FindSubControlWorkerTimeout := Min(Max(FindSubControlWorkerTimeout, 50), 60000);  //limited to 50..60000
+
+      FindSubControlTimeoutDiff := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlTimeoutDiffPropertyIndex], 2500);
+      FindSubControlTimeoutDiff := Min(Max(FindSubControlTimeoutDiff, 1500), 60000);  //limited to 50..60000
 
       SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
 

@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 23;
+  CAdditionalPropertiesCount = 24;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -44,24 +44,27 @@ const
   CWorkerQoSPropertyIndex = 4;
   CGetWorkerCapabilitiesTimeoutPropertyIndex= 5;
   CFindSubControlWorkerTimeoutPropertyIndex = 6;
-  CWorkerCapabilitiesSourcePropertyIndex = 7;
-  CLoadWorkerCapabilitiesCacheActionPropertyIndex = 8;
-  CSaveWorkerCapabilitiesCacheActionPropertyIndex = 9;
+  CFindSubControlTimeoutDiffPropertyIndex = 7;
+  CWorkerCapabilitiesSourcePropertyIndex = 8;
+  CLoadWorkerCapabilitiesCacheActionPropertyIndex = 9;
+  CSaveWorkerCapabilitiesCacheActionPropertyIndex = 10;
 
-  CTextRenderingOSPropertyIndex = 10;
-  CListOfMultiValuePropertyNamesPropertyIndex = 11;
-  CUseCompressionPropertyIndex = 12;
-  CCompressionAlgorithmPropertyIndex = 13;
+  CTextRenderingOSPropertyIndex = 11;
+  CListOfMultiValuePropertyNamesPropertyIndex = 12;
+  CUseCompressionPropertyIndex = 13;
+  CCompressionAlgorithmPropertyIndex = 14;
 
-  CLzmaEndOfStreamPropertyIndex = 14; //EOS
-  CLzmaAlgorithmPropertyIndex = 15;
-  CLzmaNumBenchMarkPassesPropertyIndex = 16;
-  CLzmaDictionarySizePropertyIndex = 17;
-  CLzmaMatchFinderPropertyIndex = 18;
-  CLzmaLiteralContextPropertyIndex = 19;
-  CLzmaLiteralPosBitsPropertyIndex = 20;
-  CLzmaPosBitsPropertyIndex = 21;
-  CLzmaFastBytesPropertyIndex = 22;
+  CLzmaEndOfStreamPropertyIndex = 15; //EOS
+  CLzmaAlgorithmPropertyIndex = 16;
+  CLzmaNumBenchMarkPassesPropertyIndex = 17;
+  CLzmaDictionarySizePropertyIndex = 18;
+  CLzmaMatchFinderPropertyIndex = 19;
+  CLzmaLiteralContextPropertyIndex = 20;
+  CLzmaLiteralPosBitsPropertyIndex = 21;
+  CLzmaPosBitsPropertyIndex = 22;
+  CLzmaFastBytesPropertyIndex = 23;
+
+  CVariablesForWorkersPropertyIndex = 24;
 
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
@@ -70,6 +73,7 @@ const
   CWorkerQoSPropertyName = 'WorkerQoS';  //QoS between plugin and workers
   CGetWorkerCapabilitiesTimeoutPropertyName = 'GetWorkerCapabilitiesTimeout';  //waiting timeout for every worker to present its capabilites
   CFindSubControlWorkerTimeoutPropertyName = 'FindSubControlWorkerTimeout'; //waiting timeout for every worker processing
+  CFindSubControlTimeoutDiffPropertyName = 'FindSubControlTimeoutDiff';
   CWorkerCapabilitiesSourcePropertyName = 'WorkerCapabilitiesSource';
   CLoadWorkerCapabilitiesCacheActionPropertyName = 'LoadWorkerCapabilitiesCacheAction';  //can be a "LoadSetVarFromFile", a "CallTemplate" etc.
   CSaveWorkerCapabilitiesCacheActionPropertyName = 'SaveWorkerCapabilitiesCacheAction';  //can be a "SaveSetVarToFile", a "CallTemplate" etc.
@@ -101,6 +105,7 @@ const
     CWorkerQoSPropertyName,
     CGetWorkerCapabilitiesTimeoutPropertyName,
     CFindSubControlWorkerTimeoutPropertyName,
+    CFindSubControlTimeoutDiffPropertyName,
     CWorkerCapabilitiesSourcePropertyName,
     CLoadWorkerCapabilitiesCacheActionPropertyName,
     CSaveWorkerCapabilitiesCacheActionPropertyName,
@@ -135,6 +140,7 @@ const
     'SpinText',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     'TextWithArrow', //GetWorkerCapabilitiesTimeout
     'TextWithArrow', //FindSubControlWorkerTimeout
+    'SpinText',      //FindSubControlTimeoutDiff
     'EnumCombo',     //WorkerCapabilitiesSource
     'TextWithArrow', //LoadWorkerCapabilitiesCacheAction
     'TextWithArrow', //SaveWorkerCapabilitiesCacheAction
@@ -165,6 +171,7 @@ const
     CDTInteger,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     CDTInteger, //GetWorkerCapabilitiesTimeout
     CDTInteger, //FindSubControlWorkerTimeout
+    CDTInteger, //FindSubControlTimeoutDiff
     CDTEnum,    //WorkerCapabilitiesSource
     CDTString,  //LoadWorkerCapabilitiesCacheAction
     CDTString,  //SaveWorkerCapabilitiesCacheAction
@@ -196,6 +203,7 @@ const
     0,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     0, //GetWorkerCapabilitiesTimeout
     0, //FindSubControlWorkerTimeout
+    0, //FindSubControlTimeoutDiff
     3, //'EnumCombo',     //WorkerCapabilitiesSource
     0, //LoadWorkerCapabilitiesCacheAction
     0, //SaveWorkerCapabilitiesCacheAction
@@ -227,6 +235,7 @@ const
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
+    '', //FindSubControlTimeoutDiff
     'wcsReqCapAndFindSubControl' + #4#5 + 'wcsReqCapAndUpdateCache' + #4#5 + 'wcsLoadCacheAndFindSubControl', //WorkerCapabilitiesSource
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
@@ -257,7 +266,8 @@ const
     'Port number of the MQTT broker, where this plugin connects to.',      //Port
     'Quality of service, used by MQTT communication. Can be 1 or 2.',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     'Timeout in ms, until the plugin no longer waits for all workers to present their capabilities.' + #4#5 + 'Workers which miss this timeout won''t receive work.',
-    'Timeout in ms, until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.' + #4#5 + 'The actual FindSubControl action is configured to have a timeout, 1500ms less than this worker waiting timeout.' + #4#5 + 'For example, on a 2000ms FindSubControlWorkerTimeout, the FindSubControl action has only 500ms.' + #4#5 + 'To prevent negative values, the FindSubControl action will have a minimum of 100ms.', //FindSubControlWorkerTimeout
+    'Timeout in ms, until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.' + #4#5 + 'The actual FindSubControl action is configured to have a timeout, e.g. 1500ms less than this worker waiting timeout.' + #4#5 + 'For example, on a 2000ms FindSubControlWorkerTimeout, the FindSubControl action has only 500ms.' + #4#5 + 'To prevent negative values, the FindSubControl action will have a minimum of 100ms.', //FindSubControlWorkerTimeout
+    'Difference between plugin timeout and the actual FindSubControl execution timeout.' + #4#5 + 'Default value: 2500.', //FindSubControlTimeoutDiff
     '- When set to wcsReqCapAndFindSubControl, the plugin requests capabilities from workers, then it requests the FindSubControl operation.' + #4#5 + '- When set to wcsReqCapAndUpdateCache, the plugin requests capabilities from workers, then it executes the action configured to SaveWorkerCapabilitiesCacheAction.' + #4#5 + '- When set to wcsLoadCacheAndFindSubControl, the plugin executes the action configured to LoadWorkerCapabilitiesCacheAction, then it requests the FindSubControl operation.', //WorkerCapabilitiesSource
     'Name of a "LoadSetVarFromFile", "CallTemplate" or "Plugin" action, which loads the worker capabilities into specific variables.', //LoadWorkerCapabilitiesCacheAction
     'Name of a "SaveSetVarToFile", "CallTemplate" or "Plugin" action, which saves the worker capabilities into specific variables.', //SaveWorkerCapabilitiesCacheAction
@@ -277,7 +287,7 @@ const
     'Default value: 2.',     //LzmaPosBitsPropertyName,
     'Default value: 128. Valid range: [5, 273].' + #4#5 + 'E.g.: A value of 273 gives the best compression. A value of 5 results in the fastest compression.',   //LzmaFastBytesPropertyName
 
-    'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.'//VariablesForWorkers
+    'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.'   //VariablesForWorkers
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -289,6 +299,7 @@ const
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
+    '', //FindSubControlTimeoutDiff
     '', //WorkerCapabilitiesSource                                   [7]
     'PropertyValue[7]==wcsLoadCacheAndFindSubControl', //LoadWorkerCapabilitiesCacheAction   [8]
     'PropertyValue[7]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [9]
@@ -308,7 +319,7 @@ const
     'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaPosBitsPropertyName,
     'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaFastBytesPropertyName
 
-    '' //VariablesForWorkers
+    ''  //VariablesForWorkers
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -318,8 +329,9 @@ const
     '127.0.0.1', //Address
     '1883',      //Port
     '1',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
-    '500', //GetWorkerCapabilitiesTimeout
+    '500',  //GetWorkerCapabilitiesTimeout
     '2000', //FindSubControlWorkerTimeout
+    '2500', //FindSubControlTimeoutDiff
     'wcsReqCapAndFindSubControl', //WorkerCapabilitiesSource
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
@@ -338,7 +350,7 @@ const
     '0', //LzmaLiteralPosBitsPropertyName,
     '0', //LzmaPosBitsPropertyName,
     '5', //LzmaFastBytesPropertyName
-    '$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$'  //VariablesForWorkers
+    '$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$'   //VariablesForWorkers
   );
 
 

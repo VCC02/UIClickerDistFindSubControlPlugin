@@ -192,7 +192,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   end
   object tmrProcessRecData: TTimer
     Enabled = False
-    Interval = 10
+    Interval = 1
     OnTimer = tmrProcessRecDataTimer
     Left = 452
     Top = 124

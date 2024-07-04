@@ -48,8 +48,16 @@ const
   CTopicName_AppToWorker_GetCapabilities = 'AppToWorker_GetCapabilities';  //request to workers
   CTopicName_WorkerToApp_GetCapabilities = 'WorkerToApp_GetCapabilities';  //response from workers
 
+  CTopicName_AppToWorker_SendBackground = 'AppToWorker_SendBackground';    //request to workers
+  CTopicName_WorkerToApp_SendBackground = 'WorkerToApp_SendBackground';    //response from workers
+
   CTopicName_AppToWorker_FindSubControl = 'AppToWorker_FindSubControl';    //request to workers
   CTopicName_WorkerToApp_FindSubControl = 'WorkerToApp_FindSubControl';    //response from workers
+
+  CCallbackID_GetCapabilities = 0;
+  CCallbackID_SendBackgroundToAll = 1;
+  CCallbackID_SendBackgroundToSome = 2;
+  CCallbackID_SendFindSubControl = 3;
 
   CCompressionAlgorithms: array[TCompressionAlgorithm] of string = ('Zlib', 'Lzma');
 
@@ -66,6 +74,7 @@ const
   CBackgroundFileNameInArchive = '_:\Background.bmp'; //a name which cannot be used as OS's file system
   CBackgroundFileNameForUIClicker = 'Background.bmp';
   CResultFileNameInArchive = 'Result.bmp';
+  CBackgroundOKResponse = 'Done';
 
   CVarsForWorkersInArchive_Names = 'VarsForWorkers_Names.txt';
   CVarsForWorkersInArchive_Values = 'VarsForWorkers_Values.txt';
@@ -73,7 +82,7 @@ const
   //There is a verification in ProcessFindSubControlRequest procedure about avoiding these files. Please add the new filename if that's the case.
 
                                //original value: 1500
-  CFindSubControlTimeoutDiff = 1500; //Difference between plugin timeout and the actual FindSubControl action timeout. This is available for compressing, decompressing and transmission (Main_UIClicker.plugin <-> broker <-> worker <-> Dest.UIClicker)
+  //CFindSubControlTimeoutDiff = 2500; //Difference between plugin timeout and the actual FindSubControl action timeout. This is available for compressing, decompressing and transmission (Main_UIClicker.plugin <-> broker <-> worker <-> Dest.UIClicker)
   CMinFindSubControlActionTimeout = 100; //Minimum FindSubControl action timeout, set as default in case the computed one results in a a smaller value. This means that the destination UIClicker should still have at least this value as action timeout. Greater values may lead to successful processing of FindSubControl, but failed plugin action (because of total plugin timeout).
                                          //Please update the FindSubControlWorkerTimeout property hint (on CPluginHints constant) if modifying these values.
 

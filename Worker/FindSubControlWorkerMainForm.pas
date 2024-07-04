@@ -132,7 +132,7 @@ type
   TResponseArr = array of TResponse;
 
 var
-  AssignedClientID, TopicWithWorkerName: string;
+  AssignedClientID, TopicWithWorkerName_Background, TopicWithWorkerName_FindSubControl: string;
   Responses: TResponseArr;
 
 
@@ -308,7 +308,9 @@ begin
 
   AssignedClientID := StringReplace(DynArrayOfByteToString(AConnAckProperties.AssignedClientIdentifier), #0, '#0', [rfReplaceAll]);
   frmFindSubControlWorkerMain.lbeClientID.Text := AssignedClientID;
-  TopicWithWorkerName := CTopicName_AppToWorker_FindSubControl + '_' + AssignedClientID;
+
+  TopicWithWorkerName_Background := CTopicName_AppToWorker_SendBackground + '_' + AssignedClientID;
+  TopicWithWorkerName_FindSubControl := CTopicName_AppToWorker_FindSubControl + '_' + AssignedClientID;
 
   frmFindSubControlWorkerMain.AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
   frmFindSubControlWorkerMain.AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
@@ -369,16 +371,31 @@ begin
   Result := FillIn_SubscribePayload(CTopicName_AppToWorker_GetCapabilities, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
   begin
-    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add "GetCapabilities" TopicFilters.');
+    Exit;
+  end;
+                                    //CTopicName_AppToWorker_SendBackground is a common subscription
+  Result := FillIn_SubscribePayload(CTopicName_AppToWorker_SendBackground, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add "Background" TopicFilters.');
+    Exit;
+  end;
+                                  //TopicWithWorkerName_Background is an individual subscription
+  Result := FillIn_SubscribePayload(TopicWithWorkerName_Background, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add "Background" TopicFilters.');
     Exit;
   end;
 
-  Result := FillIn_SubscribePayload(TopicWithWorkerName, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  Result := FillIn_SubscribePayload(TopicWithWorkerName_FindSubControl, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
   begin
-    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters.');
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add "FindSubControl" TopicFilters.');
     Exit;
   end;
+
   //
   //Result := FillIn_SubscribePayload('MoreExtra_' + frmFindSubControlWorkerMain.lbeTopicName.Text, 1, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   //if not Result then
@@ -445,14 +462,28 @@ begin
     Exit;
   end;
 
-  Result := FillIn_UnsubscribePayload(TopicWithWorkerName, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  Result := FillIn_UnsubscribePayload(CTopicName_AppToWorker_SendBackground, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
   if not Result then
   begin
     frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
     Exit;
   end;
 
-  frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + TopicWithWorkerName + '"...');
+  Result := FillIn_UnsubscribePayload(TopicWithWorkerName_Background, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  Result := FillIn_UnsubscribePayload(TopicWithWorkerName_FindSubControl, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + CTopicName_AppToWorker_SendBackground + '" and "' + TopicWithWorkerName_Background + '" and "' + TopicWithWorkerName_FindSubControl + '"...');
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
 end;
@@ -515,7 +546,12 @@ begin
     begin
       Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
              ProcessResponse(ACallbackID shr 8);
+    end;
 
+    3:
+    begin
+      Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
+             ProcessResponse(ACallbackID shr 8);
     end;
 
     else
@@ -529,7 +565,8 @@ begin
 
   case ACallbackID of
     0: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_GetCapabilities, APublishFields.TopicName);
-    1: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_FindSubControl, APublishFields.TopicName);
+    1: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_SendBackground, APublishFields.TopicName);
+    3: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_FindSubControl, APublishFields.TopicName);
     else
       Result := Result and StringToDynArrayOfByte(CMQTT_Worker_UnhandledRequest, APublishFields.TopicName);
   end;
@@ -799,11 +836,31 @@ begin
 end;
 
 
-function ProcessFindSubControlRequest(AAppMsg: string; out AResponse, AErrMsg: string): Boolean;
 const
   CImageSourceRawContentParam: string = '&' + CProtocolParam_ImageSourceRawContent + '=';
+
+
+procedure DecodeArchiveFromRequest(var AAppMsg: string; out ABmpStr, ACompressionAlgorithm: string; out AUsingCompression: Boolean);
 var
   PosImageSourceRawContent: Integer;
+begin
+  PosImageSourceRawContent := Pos(CImageSourceRawContentParam, AAppMsg);
+  ABmpStr := Copy(AAppMsg, PosImageSourceRawContent + Length(CImageSourceRawContentParam), MaxInt);
+
+  AUsingCompression := Copy(AAppMsg, Pos('&' + CProtocolParam_UsingCompression + '=', AAppMsg) + Length('&' + CProtocolParam_UsingCompression + '='), 1) = '1';
+  ACompressionAlgorithm := Copy(AAppMsg, Pos('&' + CProtocolParam_CompressionAlgorithm + '=', AAppMsg) + Length('&' + CProtocolParam_CompressionAlgorithm + '='), 30);  //assumes the name of the algorithm is not longer than 30
+  ACompressionAlgorithm := Copy(ACompressionAlgorithm, 1, Pos('&', ACompressionAlgorithm) - 1);
+
+  AAppMsg := Copy(AAppMsg, 1, PosImageSourceRawContent - 1); //discard archive
+
+  //frmFindSubControlWorkerMain.AddToLog('ABmpStr: ' + FastReplace_0To1(ABmpStr));
+  //frmFindSubControlWorkerMain.AddToLog('=============== UsingCompression: ' + BoolToStr(AUsingCompression, 'True', 'False'));
+  //frmFindSubControlWorkerMain.AddToLog('=============== CompressionAlgorithm: ' + ACompressionAlgorithm);
+end;
+
+
+function ProcessSendBackgroundRequest(AAppMsg: string; out AResponse, AErrMsg: string): Boolean;
+var
   BmpStr: string;
   UsingCompression: Boolean;
   CompressionAlgorithm: string;
@@ -812,26 +869,12 @@ var
   TempArchiveHandlers: TArchiveHandlers;
   tk: QWord;
   CmdResult: string;
-  i: Integer;
-  ListOfArchiveFiles: TStringList;
-  TempResponseArchiveStr: string;
 begin
-  AResponse := '$ExecAction_Err$=Unprocessed FindSubControl request.';
   AErrMsg := '';
+  AResponse := '$ExecAction_Err$=' + CBackgroundOKResponse;
   Result := True;
 
-  PosImageSourceRawContent := Pos(CImageSourceRawContentParam, AAppMsg);
-  BmpStr := Copy(AAppMsg, PosImageSourceRawContent + Length(CImageSourceRawContentParam), MaxInt);
-
-  UsingCompression := Copy(AAppMsg, Pos('&' + CProtocolParam_UsingCompression + '=', AAppMsg) + Length('&' + CProtocolParam_UsingCompression + '='), 1) = '1';
-  CompressionAlgorithm := Copy(AAppMsg, Pos('&' + CProtocolParam_CompressionAlgorithm + '=', AAppMsg) + Length('&' + CProtocolParam_CompressionAlgorithm + '='), 30);  //assumes the name of the algorithm is not longer than 30
-  CompressionAlgorithm := Copy(CompressionAlgorithm, 1, Pos('&', CompressionAlgorithm) - 1);
-
-  AAppMsg := Copy(AAppMsg, 1, PosImageSourceRawContent - 1); //discard archive
-
-  //frmFindSubControlWorkerMain.AddToLog('BmpStr: ' + FastReplace_0To1(BmpStr));
-  //frmFindSubControlWorkerMain.AddToLog('=============== UsingCompression: ' + BoolToStr(UsingCompression, 'True', 'False'));
-  //frmFindSubControlWorkerMain.AddToLog('=============== CompressionAlgorithm: ' + CompressionAlgorithm);
+  DecodeArchiveFromRequest(AAppMsg, BmpStr, CompressionAlgorithm, UsingCompression);
 
   MemStream := TMemoryStream.Create;
   DecompressedStream := TMemoryStream.Create;
@@ -863,7 +906,7 @@ begin
         tk := GetTickCount64 - tk;
         try
           TempMemArchive.ExtractToStream(CBackgroundFileNameInArchive, DecompressedStream);
-          AddToLog('Decompressed archive in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size) + '  Background decompressed size: ' + IntToStr(DecompressedStream.Size));
+          AddToLog('Decompressed archive with background in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size) + '  Background decompressed size: ' + IntToStr(DecompressedStream.Size));
 
           SaveBackgroundBmpToInMemFS(DecompressedStream);
 
@@ -881,6 +924,77 @@ begin
             Result := False;
             Exit;
           end;
+        finally
+          TempMemArchive.CloseArchive;
+        end;
+      except
+        on E: Exception do
+        begin
+          frmFindSubControlWorkerMain.AddToLog('Error working with received archive: "' + E.Message + '"  MemStream.Size = ' + IntToStr(MemStream.Size));
+          /////////////////// Set result to False
+        end;
+      end;
+    finally
+      TempArchiveHandlers.Free;
+      TempMemArchive.Free;
+    end;
+  finally
+    MemStream.Free;
+    DecompressedStream.Free;
+  end;
+end;
+
+
+function ProcessFindSubControlRequest(AAppMsg: string; out AResponse, AErrMsg: string): Boolean;
+var
+  BmpStr: string;
+  UsingCompression: Boolean;
+  CompressionAlgorithm: string;
+  MemStream, DecompressedStream: TMemoryStream;
+  TempMemArchive: TMemArchive;
+  TempArchiveHandlers: TArchiveHandlers;
+  tk: QWord;
+  CmdResult: string;
+  i: Integer;
+  ListOfArchiveFiles: TStringList;
+  TempResponseArchiveStr: string;
+begin
+  AResponse := '$ExecAction_Err$=Unprocessed FindSubControl request.';
+  AErrMsg := '';
+  Result := True;
+
+  DecodeArchiveFromRequest(AAppMsg, BmpStr, CompressionAlgorithm, UsingCompression);
+
+  MemStream := TMemoryStream.Create;
+  DecompressedStream := TMemoryStream.Create;
+  try
+    MemStream.SetSize(Length(BmpStr));
+    MemStream.Write(BmpStr[1], Length(BmpStr));
+    MemStream.Position := 0;
+
+    TempMemArchive := TMemArchive.Create;
+    TempArchiveHandlers := TArchiveHandlers.Create;
+    try
+      TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+
+      TempMemArchive.OnCompress := @TempArchiveHandlers.HandleOnCompress;
+      TempMemArchive.OnDecompress := @TempArchiveHandlers.HandleOnDecompress;
+      TempMemArchive.OnComputeArchiveHash := @TempArchiveHandlers.HandleOnComputeArchiveHash;
+
+      if UsingCompression then
+      begin
+        TempMemArchive.CompressionLevel := 9;
+        TempArchiveHandlers.CompressionAlgorithm := CompressionAlgorithmsStrToType(CompressionAlgorithm);
+      end
+      else
+        TempMemArchive.CompressionLevel := 0;
+
+      try
+        tk := GetTickCount64;
+        TempMemArchive.OpenArchive(MemStream, False);
+        tk := GetTickCount64 - tk;
+        try
+          AddToLog('Decompressed archive with bitmaps in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size));
 
           CmdResult := SendVarsToWorkers(TempMemArchive);
           frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker. Response: ' + CmdResult);
@@ -957,7 +1071,6 @@ begin
 
   AResponse := AResponse + CProtocolParam_ResponseArchiveSize + '=' + IntToStr(Length(TempResponseArchiveStr)) + #13#10;
   AResponse := AResponse {+ #8#7} + CProtocolParam_ResultImageArchive + '=' + TempResponseArchiveStr;
-
 end;
 
 
@@ -997,14 +1110,31 @@ begin
       frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities');
   end;
 
-  if Topic = TopicWithWorkerName then
+  if (Topic = TopicWithWorkerName_Background) or (Topic = CTopicName_AppToWorker_SendBackground) then  //common and individual subscriptions
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Sending background image');
+    ProcessSendBackgroundRequest(Msg, ProcResponse, ProcErrMsg);
+
+    frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+
+    ResponseIndex := AddItemToResponses(ProcResponse);
+    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+    begin
+      if ProcErrMsg = '' then
+        ProcErrMsg := 'Cannot respond with SendBackground result.';
+
+      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+    end;
+  end;
+
+  if Topic = TopicWithWorkerName_FindSubControl then
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)    //////////////////// start rendering
     frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
 
     ProcessFindSubControlRequest(Msg, TempFindSubControlResponse, ProcErrMsg);
     ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
-    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+    if not MQTT_PUBLISH(ClientInstance, 3 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
     begin
       if ProcErrMsg = '' then
         ProcErrMsg := 'Cannot respond with FindSubControl result.';
