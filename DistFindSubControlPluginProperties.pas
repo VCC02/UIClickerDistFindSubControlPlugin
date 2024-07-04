@@ -299,25 +299,25 @@ const
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
-    '', //FindSubControlTimeoutDiff
-    '', //WorkerCapabilitiesSource                                   [7]
-    'PropertyValue[7]==wcsLoadCacheAndFindSubControl', //LoadWorkerCapabilitiesCacheAction   [8]
-    'PropertyValue[7]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [9]
+    '', //FindSubControlTimeoutDiff                                  [7]
+    '', //WorkerCapabilitiesSource                                   [8]
+    'PropertyValue[8]==wcsLoadCacheAndFindSubControl', //LoadWorkerCapabilitiesCacheAction   [9]
+    'PropertyValue[8]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [10]
 
     '', //'EnumCombo',     //TextRenderingOS    - EnumCombo cannot be used until the plugin API allows defining property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     '', //ListOfMultiValue
-    '', //UseCompression    //this is  [12]
-    'PropertyValue[12]==True',  //CompressionAlgorithm    //this is  [13]
+    '', //UseCompression    //this is  [13]
+    'PropertyValue[13]==True',  //CompressionAlgorithm    //this is  [14]
 
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaEndOfStreamPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaAlgorithmPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaDictionarySizePropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaMatchFinderPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaLiteralContextPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaLiteralPosBitsPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaPosBitsPropertyName,
-    'PropertyValue[12]==True' + #5#6 + 'PropertyValue[13]==Lzma',  //LzmaFastBytesPropertyName
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaEndOfStreamPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaAlgorithmPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaDictionarySizePropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaMatchFinderPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaLiteralContextPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaLiteralPosBitsPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaPosBitsPropertyName,
+    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaFastBytesPropertyName
 
     ''  //VariablesForWorkers
   );

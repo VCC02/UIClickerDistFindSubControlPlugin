@@ -70,6 +70,54 @@ type
 
   TWorkerArr = array of TWorker;
 
+  TMQTTReceiveThread = class(TThread)
+  private
+    FDone: Boolean;
+    procedure AddMsgToLog(s: string);
+  protected
+    procedure Execute; override;
+  end;
+
+
+  TFSM = (SInit, SConnectToBroker, SWaitForConAck,
+          SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
+          SRequestCapabilities, SWaitForCapabilitiesResponse,
+          SGetFindSubControlActionContent,
+          SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
+          SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
+          SDisconnectFromBroker,
+          SDone
+         );
+
+  TPluginMQTTClientHandlers = class(TComponent)
+  private
+    tmrProcessRecData: TTimer;
+
+    procedure tmrProcessRecDataTimer(Sender: TObject);
+
+    procedure HandleClientOnConnected(Sender: TObject);
+    procedure HandleClientOnDisconnected(Sender: TObject);
+  public
+    constructor Create(AOwner: TComponent); override;
+  end;
+
+  TExHandler = class
+    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
+  end;
+
+
+const
+  CFSMStr: array[TFSM] of string = (
+          'SInit', 'SConnectToBroker', 'SWaitForConAck',
+          'SSubscribeToResponses', 'SWaitForResponsesSubAck',
+          'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
+          'SGetFindSubControlActionContent',
+          'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
+          'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
+          'SDisconnectFromBroker',
+          'SDone'
+          );
+
 var
   IdTCPClient1: TIdTCPClient;
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
@@ -100,6 +148,13 @@ var
   FindSubControlWorkerTimeout: Integer;
   FSMError: string;
   FindSubControlTimeoutDiff: Integer;
+
+  RecTh: TMQTTReceiveThread;
+
+  State, NextState: TFSM;
+  tk: QWord; //used for timeouts
+
+  FExHandler: TExHandler;
 
 
 procedure AddToLog(AMsg: string);  //thread safe
@@ -919,16 +974,6 @@ begin
 end;
 
 
-type
-  TMQTTReceiveThread = class(TThread)
-  private
-    FDone: Boolean;
-    procedure AddMsgToLog(s: string);
-  protected
-    procedure Execute; override;
-  end;
-
-
 procedure TMQTTReceiveThread.AddMsgToLog(s: string);
 begin
   AddToLog(s);
@@ -993,6 +1038,7 @@ begin
             AddToLog('Cannot allocate buffer when reading. TempReadBuf.Len = ' + IntToStr(TempReadBuf.Len));
             MessageBoxFunction('Cannot allocate buffer when reading.', 'th_', 0);
             FreeDynArray(TempReadBuf);
+            Sleep(1000);
           end
           else
           begin
@@ -1018,6 +1064,7 @@ begin
                     AddToLog('Out of memory on allocating TempReadBuf, for multiple bytes.');
                     MessageBoxFunction('Cannot allocate buffer when reading multiple bytes.', 'th_', 0);
                     FreeDynArray(TempReadBuf);
+                    Sleep(1000);
                   end
                   else
                   begin
@@ -1075,9 +1122,6 @@ begin
 end;
 
 
-var
-  RecTh: TMQTTReceiveThread;
-
 
 function GetAPIVersion: DWord; cdecl;
 begin
@@ -1127,21 +1171,6 @@ begin
 end;
 
 
-
-type
-  TPluginMQTTClientHandlers = class(TComponent)
-  private
-    tmrProcessRecData: TTimer;
-
-    procedure tmrProcessRecDataTimer(Sender: TObject);
-
-    procedure HandleClientOnConnected(Sender: TObject);
-    procedure HandleClientOnDisconnected(Sender: TObject);
-  public
-    constructor Create(AOwner: TComponent); override;
-  end;
-
-
 constructor TPluginMQTTClientHandlers.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -1163,7 +1192,10 @@ begin
     ProcessReceivedBuffer;
   except
     on E: Exception do
+    begin
       AddToLog('_________________ Ex on processing received data: ' + E.Message);
+      Sleep(1000); //this loop is pretty fast, so slow it to the point where the user can manually stop the process
+    end;
   end;
 end;
 
@@ -1271,16 +1303,6 @@ begin
 end;
 
 
-
-type
-  TExHandler = class
-    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
-  end;
-
-var
-  FExHandler: TExHandler;
-
-
 //see https://wiki.freepascal.org/Logging_exceptions
 procedure TExHandler.CustomExceptionHandler(Sender: TObject; E: Exception);
 var
@@ -1386,33 +1408,6 @@ begin
   end;
 end;
 
-
-type
-  TFSM = (SInit, SConnectToBroker, SWaitForConAck,
-          SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
-          SRequestCapabilities, SWaitForCapabilitiesResponse,
-          SGetFindSubControlActionContent,
-          SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
-          SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
-          SDisconnectFromBroker,
-          SDone
-         );
-
-const
-  CFSMStr: array[TFSM] of string = (
-          'SInit', 'SConnectToBroker', 'SWaitForConAck',
-          'SSubscribeToResponses', 'SWaitForResponsesSubAck',
-          'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
-          'SGetFindSubControlActionContent',
-          'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
-          'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
-          'SDisconnectFromBroker',
-          'SDone'
-          );
-
-var
-  State, NextState: TFSM;
-  tk: QWord; //used for timeouts
 
 procedure ExecFSM_Part1;
 var
@@ -1727,11 +1722,6 @@ begin
 end;
 
 
-var
-  UsingCompression: Boolean;
-  PluginSettings: TStringList;
-
-
 function ExecutePlugin(APluginReference: Pointer;
                        AListOfPluginSettings: Pointer;
                        AListOfPluginSettingsLen: PDWord;
@@ -1758,6 +1748,8 @@ var
   s: string;
   ActionTypeDWord: DWord;
   ActionType: TClkAction;
+  UsingCompression: Boolean;
+  PluginSettings: TStringList;
 
   procedure SetTemplateVar(AVarName, AVarValue: string);
   begin
@@ -2443,7 +2435,13 @@ begin
               end;
             end;
 
-            Application.ProcessMessages;
+            try
+              Application.ProcessMessages;
+            except
+              on E: Exception do
+                AddToLog('-----------  Ex on FSM loop: ' + E.Message);
+            end;
+
             Sleep(1);
           until FSMDone;
 
