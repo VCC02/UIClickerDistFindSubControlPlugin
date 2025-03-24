@@ -1962,29 +1962,40 @@ var
     BkFileNameLocation: TImageSourceFileNameLocation;
     BkHash: string;
   begin
-    if AImageSource = '1' then //isFile
-    begin
-      BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+    ABackgroundSize := -2; //init with something
 
-      AddToLog('----------- loading background bitmap as stream and adding it to archive...');
-      TempBk := TMemoryStream.Create;
-      try
-        if LoadBitmapAsStream(ASourceFileName, TempBk, BkFileNameLocation) then
-        begin
-          ABackgroundSize := TempBk.Size;
-          BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
-          BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
-        end
-        else
-        begin
-          ABackgroundSize := 0;
-          Result := False;
-          Exit;
+    if AImageSource = '0' then  //isScreenshot
+    begin
+      AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
+      AOnActionPlugin_Screenshot(APluginReference, @string(PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
+      AddToLog('----------- The screenshot should be found in in-mem FS, as ' + CScreenshotFilename);
+      ASourceFileName := CScreenshotFilename;
+    end;
+
+    //  if AImageSource = '1' then //isFile
+      begin
+        BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+
+        AddToLog('----------- loading background bitmap as stream and adding it to archive...');
+        TempBk := TMemoryStream.Create;
+        try
+          if LoadBitmapAsStream(ASourceFileName, TempBk, BkFileNameLocation) then
+          begin
+            ABackgroundSize := TempBk.Size;
+            BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
+            BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
+          end
+          else
+          begin
+            ABackgroundSize := 0;
+            AddToLog('----------- LoadBitmapAsStream is False. Probably the file does not exist: ' + ASourceFileName);
+            Result := False;
+            Exit;
+          end;
+        finally
+          TempBk.Free;
         end;
-      finally
-        TempBk.Free;
-      end;
-    end;  //ListOfProperties.Values['ImageSource'] = '1'  //isFile
+      end;  //ListOfProperties.Values['ImageSource'] = '1'  //isFile
   end;
 
 
@@ -2140,7 +2151,7 @@ var
     i, WorkersIndex: Integer;
     ListOfFindSubControlProperties, ListOfBmps, ListOfPmtvs: TStringList;
     MaxSplitActionsCount, TxtCount: Integer;
-    DecodedAction: TClkFindControlOptions;
+    DecodedAction: TClkFindSubControlOptions;
     DecodingErr: string;
     ActionOptions: TClkActionOptions;
     TempBkStr: string;
@@ -2196,7 +2207,7 @@ var
         ListOfPmtvs.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CPmtvFiles_PropName]);
         MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfPmtvs.Count);
 
-        DecodingErr := SetFindControlActionProperties(ListOfFindSubControlProperties, True, nil, DecodedAction, ActionOptions);
+        DecodingErr := SetFindSubControlActionProperties(ListOfFindSubControlProperties, nil, DecodedAction, ActionOptions);
         if DecodingErr <> '' then
         begin
           AddToLog('--- Action decoding errror: ' + DecodingErr);
@@ -2225,7 +2236,7 @@ var
         end;
 
         TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
-        OpenWorkerArchivesForAddingBitmaps(TempArchiveHandlers);
+        OpenWorkerArchivesForAddingBitmaps(TempArchiveHandlers);   //creates new archive on BkArchiveStream
         try
           //for cropping, the following properties have to be read from ListOfFindSubControlProperties
           //InitialRectangle_Left
@@ -2248,10 +2259,14 @@ var
           CloseWorkerArchives;
         end;
 
-        AddToLog('-----------');
-        AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
-        AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
-
+        if UsingCompression then
+        begin
+          AddToLog('-----------');
+          AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
+          AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
+        end
+        else
+          AddToLog('----------- Not using compression. Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size));
 
         if Length(AllWorkers) > 0 then
         begin

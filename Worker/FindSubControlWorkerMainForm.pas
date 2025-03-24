@@ -649,7 +649,7 @@ end;
 
 function SendExecuteFindSubControlAction(AActionContent: string): string;
 var
-  TempFindSubControl: TClkFindControlOptions;
+  TempFindSubControl: TClkFindSubControlOptions;
   TempActionOptions: TClkActionOptions;
   ActionContentList: TStringList;
   ConversionResult, UIClickerAddr: string;
@@ -666,7 +666,7 @@ begin
       frmFindSubControlWorkerMain.AddToLog('=============== Did not receive a valid action timeout. Setting to minimum: ' + IntToStr(FindSubControlTimeout) + 'ms.');
     end;
 
-    ConversionResult := SetFindControlActionProperties(ActionContentList, True, @frmFindSubControlWorkerMain.AddToLog, TempFindSubControl, TempActionOptions);
+    ConversionResult := SetFindSubControlActionProperties(ActionContentList, @frmFindSubControlWorkerMain.AddToLog, TempFindSubControl, TempActionOptions);
     if ConversionResult <> '' then
     begin
       frmFindSubControlWorkerMain.AddToLog('ConversionResult: ' + ConversionResult);
