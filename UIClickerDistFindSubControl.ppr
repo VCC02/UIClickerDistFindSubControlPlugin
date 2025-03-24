@@ -1955,14 +1955,17 @@ var
   end;
 
 
-  function AddBackgroundBitmapToWorkerArchives(AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64): Boolean;
+  function AddBackgroundBitmapToWorkerArchives(AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
   var
     i: Integer;
     TempBk: TMemoryStream;
     BkFileNameLocation: TImageSourceFileNameLocation;
     BkHash: string;
+    TempBmp: TBitmap;
   begin
     ABackgroundSize := -2; //init with something
+    ABackgroundWidth := 1;
+    ABackgroundHeight := 1;
 
     if AImageSource = '0' then  //isScreenshot
     begin
@@ -1972,30 +1975,38 @@ var
       ASourceFileName := CScreenshotFilename;
     end;
 
-    //  if AImageSource = '1' then //isFile
-      begin
-        BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+    BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
 
-        AddToLog('----------- loading background bitmap as stream and adding it to archive...');
-        TempBk := TMemoryStream.Create;
+    AddToLog('----------- loading background bitmap as stream and adding it to archive...');
+    TempBk := TMemoryStream.Create;
+    try
+      if LoadBitmapAsStream(ASourceFileName, TempBk, BkFileNameLocation) then
+      begin
+        ABackgroundSize := TempBk.Size;
+        BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
+        BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
+
+        TempBmp := TBitmap.Create;
         try
-          if LoadBitmapAsStream(ASourceFileName, TempBk, BkFileNameLocation) then
-          begin
-            ABackgroundSize := TempBk.Size;
-            BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
-            BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
-          end
-          else
-          begin
-            ABackgroundSize := 0;
-            AddToLog('----------- LoadBitmapAsStream is False. Probably the file does not exist: ' + ASourceFileName);
-            Result := False;
-            Exit;
-          end;
+          TempBk.Position := 0;
+          TempBmp.LoadFromStream(TempBk);
+          ABackgroundWidth := TempBmp.Width;
+          ABackgroundHeight := TempBmp.Height;
+          AddToLog('----------- Background size: ' + IntToStr(TempBmp.Width) + ' : ' + IntToStr(TempBmp.Height));
         finally
-          TempBk.Free;
+          TempBmp.Free;
         end;
-      end;  //ListOfProperties.Values['ImageSource'] = '1'  //isFile
+      end
+      else
+      begin
+        ABackgroundSize := 0;
+        AddToLog('----------- LoadBitmapAsStream is False. Probably the file does not exist: ' + ASourceFileName);
+        Result := False;
+        Exit;
+      end;
+    finally
+      TempBk.Free;
+    end;
   end;
 
 
@@ -2157,6 +2168,7 @@ var
     TempBkStr: string;
     TempArchiveHandlers: TArchiveHandlers;
     BkSize: Int64;
+    BackgroundWidth, BackgroundHeight: Integer;
   begin
     Result := True;
 
@@ -2235,6 +2247,9 @@ var
             TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(PluginSettings);
         end;
 
+        BackgroundWidth := -3;  //Values used for debugging. Do not change.
+        BackgroundHeight := -3;
+
         TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
         OpenWorkerArchivesForAddingBitmaps(TempArchiveHandlers);   //creates new archive on BkArchiveStream
         try
@@ -2246,13 +2261,27 @@ var
           if not AddBackgroundBitmapToWorkerArchives(ListOfFindSubControlProperties.Values['ImageSource'],
                                                      ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
                                                      ListOfFindSubControlProperties.Values['SourceFileName'],
-                                                     BkSize) then
+                                                     BkSize,
+                                                     BackgroundWidth,
+                                                     BackgroundHeight) then
           begin
             FLatestMsg := 'Error loading background bitmap as stream.';
             AddToLog('----------- ' + FLatestMsg);
             Result := False;
             Exit;
           end;
+
+          if ListOfFindSubControlProperties.Values['ImageSource'] = '0' then //screenshot
+          begin
+            DecodedAction.InitialRectangle.Left := '0';
+            DecodedAction.InitialRectangle.Top := '0';
+            DecodedAction.InitialRectangle.Right := IntToStr(BackgroundWidth);        //This fixes one problem and creates another.
+            DecodedAction.InitialRectangle.Bottom := IntToStr(BackgroundHeight);      //HandleOnScreenshotByActionName , from UIClicker does extra cropping, based on InitialRectangle.<##>Offset fields.
+            ActionContentStr := GetFindSubControlActionProperties(DecodedAction);     //The screenshot should not be cropped.
+            AddToLog('Updated the search limits from the initial request, to fit the screenshot.  BackgroundWidth = ' + IntToStr(BackgroundWidth) + '  BackgroundHeight = ' + IntToStr(BackgroundHeight));
+          end
+          else
+            AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
 
           AddBitmapsToWorkerArchives;
         finally
