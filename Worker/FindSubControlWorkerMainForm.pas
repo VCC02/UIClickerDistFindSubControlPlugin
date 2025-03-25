@@ -85,9 +85,11 @@ type
     procedure tmrSubscribeTimer(Sender: TObject);
   private
     FMQTTPassword: string;
+    FPasswordFile: string;
     FLoggingFIFO: TPollingFIFO;
     FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
     FInMemFS: TInMemFileSystem;
+    FSkipSavingIni: Boolean;
 
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
@@ -106,6 +108,7 @@ type
 
     procedure LoadSettingsFromIni;
     procedure SaveSettingsToIni;
+    procedure LoadSettingsFromCmd;
   public
 
   end;
@@ -1584,6 +1587,7 @@ var
 procedure TfrmFindSubControlWorkerMain.FormCreate(Sender: TObject);
 begin
   Th := nil;
+  FSkipSavingIni := False;
   FLoggingFIFO := TPollingFIFO.Create;
   FRecBufFIFO := TPollingFIFO.Create;
   FInMemFS := TInMemFileSystem.Create;
@@ -1600,7 +1604,8 @@ var
   Err: Word;
 begin
   try
-    SaveSettingsToIni;
+    if not FSkipSavingIni then
+      SaveSettingsToIni;
   except
   end;
 
@@ -1686,6 +1691,76 @@ begin
   finally
     Ini.Free;
   end;
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.LoadSettingsFromCmd;
+var
+  i: Integer;
+begin
+  AddToLog('To display cmdline options in log, please run with the --help argument.');
+
+  i := 1;
+  repeat
+    if ParamStr(i) = '--SetBrokerAddress' then
+    begin
+      lbeAddress.Text := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + lbeAddress.Text);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--SetBrokerPort' then
+    begin
+      lbePort.Text := IntToStr(StrToIntDef(ParamStr(i + 1), 1883));
+      AddToLog(ParamStr(i) + ' ' + lbePort.Text);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--SetUIClickerPort' then
+    begin
+      lbeUIClickerPort.Text := IntToStr(StrToIntDef(ParamStr(i + 1), 33444));
+      AddToLog(ParamStr(i) + ' ' + lbeUIClickerPort.Text);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--SetBrokerPasswordFile' then
+    begin
+      FPasswordFile := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + FPasswordFile);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--SkipSavingIni' then
+    begin
+      FSkipSavingIni := True;
+
+      if (ParamStr(i + 1) = 'Yes') or (ParamStr(i + 1) = 'True') then
+      begin
+        AddToLog(ParamStr(i) + ' ' + ParamStr(i + 1));
+        Inc(i);
+      end
+      else
+        if (ParamStr(i + 1) = 'No') or (ParamStr(i + 1) = 'False') then
+        begin
+          FSkipSavingIni := False;
+          AddToLog(ParamStr(i) + ' ' + ParamStr(i + 1));
+          Inc(i);
+        end
+        else
+          AddToLog(ParamStr(i));
+    end;
+
+    if UpperCase(ParamStr(i)) = '--HELP' then
+    begin
+      AddToLog('To set the address the broker is listening on, use  --SetBrokerAddress <Address>');
+      AddToLog('To set the port the broker is listening on, use  --SetBrokerPort <Port>');
+      AddToLog('To set the port UIClicker is listening on, use  --SetUIClickerPort <Port>');
+      AddToLog('To set the full file name with the broker password, use  --SetBrokerPasswordFile <FullPathToFilename>. The password is expected to be found on the first line in the file, without any other formatting or metadata.');
+      AddToLog('To skip saving current settings to ini, use  --SkipSavingIni Yes');
+    end;
+
+    Inc(i);
+  until i >= ParamCount;
 end;
 
 
@@ -1954,8 +2029,10 @@ var
   Fnm: string;
 begin
   tmrStartup.Enabled := False;
+  FPasswordFile := ExtractFilePath(ParamStr(0)) + 'p.txt';
 
   LoadSettingsFromIni;
+  LoadSettingsFromCmd;
 
   tmrProcessLog.Enabled := True;
   tmrProcessRecData.Enabled := True;
@@ -1964,14 +2041,14 @@ begin
 
   Content := TStringList.Create;
   try
-    Fnm := ExtractFilePath(ParamStr(0)) + 'p.txt';
+    Fnm := FPasswordFile;
 
     if FileExists(Fnm) then
     begin
       Content.LoadFromFile(Fnm);
 
       if Content.Count > 0 then
-        FMQTTPassword := Content.Strings[0]
+        FMQTTPassword := Content.Strings[0];
     end
     else
       AddToLog('Password file not found. Using empty password..');
