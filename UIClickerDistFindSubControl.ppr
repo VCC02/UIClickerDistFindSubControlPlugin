@@ -138,6 +138,7 @@ var
 
   AddToLogCallback: TOnActionPlugin_AddToLog;
   ActionPlugin_InMemFSCallback: TOnActionPlugin_InMemFS;
+  GPluginReference: Pointer;
 
   FindSubControlActionPropertyValue: string;
   CredentialsFullFileNamePropertyValue: string;  //for connection to broker
@@ -189,16 +190,19 @@ begin
 end;
 
 
-procedure GetCredentialsFromInMemFS(ACredentialsFilePath: string; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; out AUsername, APassword: string);
+procedure GetCredentialsFromInMemFS(ACredentialsFilePath: string; APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; out AUsername, APassword: string);
 var
   Ini: TClkIniReadonlyFile;
   PluginInMemFS: TPluginInMemFileSystem;
   Content: TMemoryStream;
 begin
+  AddToLog('Loading credentials file from ' + ACredentialsFilePath);
+
   PluginInMemFS := TPluginInMemFileSystem.Create;
   try
     Content := TMemoryStream.Create;
     try
+      PluginInMemFS.PluginReference := APluginReference;
       if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, ACredentialsFilePath) then
       begin
         Content.SetSize(PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, ACredentialsFilePath));
@@ -208,6 +212,8 @@ begin
         try
           AUsername := Ini.ReadString('Credentials', 'Username', '');
           APassword := Ini.ReadString('Credentials', 'Password', '');
+
+          AddToLog('Username: ' + AUsername + '  Password: ' + APassword);
         finally
           Ini.Free;
         end;
@@ -338,7 +344,7 @@ begin
   //ClientId := 'MyClient' + Id;
 
   if Pos('Mem:\', CredentialsFullFileNamePropertyValue) = 1 then
-    GetCredentialsFromInMemFS(CredentialsFullFileNamePropertyValue, ActionPlugin_InMemFSCallback, UserName, Password)
+    GetCredentialsFromInMemFS(CredentialsFullFileNamePropertyValue, GPluginReference, ActionPlugin_InMemFSCallback, UserName, Password)
   else
     GetCredentials(CredentialsFullFileNamePropertyValue, UserName, Password);
 
@@ -2417,6 +2423,7 @@ begin
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
       ActionPlugin_InMemFSCallback := AOnActionPlugin_InMemFS;
+      GPluginReference := APluginReference;
 
       if FLatestMsg <> '' then
         FLatestMsg := FLatestMsg + ' +++ Error: This plugin hasn''t been unloaded successfully on previous execution.';
