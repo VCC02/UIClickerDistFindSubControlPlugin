@@ -103,6 +103,9 @@ type
     procedure ProcessReceivedBuffer;
 
     procedure InitHandlers;
+
+    procedure LoadSettingsFromIni;
+    procedure SaveSettingsToIni;
   public
 
   end;
@@ -121,7 +124,7 @@ uses
     , MemManager
   {$ENDIF}
   , DistFindSubControlCommonConsts, ClickerUtils, Types, ClickerActionProperties,
-  ClickerActionsClient, ClickerExtraUtils, MemArchive;
+  ClickerActionsClient, ClickerExtraUtils, MemArchive, ClickerIniFiles;
 
 type
   TResponse = record
@@ -1597,6 +1600,11 @@ var
   Err: Word;
 begin
   try
+    SaveSettingsToIni;
+  except
+  end;
+
+  try
     if not MQTT_DISCONNECT(0, 0) then
     begin
       AddToLog('Can''t prepare MQTTDisconnect packet.');
@@ -1624,6 +1632,59 @@ begin
     IdTCPClient1.Disconnect(False);
   finally
     MQTT_DestroyClient(0);
+  end;
+end;
+
+
+function GetIniFnm: string;
+begin
+  Result := ExtractFilePath(ParamStr(0)) + 'FindSubControlWorker.ini';
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.LoadSettingsFromIni;
+var
+  Ini: TClkIniReadonlyFile;
+  Fnm: string;
+begin
+  Fnm := GetIniFnm;
+  if not FileExists(Fnm) then
+    Exit;
+
+  Ini := TClkIniReadonlyFile.Create(Fnm);
+  try
+    Left := Ini.ReadInteger('Window', 'Left', Left);
+    Top := Ini.ReadInteger('Window', 'Top', Top);
+    Width := Ini.ReadInteger('Window', 'Width', Width);
+    Height := Ini.ReadInteger('Window', 'Height', Height);
+
+    lbeAddress.Text := Ini.ReadString('Settings', 'Address', lbeAddress.Text);
+    lbePort.Text := IntToStr(Ini.ReadInteger('Settings', 'Port', 1883));
+    lbeUIClickerPort.Text := IntToStr(Ini.ReadInteger('Settings', 'UIClickerPort', 33444));
+  finally
+    Ini.Free;
+  end;
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.SaveSettingsToIni;
+var
+  Ini: TClkIniFile;
+begin
+  Ini := TClkIniFile.Create(GetIniFnm);
+  try
+    Ini.WriteInteger('Window', 'Left', Left);
+    Ini.WriteInteger('Window', 'Top', Top);
+    Ini.WriteInteger('Window', 'Width', Width);
+    Ini.WriteInteger('Window', 'Height', Height);
+
+    Ini.WriteString('Settings', 'Address', lbeAddress.Text);
+    Ini.WriteInteger('Settings', 'Port', StrToIntDef(lbePort.Text, 1833));
+    Ini.WriteInteger('Settings', 'UIClickerPort', StrToIntDef(lbeUIClickerPort.Text, 33444));
+
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
   end;
 end;
 
@@ -1893,6 +1954,9 @@ var
   Fnm: string;
 begin
   tmrStartup.Enabled := False;
+
+  LoadSettingsFromIni;
+
   tmrProcessLog.Enabled := True;
   tmrProcessRecData.Enabled := True;
 

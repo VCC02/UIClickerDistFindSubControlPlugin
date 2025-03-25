@@ -13,7 +13,7 @@ uses
   Forms, FindSubControlWorkerMainForm, DynArrays, PollingFIFO, InMemFileSystem,
   MemArchive, MQTTClient, MQTTUtils, DistFindSubControlCommonConsts,
   ClickerUtils, ClickerActionProperties, ClickerActionsClient,
-  ClickerExtraUtils
+  ClickerExtraUtils, ClickerIniFiles
   { you can add units after this };
 
 {$R *.res}
