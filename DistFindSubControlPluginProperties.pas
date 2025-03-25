@@ -261,7 +261,7 @@ const
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
     'Name of a FindSubControl action, from the same template as this plugin, which will be sent and executed remotely.', //FindSubControlActionPropertyName
 
-    'Full file path of a ini file, containing MQTT credentials. The file has a plugin specific format.', //CredentialsFullFileName
+    'Full file path of a ini file, containing MQTT credentials. The file has a plugin specific format.' + #4#5 + 'Example:' + #4#5#4#5 + '[Credentials]' + #4#5 + 'Username=<MyUsername>' + #4#5 + 'Password=<MyPassword>' + #4#5#4#5 + 'If the path starts with "Mem:\", the file is searched in the In-Mem FS for plugins.', //CredentialsFullFileName
     'Hostname or IP address of the MQTT broker, where this plugin connects to.', //Address
     'Port number of the MQTT broker, where this plugin connects to.',      //Port
     'Quality of service, used by MQTT communication. Can be 1 or 2.',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)

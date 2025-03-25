@@ -108,6 +108,10 @@
         <Filename Value="DistFindSubControlPluginProperties.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

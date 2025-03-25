@@ -38,7 +38,8 @@ uses
   DistFindSubControlCommonConsts, ClickerIniFiles, ClickerActionProperties,
 
   ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
-  MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties;
+  MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties,
+  ClickerPluginInMemFileSystem;
 
 type
   //TStringArr = array of string;
@@ -136,6 +137,7 @@ var
   BkCompressionTime: QWord;   //for statistics only
 
   AddToLogCallback: TOnActionPlugin_AddToLog;
+  ActionPlugin_InMemFSCallback: TOnActionPlugin_InMemFS;
 
   FindSubControlActionPropertyValue: string;
   CredentialsFullFileNamePropertyValue: string;  //for connection to broker
@@ -183,6 +185,43 @@ begin
     APassword := Ini.ReadString('Credentials', 'Password', '');
   finally
     Ini.Free;
+  end;
+end;
+
+
+procedure GetCredentialsFromInMemFS(ACredentialsFilePath: string; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; out AUsername, APassword: string);
+var
+  Ini: TClkIniReadonlyFile;
+  PluginInMemFS: TPluginInMemFileSystem;
+  Content: TMemoryStream;
+begin
+  PluginInMemFS := TPluginInMemFileSystem.Create;
+  try
+    Content := TMemoryStream.Create;
+    try
+      if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, ACredentialsFilePath) then
+      begin
+        Content.SetSize(PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, ACredentialsFilePath));
+        PluginInMemFS.LoadFileFromMem(AOnActionPlugin_InMemFS, ACredentialsFilePath, Content.Memory);
+
+        Ini := TClkIniReadonlyFile.Create(Content);
+        try
+          AUsername := Ini.ReadString('Credentials', 'Username', '');
+          APassword := Ini.ReadString('Credentials', 'Password', '');
+        finally
+          Ini.Free;
+        end;
+      end
+      else
+      begin
+        AUsername := 'not found';
+        APassword := 'not found';
+      end;
+    finally
+      Content.Free;
+    end;
+  finally
+    PluginInMemFS.Free
   end;
 end;
 
@@ -297,7 +336,11 @@ begin
 
   //Id := Chr((ClientInstance and $FF) + 48);
   //ClientId := 'MyClient' + Id;
-  GetCredentials(CredentialsFullFileNamePropertyValue, UserName, Password);
+
+  if Pos('Mem:\', CredentialsFullFileNamePropertyValue) = 1 then
+    GetCredentialsFromInMemFS(CredentialsFullFileNamePropertyValue, ActionPlugin_InMemFSCallback, UserName, Password)
+  else
+    GetCredentials(CredentialsFullFileNamePropertyValue, UserName, Password);
 
   //StringToDynArrayOfByte(ClientId, AConnectFields.PayloadContent.ClientID);
   StringToDynArrayOfByte(UserName, AConnectFields.PayloadContent.UserName);
@@ -2373,6 +2416,7 @@ begin
       DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
+      ActionPlugin_InMemFSCallback := AOnActionPlugin_InMemFS;
 
       if FLatestMsg <> '' then
         FLatestMsg := FLatestMsg + ' +++ Error: This plugin hasn''t been unloaded successfully on previous execution.';
