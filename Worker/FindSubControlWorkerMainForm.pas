@@ -678,9 +678,9 @@ begin
   try
     WorkerTask.Text := StringReplace(AThisWorkerTask, '&', #13#10, [rfReplaceAll]);
 
-    //for i := Length(AFindSubControl.MatchBitmapText) - 1 downto 0 do
-    //  if WorkerTask.IndexOf('Txt_' + IntToStr(i) + '=1') = -1 then   ////////////////the index means something else
-    //    RemoveFontProfileByIndex(i, AFindSubControl);
+    for i := Length(AFindSubControl.MatchBitmapText) - 1 downto 0 do
+      if WorkerTask.IndexOf('Txt_' + IntToStr(i) + '=1') = -1 then
+        RemoveFontProfileByIndex(i, AFindSubControl);
   finally
     WorkerTask.Free;
   end;

@@ -2116,30 +2116,36 @@ var
   procedure AssignTasksToWorkers(AMaxSplitActionsCount, ATxtCount: Integer; AListOfBmps, AListOfPmtvs: TStringList);
   var
     i: Integer;
-    WorkersIndex: Integer;
+    WorkersIndex, StartIndex: Integer;
   begin
+    Randomize;
+
     if Length(AllWorkers) > 0 then
     begin
+      AddToLog('Splitting work from ' + IntToStr(AMaxSplitActionsCount) + ' (max) task(s).');
+
+      StartIndex := Random(Length(AllWorkers));
       for i := 0 to AMaxSplitActionsCount - 1 do //Length(SplitActions) - 1 do
       begin
-        WorkersIndex := i mod Length(AllWorkers);
+        //WorkersIndex := i mod Length(AllWorkers);
+        WorkersIndex := (i + StartIndex) mod Length(AllWorkers);  //simple load balancing
 
         if i < ATxtCount then
         begin
-          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Txt_' + IntToStr(AllWorkers[WorkersIndex].TxtCntW) + '=' + IntToStr(i) + '&';
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Txt_' + IntToStr(i) + '=1&';
           Inc(AllWorkers[WorkersIndex].TxtCntW);
         end;
 
         if i < AListOfBmps.Count then
         begin
-          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Bmp_' + IntToStr(AllWorkers[WorkersIndex].BmpCntW) + '=' + IntToStr(i) + '&';
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Bmp_' + IntToStr(i) + '=1&';
           AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
           Inc(AllWorkers[WorkersIndex].BmpCntW);
         end;
 
         if i < AListOfPmtvs.Count then
         begin
-          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Pmtv_' + IntToStr(AllWorkers[WorkersIndex].PmtvCntW) + '=' + IntToStr(i) + '&';
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Pmtv_' + IntToStr(i) + '=1&';
           AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
           Inc(AllWorkers[WorkersIndex].PmtvCntW);
         end;
