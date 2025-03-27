@@ -91,6 +91,7 @@ type
     FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
     FInMemFS: TInMemFileSystem;
     FSkipSavingIni: Boolean;
+    FThisWorkerTask: string;
 
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
@@ -654,7 +655,39 @@ begin
 end;
 
 
-function SendExecuteFindSubControlAction(AActionContent: string): string;
+procedure RemoveFontProfileByIndex(AIndex: Integer; var AFindSubControl: TClkFindSubControlOptions);
+var
+  i: Integer;
+begin
+  if (AIndex < 0) or (AIndex > Length(AFindSubControl.MatchBitmapText) - 1) then
+    raise Exception.Create('Index out of bounds when removing font profile.');
+
+  for i := AIndex to Length(AFindSubControl.MatchBitmapText) - 2 do
+    AFindSubControl.MatchBitmapText[i] := AFindSubControl.MatchBitmapText[i + 1];
+
+  SetLength(AFindSubControl.MatchBitmapText, Length(AFindSubControl.MatchBitmapText) - 1);
+end;
+
+
+procedure FilterOutTasksForOtherWorkers(AThisWorkerTask: string; var AFindSubControl: TClkFindSubControlOptions);
+var
+  WorkerTask: TStringList;
+  i: Integer;
+begin
+  WorkerTask := TStringList.Create;
+  try
+    WorkerTask.Text := StringReplace(AThisWorkerTask, '&', #13#10, [rfReplaceAll]);
+
+    //for i := Length(AFindSubControl.MatchBitmapText) - 1 downto 0 do
+    //  if WorkerTask.IndexOf('Txt_' + IntToStr(i) + '=1') = -1 then   ////////////////the index means something else
+    //    RemoveFontProfileByIndex(i, AFindSubControl);
+  finally
+    WorkerTask.Free;
+  end;
+end;
+
+
+function SendExecuteFindSubControlAction(AActionContent, AThisWorkerTask: string): string;
 var
   TempFindSubControl: TClkFindSubControlOptions;
   TempActionOptions: TClkActionOptions;
@@ -687,6 +720,8 @@ begin
   TempFindSubControl.ImageSource := isFile;
   TempFindSubControl.SourceFileName := CBackgroundFileNameForUIClicker;
   TempFindSubControl.ImageSourceFileNameLocation := isflMem;
+
+  FilterOutTasksForOtherWorkers(AThisWorkerTask, TempFindSubControl);
 
   UIClickerAddr := GetUIClickerAddr;
   Result := ExecuteFindSubControlAction(UIClickerAddr,
@@ -952,7 +987,7 @@ begin
 end;
 
 
-function ProcessFindSubControlRequest(AAppMsg: string; out AResponse, AErrMsg: string): Boolean;
+function ProcessFindSubControlRequest(AAppMsg, AThisWorkerTask: string; out AResponse, AErrMsg: string): Boolean;
 var
   BmpStr: string;
   UsingCompression: Boolean;
@@ -1064,7 +1099,7 @@ begin
 
   //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
   frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
-  AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg));
+  AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg, AThisWorkerTask));
   frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + AResponse);
 
   AddToLog('Compressing result image = ' + BoolToStr(UsingCompression, 'True', 'False'));
@@ -1100,6 +1135,7 @@ begin
   ThisWorkerTask := Copy(TempWorkerSpecificTask, Pos(WorkerName + CWorkerTaskAssignmentOperator, TempWorkerSpecificTask) + Length(WorkerName + CWorkerTaskAssignmentOperator), MaxInt);
   ThisWorkerTask := Copy(ThisWorkerTask, 1, Pos(CWorkerTaskLineBreak, ThisWorkerTask) - 1);
   frmFindSubControlWorkerMain.lbeLatestWork.Text := ThisWorkerTask;
+  frmFindSubControlWorkerMain.FThisWorkerTask := ThisWorkerTask;
 
   frmFindSubControlWorkerMain.AddToLog('Received PUBLISH' + #13#10 +
                                        '  ServerPacketIdentifier: ' + IntToStr(ID) + #13#10 +
@@ -1143,7 +1179,7 @@ begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)    //////////////////// start rendering
     frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
 
-    ProcessFindSubControlRequest(Msg, TempFindSubControlResponse, ProcErrMsg);
+    ProcessFindSubControlRequest(Msg, frmFindSubControlWorkerMain.FThisWorkerTask, TempFindSubControlResponse, ProcErrMsg);
     ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
     if not MQTT_PUBLISH(ClientInstance, 3 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
     begin
