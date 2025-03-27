@@ -1,11 +1,13 @@
 object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   Left = 373
-  Height = 251
+  Height = 312
   Top = 185
   Width = 1254
   Caption = 'FindSubControl Worker'
-  ClientHeight = 251
+  ClientHeight = 312
   ClientWidth = 1254
+  Constraints.MinHeight = 312
+  Constraints.MinWidth = 1200
   LCLVersion = '8.4'
   OnClose = FormClose
   OnCreate = FormCreate
@@ -35,7 +37,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   object grpMQTT: TGroupBox
     Left = 8
     Height = 70
-    Top = 180
+    Top = 184
     Width = 480
     Anchors = [akLeft, akBottom]
     Caption = 'MQTT'
@@ -96,7 +98,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   object grpExtServer: TGroupBox
     Left = 488
     Height = 70
-    Top = 181
+    Top = 184
     Width = 321
     Anchors = [akLeft, akBottom]
     Caption = 'ExtServer'
@@ -165,7 +167,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   object lbeUIClickerPort: TLabeledEdit
     Left = 817
     Height = 23
-    Top = 216
+    Top = 231
     Width = 72
     Anchors = [akLeft, akBottom]
     EditLabel.Height = 15
@@ -175,6 +177,19 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     ParentFont = False
     TabOrder = 3
     Text = '33444'
+  end
+  object lbeLatestWork: TLabeledEdit
+    Left = 8
+    Height = 23
+    Top = 280
+    Width = 480
+    Anchors = [akLeft, akBottom]
+    Color = clBtnFace
+    EditLabel.Height = 15
+    EditLabel.Width = 480
+    EditLabel.Caption = 'Latest work'
+    ReadOnly = True
+    TabOrder = 4
   end
   object tmrStartup: TTimer
     Enabled = False

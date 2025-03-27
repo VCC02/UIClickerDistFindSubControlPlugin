@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2024 VCC
+    Copyright (C) 2025 VCC
     creation date: 17 Mar 2024
     initial release date: 19 May 2024
 
@@ -643,7 +643,7 @@ begin
 
       TempWorkerSpecificTask := 'DebuggingName:';
       for i := 0 to Length(AllWorkers) - 1 do
-        TempWorkerSpecificTask := TempWorkerSpecificTask + AllWorkers[i].Name + '=' + AllWorkers[i].WorkerSpecificTask {+ '&'};
+        TempWorkerSpecificTask := TempWorkerSpecificTask + AllWorkers[i].Name + {'='}CWorkerTaskAssignmentOperator + AllWorkers[i].WorkerSpecificTask {+ '&'} + CWorkerTaskLineBreak;
 
       APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
     end
@@ -2146,9 +2146,9 @@ var
       end;
 
       for i := 0 to Length(AllWorkers) - 1 do
-        AllWorkers[i].WorkerSpecificTask := 'TxtCnt=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
-                                            'BmpCnt=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
-                                            'PmtvCnt=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
+        AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
+                                            'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
+                                            'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
                                             AllWorkers[i].WorkerSpecificTask;
     end;
   end;
@@ -2353,7 +2353,7 @@ var
           BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
 
           if BkArchiveStream.Size = 0 then
-            BkArchiveStream.Write(string('1'), 1);  //prevent division by 0
+            BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
 
           AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                              '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
@@ -2366,12 +2366,12 @@ var
             AllWorkers[i].ArchiveStream.Read(TempBkStr[1], AllWorkers[i].ArchiveStream.Size);
 
             if AllWorkers[i].ArchiveStream.Size = 0 then
-              AllWorkers[i].ArchiveStream.Write(string('1'), 1);  //prevent division by 0
+              AllWorkers[i].ArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
 
             AllWorkers[i].WorkerActionContentStr := ActionContentStr +
                                 '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - FindSubControlTimeoutDiff)) +
-                                '&' + AllWorkers[i].WorkerSpecificTask
-                                    + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                                '&' + AllWorkers[i].WorkerSpecificTask +
+                                '&' + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                                 '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
                                 '&' + CProtocolParam_ImageSourceRawContent + '=' + TempBkStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
           end;

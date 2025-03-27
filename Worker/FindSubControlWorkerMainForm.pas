@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2024 VCC
+    Copyright (C) 2025 VCC
     creation date: 26 Mar 2024
     initial release date: 19 May 2024
 
@@ -55,6 +55,7 @@ type
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdTCPClient1: TIdTCPClient;
     imgFindSubControlBackground: TImage;
+    lbeLatestWork: TLabeledEdit;
     lbeUIClickerPort: TLabeledEdit;
     lblExtServerInfo: TLabel;
     lbeAddress: TLabeledEdit;
@@ -1084,7 +1085,7 @@ procedure HandleOnAfterReceivingMQTT_PUBLISH(ClientInstance: DWord; var APublish
 var
   QoS: Byte;
   ID: Word;
-  Topic, s, Msg, TempWorkerSpecificTask: string;
+  Topic, s, Msg, TempWorkerSpecificTask, ThisWorkerTask, WorkerName: string;
   SetVarRequest: TClkSetVarOptions;
   TempFindSubControlResponse, ProcResponse, ProcErrMsg: string;
   ResponseIndex, i: Integer;
@@ -1095,6 +1096,10 @@ begin
   Topic := DynArrayOfByteToString(APublishFields.TopicName); //StringReplace(DynArrayOfByteToString(APublishFields.TopicName), #0, '#0', [rfReplaceAll]);
   TempWorkerSpecificTask := DynArrayOfByteToString(APublishProperties.ContentType);
 
+  WorkerName := frmFindSubControlWorkerMain.lbeClientID.Text;
+  ThisWorkerTask := Copy(TempWorkerSpecificTask, Pos(WorkerName + CWorkerTaskAssignmentOperator, TempWorkerSpecificTask) + Length(WorkerName + CWorkerTaskAssignmentOperator), MaxInt);
+  ThisWorkerTask := Copy(ThisWorkerTask, 1, Pos(CWorkerTaskLineBreak, ThisWorkerTask) - 1);
+  frmFindSubControlWorkerMain.lbeLatestWork.Text := ThisWorkerTask;
 
   frmFindSubControlWorkerMain.AddToLog('Received PUBLISH' + #13#10 +
                                        '  ServerPacketIdentifier: ' + IntToStr(ID) + #13#10 +
