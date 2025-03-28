@@ -52,6 +52,17 @@ type
 
   TDbgPoint = function(APointName, ALogMsg: string): Boolean;
 
+  TResponseVars = record
+    ControlLeft, ControlTop, ControlRight, ControlBottom: string;
+    ControlWidth, ControlHeight, HalfControlWidth, HalfControlHeight: string;
+    SubCnvXOffset, SubCnvYOffset: string;
+    //There are many other variables to be set here, like those generated when GetAllControls is True.
+    //txt[i][0], bmp[i][0], pmtv[i][j] etc:
+    //$AllControl_Handles$, $AllControl_XOffsets$, $AllControl_YOffsets$,
+    //$AllControl_MatchSource$, $AllControl_DetailedMatchSource$, $AllControl_ResultedErrorCount$,
+    //$AllControl_Lefts$, $AllControl_Tops$ ...
+  end;
+
   TWorker = record
     Name: string; //Maybe a unique part of the ClientID (or full ID if required), as assigned by broker. This name will also be used when requesting the execution of FindSubControl by the plugin.
     OS: string; // Win/Lin
@@ -66,6 +77,7 @@ type
     ResponseReceived: Boolean;    //Most dest UIClicker will timeout, because they won't find the search bmp. At least one should find.
     FindSubControlFound: Boolean; //At least one worker should have this property set to True, to pass the action.
     Response: string;
+    ResponseVars: TResponseVars;
     ResponseBitmapStream: TMemoryStream;
   end;
 
@@ -865,6 +877,17 @@ begin
         AllWorkers[WorkerIndex].ResponseReceived := True;
         AllWorkers[WorkerIndex].Response := Content.Values['$ExecAction_Err$'];  /////////////// there is also CActionPlugin_ExecutionResultErrorVar, but the response is set to $ExecAction_Err$
         AllWorkers[WorkerIndex].FindSubControlFound := AllWorkers[WorkerIndex].Response = '';
+
+        AllWorkers[WorkerIndex].ResponseVars.ControlLeft := Content.Values['$Control_Left$'];
+        AllWorkers[WorkerIndex].ResponseVars.ControlTop := Content.Values['$Control_Top$'];
+        AllWorkers[WorkerIndex].ResponseVars.ControlRight := Content.Values['$Control_Right$'];
+        AllWorkers[WorkerIndex].ResponseVars.ControlBottom := Content.Values['$Control_Bottom$'];
+        AllWorkers[WorkerIndex].ResponseVars.ControlWidth := Content.Values['$Control_Width$'];
+        AllWorkers[WorkerIndex].ResponseVars.ControlHeight := Content.Values['$Control_Height$'];
+        AllWorkers[WorkerIndex].ResponseVars.HalfControlWidth := Content.Values['$Half_Control_Width$'];
+        AllWorkers[WorkerIndex].ResponseVars.HalfControlHeight := Content.Values['$Half_Control_Height$'];
+        AllWorkers[WorkerIndex].ResponseVars.SubCnvXOffset := Content.Values['$DebugVar_SubCnvXOffset$'];
+        AllWorkers[WorkerIndex].ResponseVars.SubCnvYOffset := Content.Values['$DebugVar_SubCnvYOffset$'];
 
         TempResponseArchiveStr := Copy(Msg, Pos(CProtocolParam_ResultImageArchive + '=', Msg) + Length(CProtocolParam_ResultImageArchive + '='), MaxInt);
         SetWorkerResponseBitmapStream(WorkerIndex, TempResponseArchiveStr, Content.Values[CProtocolParam_ResponseArchiveSize]);
@@ -2582,7 +2605,26 @@ begin
         Application.ProcessMessages; //process last logging data
 
         if not Result then
-          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
+          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg)
+        else
+        begin
+          for i := 0 to Length(AllWorkers) - 1 do
+            if AllWorkers[i].FindSubControlFound then
+            begin
+              SetTemplateVar('$Control_Left$', AllWorkers[i].ResponseVars.ControlLeft);
+              SetTemplateVar('$Control_Top$', AllWorkers[i].ResponseVars.ControlTop);
+              SetTemplateVar('$Control_Right$', AllWorkers[i].ResponseVars.ControlRight);
+              SetTemplateVar('$Control_Bottom$', AllWorkers[i].ResponseVars.ControlBottom);
+
+              SetTemplateVar('$Control_Width$', AllWorkers[i].ResponseVars.ControlWidth);
+              SetTemplateVar('$Control_Height$', AllWorkers[i].ResponseVars.ControlHeight);
+              SetTemplateVar('$Half_Control_Width$', AllWorkers[i].ResponseVars.HalfControlWidth);
+              SetTemplateVar('$Half_Control_Height$', AllWorkers[i].ResponseVars.HalfControlHeight);
+
+              SetTemplateVar('$DebugVar_SubCnvXOffset$', AllWorkers[i].ResponseVars.SubCnvXOffset);
+              SetTemplateVar('$DebugVar_SubCnvYOffset$', AllWorkers[i].ResponseVars.SubCnvYOffset);
+            end;
+        end;
       except
       end;
 
