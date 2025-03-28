@@ -56,11 +56,11 @@ type
     ControlLeft, ControlTop, ControlRight, ControlBottom: string;
     ControlWidth, ControlHeight, HalfControlWidth, HalfControlHeight: string;
     SubCnvXOffset, SubCnvYOffset: string;
-    //There are many other variables to be set here, like those generated when GetAllControls is True.
-    //txt[i][0], bmp[i][0], pmtv[i][j] etc:
-    //$AllControl_Handles$, $AllControl_XOffsets$, $AllControl_YOffsets$,
-    //$AllControl_MatchSource$, $AllControl_DetailedMatchSource$, $AllControl_ResultedErrorCount$,
-    //$AllControl_Lefts$, $AllControl_Tops$ ...
+
+    AllControl_Handles, AllControl_XOffsets, AllControl_YOffsets: string;
+    AllControl_MatchSource, AllControl_DetailedMatchSource, AllControl_ResultedErrorCount: string;
+    AllControl_Lefts, AllControl_Tops, AllControl_Rights, AllControl_Bottoms: string;
+    AllControl_Widths, AllControl_Heights, AllHalfControl_Widths, AllHalfControl_Heights: string;
   end;
 
   TWorker = record
@@ -158,6 +158,7 @@ var
   PortPropertyValue: string;
   VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore: string;
 
+  GetAllControls: Boolean;
   WorkerQoS: Integer;
   GetWorkerCapabilitiesTimeout: Integer;
   FindSubControlWorkerTimeout: Integer;
@@ -889,6 +890,27 @@ begin
         AllWorkers[WorkerIndex].ResponseVars.SubCnvXOffset := Content.Values['$DebugVar_SubCnvXOffset$'];
         AllWorkers[WorkerIndex].ResponseVars.SubCnvYOffset := Content.Values['$DebugVar_SubCnvYOffset$'];
 
+        if GetAllControls then
+        begin
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Handles := Content.Values['$AllControl_Handles$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_XOffsets := Content.Values['$AllControl_XOffsets$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_YOffsets := Content.Values['$AllControl_YOffsets$'];
+
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_MatchSource := Content.Values['$AllControl_MatchSource$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_DetailedMatchSource := Content.Values['$AllControl_DetailedMatchSource$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_ResultedErrorCount := Content.Values['$AllControl_ResultedErrorCount$'];
+
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Lefts := Content.Values['$AllControl_Lefts$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Tops := Content.Values['$AllControl_Lefts$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Rights := Content.Values['$AllControl_Rights$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Bottoms := Content.Values['$AllControl_Bottoms$'];
+
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Widths := Content.Values['$AllControl_Widths$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllControl_Heights := Content.Values['$AllControl_Heights$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllHalfControl_Widths := Content.Values['$AllHalf_Control_Widths$'];
+          AllWorkers[WorkerIndex].ResponseVars.AllHalfControl_Heights := Content.Values['$AllHalf_Control_Heights$'];
+        end;
+
         TempResponseArchiveStr := Copy(Msg, Pos(CProtocolParam_ResultImageArchive + '=', Msg) + Length(CProtocolParam_ResultImageArchive + '='), MaxInt);
         SetWorkerResponseBitmapStream(WorkerIndex, TempResponseArchiveStr, Content.Values[CProtocolParam_ResponseArchiveSize]);
 
@@ -1059,7 +1081,7 @@ var
   TempByte: Byte;
   PacketName: string;
   PacketSize: DWord;
-  LoggedDisconnection: Boolean;
+  //LoggedDisconnection: Boolean;
   TempArr: TIdBytes;
   SuccessfullyDecoded: Boolean;
   ProcessBufferLengthResult: Word;
@@ -1071,7 +1093,7 @@ begin
     InitDynArrayToEmpty(TempReadBuf);
 
     try
-      LoggedDisconnection := False;
+      //LoggedDisconnection := False;
       repeat
         //try
         //  TempByte := IdTCPClient1.IOHandler.ReadByte;
@@ -2029,7 +2051,6 @@ var
 
   function AddBackgroundBitmapToWorkerArchives(AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
   var
-    i: Integer;
     TempBk: TMemoryStream;
     BkFileNameLocation: TImageSourceFileNameLocation;
     BkHash: string;
@@ -2233,6 +2254,7 @@ var
     CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
     CPrecisionTimeout_PropName = 'PrecisionTimeout';
     CFullBackgroundImageInResult_PropName = 'FullBackgroundImageInResult';
+    CGetAllControls_PropName = 'GetAllControls';
   var
     ActionContentStr: string;
     ActionContentPtr: Pointer;
@@ -2270,6 +2292,8 @@ var
         Result := False;
         Exit;
       end;
+
+      GetAllControls := ListOfFindSubControlProperties.Values[CGetAllControls_PropName] = '1';
 
       if ListOfFindSubControlProperties.Values[CFullBackgroundImageInResult_PropName] <> '0' then
         AddToLog('Warning: The "' + CFullBackgroundImageInResult_PropName + '" property, of the configured FindSubControl action, is set to True. This will cause resulted debugging images to have full size, which will take longer to be compressed and transferred.');
@@ -2434,6 +2458,7 @@ var
 
 var
   i: Integer;
+  TempResponseVars: TResponseVars;
 
 begin
   Result := False;
@@ -2623,7 +2648,53 @@ begin
 
               SetTemplateVar('$DebugVar_SubCnvXOffset$', AllWorkers[i].ResponseVars.SubCnvXOffset);
               SetTemplateVar('$DebugVar_SubCnvYOffset$', AllWorkers[i].ResponseVars.SubCnvYOffset);
+
+              if GetAllControls then
+              begin
+                TempResponseVars.AllControl_Handles := TempResponseVars.AllControl_Handles + AllWorkers[i].ResponseVars.AllControl_Handles;
+                TempResponseVars.AllControl_XOffsets := TempResponseVars.AllControl_XOffsets + AllWorkers[i].ResponseVars.AllControl_XOffsets;
+                TempResponseVars.AllControl_YOffsets := TempResponseVars.AllControl_YOffsets + AllWorkers[i].ResponseVars.AllControl_YOffsets;
+
+                //ToDo: somehow, fix the index of each AllControl_MatchSource array item, for MatchSource and DetailedMatchSource, to be [0], [1], [2]...
+                //This has to match text/bmp/pmtv profile index
+                TempResponseVars.AllControl_MatchSource := TempResponseVars.AllControl_MatchSource + AllWorkers[i].ResponseVars.AllControl_MatchSource;
+                TempResponseVars.AllControl_DetailedMatchSource := TempResponseVars.AllControl_DetailedMatchSource + AllWorkers[i].ResponseVars.AllControl_DetailedMatchSource;
+                TempResponseVars.AllControl_ResultedErrorCount := TempResponseVars.AllControl_ResultedErrorCount + AllWorkers[i].ResponseVars.AllControl_ResultedErrorCount;
+
+                TempResponseVars.AllControl_Lefts := TempResponseVars.AllControl_Lefts + AllWorkers[i].ResponseVars.AllControl_Lefts;
+                TempResponseVars.AllControl_Tops := TempResponseVars.AllControl_Tops + AllWorkers[i].ResponseVars.AllControl_Tops;
+                TempResponseVars.AllControl_Rights := TempResponseVars.AllControl_Rights + AllWorkers[i].ResponseVars.AllControl_Rights;
+                TempResponseVars.AllControl_Bottoms := TempResponseVars.AllControl_Bottoms + AllWorkers[i].ResponseVars.AllControl_Bottoms;
+
+                TempResponseVars.AllControl_Widths := TempResponseVars.AllControl_Widths + AllWorkers[i].ResponseVars.AllControl_Widths;
+                TempResponseVars.AllControl_Heights := TempResponseVars.AllControl_Heights + AllWorkers[i].ResponseVars.AllControl_Heights;
+                TempResponseVars.AllHalfControl_Widths := TempResponseVars.AllHalfControl_Widths + AllWorkers[i].ResponseVars.AllHalfControl_Widths;
+                TempResponseVars.AllHalfControl_Heights := TempResponseVars.AllHalfControl_Heights + AllWorkers[i].ResponseVars.AllHalfControl_Heights;
+              end;
             end;
+
+          if GetAllControls then
+          begin
+            SetTemplateVar('$AllControl_Handles$', TempResponseVars.AllControl_Handles);
+            SetTemplateVar('$AllControl_XOffsets$', TempResponseVars.AllControl_XOffsets);
+            SetTemplateVar('$AllControl_YOffsets$', TempResponseVars.AllControl_YOffsets);
+
+            //ToDo: somehow, fix the index of each AllControl_MatchSource array item, for MatchSource and DetailedMatchSource, to be [0], [1], [2]...
+            //This has to match text/bmp/pmtv profile index
+            SetTemplateVar('$AllControl_MatchSource$', TempResponseVars.AllControl_MatchSource);
+            SetTemplateVar('$AllControl_DetailedMatchSource$', TempResponseVars.AllControl_DetailedMatchSource);
+            SetTemplateVar('$AllControl_ResultedErrorCount$', TempResponseVars.AllControl_ResultedErrorCount);
+
+            SetTemplateVar('$AllControl_Lefts$', TempResponseVars.AllControl_Lefts);
+            SetTemplateVar('$AllControl_Tops$', TempResponseVars.AllControl_Tops);
+            SetTemplateVar('$AllControl_Rights$', TempResponseVars.AllControl_Rights);
+            SetTemplateVar('$AllControl_Bottoms$', TempResponseVars.AllControl_Bottoms);
+
+            SetTemplateVar('$AllControl_Widths$', TempResponseVars.AllControl_Widths);
+            SetTemplateVar('$AllControl_Heights$', TempResponseVars.AllControl_Heights);
+            SetTemplateVar('$AllHalf_Control_Widths$', TempResponseVars.AllHalfControl_Widths);
+            SetTemplateVar('$AllHalf_Control_Heights$', TempResponseVars.AllHalfControl_Heights);
+          end;
         end;
       except
       end;
