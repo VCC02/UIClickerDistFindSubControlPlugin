@@ -2107,6 +2107,22 @@ begin
 
   InitHandlers;
 
+  {$IFnDEF Windows}
+    Font.Size := 8;
+    grpMQTT.Font.Size := Font.Size;
+    lbeAddress.Font.Size := Font.Size;
+    lbePort.Font.Size := Font.Size;
+    lbeClientID.Font.Size := Font.Size;
+    lbeUIClickerPort.Font.Size := Font.Size;
+
+    lbeAddress.EditLabel.Font.Size := Font.Size;
+    lbePort.EditLabel.Font.Size := Font.Size;
+    lbeClientID.EditLabel.Font.Size := Font.Size;
+    lbeUIClickerPort.EditLabel.Font.Size := Font.Size;
+
+    memLog.Font.Size := Font.Size;
+  {$ENDIF}
+
   tmrConnect.Enabled := True;
 end;
 
