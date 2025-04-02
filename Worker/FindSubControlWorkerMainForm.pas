@@ -45,6 +45,7 @@ type
 
   TfrmFindSubControlWorkerMain = class(TForm)
     btnDisconnect: TButton;
+    btnGetListOfFonts: TButton;
     chkExtServerKeepAlive: TCheckBox;
     chkExtServerActive: TCheckBox;
     grpExtServer: TGroupBox;
@@ -70,6 +71,7 @@ type
     tmrProcessRecData: TTimer;
     tmrStartup: TTimer;
     procedure btnDisconnectClick(Sender: TObject);
+    procedure btnGetListOfFontsClick(Sender: TObject);
     procedure chkExtServerActiveChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -622,11 +624,17 @@ begin
 end;
 
 
+function GetUIClickerAddr: string;
+begin
+  Result := 'http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/';
+end;
+
+
 function SendFileToUIClickerWithLoc(AContent: TMemoryStream; AFilename, InMemLoc: string): string;
 begin
-  Result := SendFileToServer('http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/' +
-                                                   InMemLoc + '?' +
-                                                   CREParam_FileName + '=' + AFilename,
+  Result := SendFileToServer(GetUIClickerAddr +
+                             InMemLoc + '?' +
+                             CREParam_FileName + '=' + AFilename,
                              AContent);
 end;
 
@@ -643,9 +651,29 @@ begin
 end;
 
 
-function GetUIClickerAddr: string;
+function GetListOfFontsFromUIClicker: string;
+var
+  SetVarOptions: TClkSetVarOptions;
+  ListOfFonts: TStringList;
 begin
-  Result := 'http://127.0.0.1:' + frmFindSubControlWorkerMain.lbeUIClickerPort.Text + '/';
+  SetVarOptions.ListOfVarNames := CGetListOfFontsResultVarName + #13#10;
+  SetVarOptions.ListOfVarValues := '$GetListOfFonts()$' + #13#10;
+  SetVarOptions.ListOfVarEvalBefore := '1' + #13#10;
+
+  Result := ExecuteSetVarAction(GetUIClickerAddr, SetVarOptions);
+  if Pos('$RemoteExecResponse$=1', Result) = 0 then
+    Result := ''
+  else
+  begin
+    Result := Copy(Result, Length('$RemoteExecResponse$=1') + 1, MaxInt);
+    ListOfFonts := TStringList.Create;
+    try
+      ListOfFonts.Text := FastReplace_87ToReturn(Result);
+      Result := ListOfFonts.Values[CGetListOfFontsResultVarName];
+    finally
+      ListOfFonts.Free;
+    end;
+  end;
 end;
 
 
@@ -1879,6 +1907,22 @@ begin
   FreeAndNil(Th);
 
   IdTCPClient1.Disconnect(False);
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.btnGetListOfFontsClick(Sender: TObject);
+var
+  i: Integer;
+  TempList: TStringList;
+begin
+  TempList := TStringList.Create;
+  try
+    TempList.Text := FastReplace_45ToReturn(GetListOfFontsFromUIClicker);
+    for i := 0 to TempList.Count - 1 do
+      AddToLog(TempList.Strings[i]);
+  finally
+    TempList.Free;
+  end;
 end;
 
 

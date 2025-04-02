@@ -191,6 +191,19 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     ReadOnly = True
     TabOrder = 4
   end
+  object btnGetListOfFonts: TButton
+    Left = 496
+    Height = 25
+    Hint = 'For testing only.'
+    Top = 278
+    Width = 128
+    Anchors = [akLeft, akBottom]
+    Caption = 'Get ListOfFonts'
+    ParentShowHint = False
+    ShowHint = True
+    TabOrder = 5
+    OnClick = btnGetListOfFontsClick
+  end
   object tmrStartup: TTimer
     Enabled = False
     Interval = 10
@@ -200,7 +213,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   end
   object tmrProcessLog: TTimer
     Enabled = False
-    Interval = 10
+    Interval = 1
     OnTimer = tmrProcessLogTimer
     Left = 348
     Top = 124

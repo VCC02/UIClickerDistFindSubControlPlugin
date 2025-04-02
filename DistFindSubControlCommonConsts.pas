@@ -89,6 +89,8 @@ const
   CWorkerTaskAssignmentOperator = '^^~^^~~^^~^^';
   CWorkerTaskLineBreak = '***@@@***';
 
+  CGetListOfFontsResultVarName = '$GetListOfFontsResult$';
+
 
 type
   TOnAddToLogNoObj = procedure(AMsg: string);
