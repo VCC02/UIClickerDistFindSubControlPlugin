@@ -406,6 +406,13 @@ begin
     Exit;
   end;
 
+  Result := FillIn_SubscribePayload(CTopicName_AppToWorker_GetListOfFonts, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add "GetListOfFonts" TopicFilters.');
+    Exit;
+  end;
+
   //
   //Result := FillIn_SubscribePayload('MoreExtra_' + frmFindSubControlWorkerMain.lbeTopicName.Text, 1, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   //if not Result then
@@ -493,6 +500,13 @@ begin
     Exit;
   end;
 
+  Result := FillIn_UnsubscribePayload(CTopicName_AppToWorker_GetListOfFonts, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
   frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + CTopicName_AppToWorker_SendBackground + '" and "' + TopicWithWorkerName_Background + '" and "' + TopicWithWorkerName_FindSubControl + '"...');
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
@@ -564,6 +578,12 @@ begin
              ProcessResponse(ACallbackID shr 8);
     end;
 
+    4:
+    begin
+      Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
+             CProtocolParam_Fonts + '=' + ProcessResponse(ACallbackID shr 8);
+    end;
+
     else
       Msg := 'unknown CallbackID';
   end;
@@ -577,6 +597,7 @@ begin
     0: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_GetCapabilities, APublishFields.TopicName);
     1: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_SendBackground, APublishFields.TopicName);
     3: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_FindSubControl, APublishFields.TopicName);
+    4: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_GetListOfFonts, APublishFields.TopicName);
     else
       Result := Result and StringToDynArrayOfByte(CMQTT_Worker_UnhandledRequest, APublishFields.TopicName);
   end;
@@ -1219,6 +1240,21 @@ begin
 
     //call CRECmd_GetResultedDebugImage
   end; //if Topic = TopicWithWorkerName
+
+  if Topic = CTopicName_AppToWorker_GetListOfFonts then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Getting the list of fonts.');
+
+    ProcResponse := GetListOfFontsFromUIClicker;
+    ResponseIndex := AddItemToResponses(ProcResponse);
+    if not MQTT_PUBLISH(ClientInstance, 4 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+    begin
+      if ProcErrMsg = '' then
+        ProcErrMsg := 'Cannot respond with FindSubControl result.';
+
+      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+    end;
+  end;
 
   frmFindSubControlWorkerMain.AddToLog('');
 end;

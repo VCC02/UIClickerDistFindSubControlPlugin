@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2024 VCC
+    Copyright (C) 2025 VCC
     creation date: 18 May 2024
     initial release date: 19 May 2024
 
@@ -42,7 +42,7 @@ const
   CAddressPropertyIndex = 2;
   CPortPropertyIndex = 3;
   CWorkerQoSPropertyIndex = 4;
-  CGetWorkerCapabilitiesTimeoutPropertyIndex= 5;
+  CGetWorkerCapabilitiesTimeoutPropertyIndex = 5;
   CFindSubControlWorkerTimeoutPropertyIndex = 6;
   CFindSubControlTimeoutDiffPropertyIndex = 7;
   CWorkerCapabilitiesSourcePropertyIndex = 8;

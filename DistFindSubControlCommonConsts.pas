@@ -54,10 +54,14 @@ const
   CTopicName_AppToWorker_FindSubControl = 'AppToWorker_FindSubControl';    //request to workers
   CTopicName_WorkerToApp_FindSubControl = 'WorkerToApp_FindSubControl';    //response from workers
 
+  CTopicName_AppToWorker_GetListOfFonts = 'AppToWorker_GetListOfFonts';    //request to workers
+  CTopicName_WorkerToApp_GetListOfFonts = 'WorkerToApp_GetListOfFonts';    //response from workers
+
   CCallbackID_GetCapabilities = 0;
   CCallbackID_SendBackgroundToAll = 1;
   CCallbackID_SendBackgroundToSome = 2;
   CCallbackID_SendFindSubControl = 3;
+  CCallbackID_GetListOfFonts = 4;
 
   CCompressionAlgorithms: array[TCompressionAlgorithm] of string = ('Zlib', 'Lzma');
 
@@ -70,6 +74,7 @@ const
   CProtocolParam_CompressionAlgorithm = 'CompressionAlgorithm';
   CProtocolParam_ResponseArchiveSize = 'ResponseArchiveSize';
   CProtocolParam_ResultImageArchive = 'ResponseArchiveDebugImage';
+  CProtocolParam_Fonts = 'Fonts';
 
   CBackgroundFileNameInArchive = '_:\Background.bmp'; //a name which cannot be used as OS's file system
   CBackgroundFileNameForUIClicker = 'Background.bmp';

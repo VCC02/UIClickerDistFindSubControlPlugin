@@ -79,6 +79,7 @@ type
     Response: string;
     ResponseVars: TResponseVars;
     ResponseBitmapStream: TMemoryStream;
+    Fonts: string;
   end;
 
   TWorkerArr = array of TWorker;
@@ -98,6 +99,7 @@ type
           SGetFindSubControlActionContent,
           SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
           SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
+          SGetListOfFonts, SWaitForListOfFonts,
           SDisconnectFromBroker,
           SDone
          );
@@ -127,6 +129,7 @@ const
           'SGetFindSubControlActionContent',
           'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
           'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
+          'SGetListOfFonts', 'SWaitForListOfFonts',
           'SDisconnectFromBroker',
           'SDone'
           );
@@ -140,6 +143,7 @@ var
   FLatestMsg: string = '';
   ConnectedSucessfully, ConAckReceived, SubAckReceived, SubscribedSucessfully, DisconnectedSuccessfully: Boolean;
   WaitingForWorkerCapabilities: Boolean;
+  WaitingForWorkerFonts: Boolean;
   FSMDone: Boolean;
   AllWorkers: TWorkerArr;
   AllWorkerBackgroundBmpStr: string;
@@ -496,6 +500,13 @@ begin
     Exit;
   end;
 
+  Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_GetListOfFonts, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add TopicFilters (GetListOfFonts).');
+    Exit;
+  end;
+
 
   //Enable SubscriptionIdentifier only if required (allocated above with CreateClientToServerSubscriptionIdentifier) !!!
   //The library initializes EnabledProperties to 0.
@@ -558,7 +569,18 @@ begin
     Exit;
   end;
 
-  AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' + CTopicName_WorkerToApp_SendBackground + '" and "' + CTopicName_WorkerToApp_FindSubControl + '"...');
+  Result := FillIn_UnsubscribePayload(CTopicName_WorkerToApp_GetListOfFonts, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
+  AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' +
+                                    CTopicName_WorkerToApp_SendBackground + '" and "' +
+                                    CTopicName_WorkerToApp_FindSubControl + '" and "' +
+                                    CTopicName_WorkerToApp_GetListOfFonts + '"...'
+                                    );
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
 end;
@@ -659,7 +681,17 @@ begin
         TempWorkerSpecificTask := TempWorkerSpecificTask + AllWorkers[i].Name + {'='}CWorkerTaskAssignmentOperator + AllWorkers[i].WorkerSpecificTask {+ '&'} + CWorkerTaskLineBreak;
 
       APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
-    end
+    end;
+
+    CCallbackID_GetListOfFonts:
+    begin
+      CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
+      Msg := 'none'; //not a requirement so far
+      Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_GetListOfFonts, APublishFields.TopicName);
+
+      AddToLog('Requesting GetListOfFonts from worker[' + IntToStr(CurrentWorkerIndex) + ']...');
+    end;
+
     else
       Msg := 'UnhandledRequest';
   end;
@@ -917,6 +949,18 @@ begin
         AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_AtLeastOneFound;   //this should be set after all responses
       end;
     end;
+
+    if Topic = CTopicName_WorkerToApp_GetListOfFonts then
+      if WaitingForWorkerFonts then
+      begin
+        AddToLog('Received fonts from worker: ' + Content.Values[CProtocolParam_Name]);
+
+        WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
+        if WorkerIndex = -1 then
+          AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
+        else
+          AllWorkers[WorkerIndex].Fonts := Content.Values[CProtocolParam_Fonts];
+      end;
 
     //other fields which may pass metadata:
     //APublishProperties.UserProperty;
@@ -1637,6 +1681,27 @@ begin
       // If that's the case, it should send those files, here in the same state.
     end;
 
+    SGetListOfFonts:
+    begin
+      //AddToLog('+++++++++++++++++++++++ Requesting list of fonts from ' + IntToStr(Length(AllWorkers)) + ' worker(s).');
+      WaitingForWorkerFonts := True; //reset below
+      for i := 0 to Length(AllWorkers) - 1 do
+      begin
+        if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts or (i shl 8), WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
+        begin
+          FSMError := 'Can''t send GetListOfFonts settings to broker for worker[' + IntToStr(i) + '].';
+          AddToLog(FSMError);
+        end
+        else
+          tk := GetTickCount64;
+      end;
+    end;
+
+    SWaitForListOfFonts:
+    begin
+
+    end;
+
     SDisconnectFromBroker:
     begin
       FSMDone := True;
@@ -1696,7 +1761,8 @@ begin
     SWaitForCapabilitiesResponse:
       if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
       begin
-        NextState := SGetFindSubControlActionContent;
+        //NextState := SGetFindSubControlActionContent;
+        NextState := SGetListOfFonts;  //////////////////////////////////////////////////////////// temp redirect
         WaitingForWorkerCapabilities := False;
       end
       else
@@ -1764,6 +1830,23 @@ begin
         end
         else
           NextState := SWaitForFindSubControlResults;
+
+    SGetListOfFonts:
+    begin
+      NextState := SWaitForListOfFonts;
+      //AddToLog('+++++++++++++++++++++++++++ Moving to SWaitForListOfFonts');
+    end;
+
+    SWaitForListOfFonts:
+      if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their fonts.
+      begin
+        //NextState := SDisconnectFromBroker;
+        //AddToLog('+++++++++++++++++++++++++++ Moving to SGetFindSubControlActionContent');  //////////////////////////////////////////// temp redirect
+        NextState := SGetFindSubControlActionContent;   //////////////////////////////////////////// temp redirect
+        WaitingForWorkerFonts := False;
+      end
+      else
+        NextState := SWaitForListOfFonts;
 
     SDisconnectFromBroker:
       NextState := SDone;
@@ -2628,6 +2711,13 @@ begin
     finally
       try
         Application.ProcessMessages; //process last logging data
+
+        SetTemplateVar('$WorkerCount$', IntToStr(Length(AllWorkers)));
+        for i := 0 to Length(AllWorkers) - 1 do
+        begin
+          SetTemplateVar('$Worker[' + IntToStr(i) + '].Name$', AllWorkers[i].Name);
+          SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);
+        end;
 
         if not Result then
           SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg)
