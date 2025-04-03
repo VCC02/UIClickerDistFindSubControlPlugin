@@ -87,8 +87,9 @@ type
     procedure tmrStartupTimer(Sender: TObject);
     procedure tmrSubscribeTimer(Sender: TObject);
   private
+    FMQTTUsername: string;
     FMQTTPassword: string;
-    FPasswordFile: string;
+    FCredentialsFile: string;
     FLoggingFIFO: TPollingFIFO;
     FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
     FInMemFS: TInMemFileSystem;
@@ -253,7 +254,7 @@ begin
 
   //Id := Chr((ClientInstance and $FF) + 48);
   //ClientId := 'MyClient' + Id;
-  UserName := 'Username';
+  UserName := frmFindSubControlWorkerMain.FMQTTUsername;
   Password := frmFindSubControlWorkerMain.FMQTTPassword;
 
   //StringToDynArrayOfByte(ClientId, AConnectFields.PayloadContent.ClientID);
@@ -1828,10 +1829,10 @@ begin
       Inc(i);
     end;
 
-    if ParamStr(i) = '--SetBrokerPasswordFile' then
+    if ParamStr(i) = '--SetBrokerCredFile' then
     begin
-      FPasswordFile := ParamStr(i + 1);
-      AddToLog(ParamStr(i) + ' ' + FPasswordFile);
+      FCredentialsFile := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + FCredentialsFile);
       Inc(i);
     end;
 
@@ -1860,7 +1861,7 @@ begin
       AddToLog('To set the address the broker is listening on, use  --SetBrokerAddress <Address>');
       AddToLog('To set the port the broker is listening on, use  --SetBrokerPort <Port>');
       AddToLog('To set the port UIClicker is listening on, use  --SetUIClickerPort <Port>');
-      AddToLog('To set the full file name with the broker password, use  --SetBrokerPasswordFile <FullPathToFilename>. The password is expected to be found on the first line in the file, without any other formatting or metadata.');
+      AddToLog('To set the full file name with the broker credentials, use  --SetBrokerCredFile <FullPathToFilename>. The file format is ini, with "Username" and "Password" keys under the "Credentials" section (no quotes). Default file is up.txt, near this exe.');
       AddToLog('To skip saving current settings to ini, use  --SkipSavingIni Yes');
     end;
 
@@ -2146,11 +2147,10 @@ end;
 
 procedure TfrmFindSubControlWorkerMain.tmrStartupTimer(Sender: TObject);
 var
-  Content: TStringList;
-  Fnm: string;
+  Content: TClkIniReadonlyFile;
 begin
   tmrStartup.Enabled := False;
-  FPasswordFile := ExtractFilePath(ParamStr(0)) + 'p.txt';
+  FCredentialsFile := ExtractFilePath(ParamStr(0)) + 'up.txt';
 
   LoadSettingsFromIni;
   LoadSettingsFromCmd;
@@ -2160,16 +2160,12 @@ begin
 
   FMQTTPassword := '';
 
-  Content := TStringList.Create;
+  Content := TClkIniReadonlyFile.Create(FCredentialsFile);
   try
-    Fnm := FPasswordFile;
-
-    if FileExists(Fnm) then
+    if FileExists(FCredentialsFile) then
     begin
-      Content.LoadFromFile(Fnm);
-
-      if Content.Count > 0 then
-        FMQTTPassword := Content.Strings[0];
+      FMQTTUsername := Content.ReadString('Credentials', 'Username', 'Username');
+      FMQTTPassword := Content.ReadString('Credentials', 'Password', '');
     end
     else
       AddToLog('Password file not found. Using empty password..');

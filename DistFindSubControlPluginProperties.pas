@@ -95,6 +95,11 @@ const
 
   CVariablesForWorkersPropertyName = 'VariablesForWorkers';
 
+  CReqCapOperation_wcsReqCapAndFindSubControl = 'wcsReqCapAndFindSubControl';
+  CReqCapOperation_wcsReqCapAndGetFonts = 'wcsReqCapAndGetFonts';
+  CReqCapOperation_wcsReqCapAndUpdateCache = 'wcsReqCapAndUpdateCache';
+  CReqCapOperation_wcsLoadCacheAndFindSubControl = 'wcsLoadCacheAndFindSubControl';
+
 
   CRequiredSubControlPropertyNames: array[0..CPropertiesCount - 1] of string = (  //these are the expected FindSubControl property names, configured in plugin properties
     CFindSubControlActionPropertyName,
@@ -204,7 +209,7 @@ const
     0, //GetWorkerCapabilitiesTimeout
     0, //FindSubControlWorkerTimeout
     0, //FindSubControlTimeoutDiff
-    3, //'EnumCombo',     //WorkerCapabilitiesSource
+    4, //'EnumCombo',     //WorkerCapabilitiesSource
     0, //LoadWorkerCapabilitiesCacheAction
     0, //SaveWorkerCapabilitiesCacheAction
 
@@ -236,7 +241,7 @@ const
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
     '', //FindSubControlTimeoutDiff
-    'wcsReqCapAndFindSubControl' + #4#5 + 'wcsReqCapAndUpdateCache' + #4#5 + 'wcsLoadCacheAndFindSubControl', //WorkerCapabilitiesSource
+    CReqCapOperation_wcsReqCapAndFindSubControl + #4#5 + CReqCapOperation_wcsReqCapAndGetFonts + #4#5 + CReqCapOperation_wcsReqCapAndUpdateCache + #4#5 + CReqCapOperation_wcsLoadCacheAndFindSubControl, //WorkerCapabilitiesSource
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
 
@@ -268,7 +273,10 @@ const
     'Timeout in ms, until the plugin no longer waits for all workers to present their capabilities.' + #4#5 + 'Workers which miss this timeout won''t receive work.',
     'Timeout in ms, until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.' + #4#5 + 'The actual FindSubControl action is configured to have a timeout, e.g. 1500ms less than this worker waiting timeout.' + #4#5 + 'For example, on a 2000ms FindSubControlWorkerTimeout, the FindSubControl action has only 500ms.' + #4#5 + 'To prevent negative values, the FindSubControl action will have a minimum of 100ms.', //FindSubControlWorkerTimeout
     'Difference between plugin timeout and the actual FindSubControl execution timeout.' + #4#5 + 'Default value: 2500.', //FindSubControlTimeoutDiff
-    '- When set to wcsReqCapAndFindSubControl, the plugin requests capabilities from workers, then it requests the FindSubControl operation.' + #4#5 + '- When set to wcsReqCapAndUpdateCache, the plugin requests capabilities from workers, then it executes the action configured to SaveWorkerCapabilitiesCacheAction.' + #4#5 + '- When set to wcsLoadCacheAndFindSubControl, the plugin executes the action configured to LoadWorkerCapabilitiesCacheAction, then it requests the FindSubControl operation.', //WorkerCapabilitiesSource
+    '- When set to ' + CReqCapOperation_wcsReqCapAndFindSubControl + ', the plugin requests capabilities from workers, then it requests the FindSubControl operation.' + #4#5 +
+      '- When set to ' + CReqCapOperation_wcsReqCapAndGetFonts + ', the plugin requests the list of fonts, updates back some variables and exits.' + #4#5 +
+      '- When set to ' + CReqCapOperation_wcsReqCapAndUpdateCache + ', the plugin requests capabilities from workers, then it executes the action configured to SaveWorkerCapabilitiesCacheAction.' + #4#5 +
+      '- When set to ' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ', the plugin executes the action configured to LoadWorkerCapabilitiesCacheAction, then it requests the FindSubControl operation.', //WorkerCapabilitiesSource
     'Name of a "LoadSetVarFromFile", "CallTemplate" or "Plugin" action, which loads the worker capabilities into specific variables.', //LoadWorkerCapabilitiesCacheAction
     'Name of a "SaveSetVarToFile", "CallTemplate" or "Plugin" action, which saves the worker capabilities into specific variables.', //SaveWorkerCapabilitiesCacheAction
 

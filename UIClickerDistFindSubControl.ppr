@@ -168,6 +168,7 @@ var
   FindSubControlWorkerTimeout: Integer;
   FSMError: string;
   FindSubControlTimeoutDiff: Integer;
+  WorkerCapabilitiesSource: string; //set by property at CWorkerCapabilitiesSourcePropertyIndex
 
   RecTh: TMQTTReceiveThread;
 
@@ -1763,8 +1764,29 @@ begin
     SWaitForCapabilitiesResponse:
       if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
       begin
-        //NextState := SGetFindSubControlActionContent;
-        NextState := SGetListOfFonts;  //////////////////////////////////////////////////////////// temp redirect
+        if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
+          NextState := SGetFindSubControlActionContent
+        else
+          if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts then
+            NextState := SGetListOfFonts
+          else
+            if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndUpdateCache then
+            begin
+              NextState := SDisconnectFromBroker; /////////////// set here to a different state when implemented
+              AddToLog('________' + CReqCapOperation_wcsReqCapAndUpdateCache + ' not implemented yet...');  //remove comment
+            end
+            else
+              if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
+              begin
+                NextState := SDisconnectFromBroker; /////////////// set here to a different state when implemented
+                AddToLog('________' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ' not implemented yet...'); //remove comment
+              end
+              else
+              begin
+                NextState := SDisconnectFromBroker;
+                AddToLog('________ Unknown operation: ' + WorkerCapabilitiesSource + '. Exiting plugin.');
+              end;
+
         WaitingForWorkerCapabilities := False;
       end
       else
@@ -1842,9 +1864,9 @@ begin
     SWaitForListOfFonts:
       if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their fonts.
       begin
-        //NextState := SDisconnectFromBroker;
+        NextState := SDisconnectFromBroker;
         //AddToLog('+++++++++++++++++++++++++++ Moving to SGetFindSubControlActionContent');  //////////////////////////////////////////// temp redirect
-        NextState := SGetFindSubControlActionContent;   //////////////////////////////////////////// temp redirect
+        //NextState := SGetFindSubControlActionContent;   //////////////////////////////////////////// temp redirect
         WaitingForWorkerFonts := False;
       end
       else
@@ -2634,6 +2656,8 @@ begin
       FindSubControlTimeoutDiff := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlTimeoutDiffPropertyIndex], 2500);
       FindSubControlTimeoutDiff := Min(Max(FindSubControlTimeoutDiff, 1500), 60000);  //limited to 50..60000
 
+      WorkerCapabilitiesSource := PluginSettings.ValueFromIndex[CWorkerCapabilitiesSourcePropertyIndex];
+
       SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
 
       Application.Initialize;
@@ -2715,17 +2739,16 @@ begin
         Application.ProcessMessages; //process last logging data
 
         //ToDo: set these vars only when their values are known
-        SetTemplateVar('$WorkerCount$', IntToStr(Length(AllWorkers)));
-        for i := 0 to Length(AllWorkers) - 1 do
+
+        if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts then
         begin
-          if AllWorkers[i].Name <> '' then
+          SetTemplateVar('$WorkerCount$', IntToStr(Length(AllWorkers)));
+          for i := 0 to Length(AllWorkers) - 1 do
+          begin
             SetTemplateVar('$Worker[' + IntToStr(i) + '].Name$', AllWorkers[i].Name);
-
-          if AllWorkers[i].OS <> '' then
             SetTemplateVar('$Worker[' + IntToStr(i) + '].OS$', AllWorkers[i].OS);
-
-          if AllWorkers[i].Fonts <> '' then
             SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);  //it is possible that on a subsequent run, the workers come up in a different order, so this info will be outdated
+          end;
         end;
 
         if not Result then
