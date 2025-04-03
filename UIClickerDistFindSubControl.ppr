@@ -790,6 +790,8 @@ begin
   AllWorkers[Length(AllWorkers) - 1].Response := 'unset';
 
   AllWorkers[Length(AllWorkers) - 1].ResponseBitmapStream := TMemoryStream.Create; //created here, destroyed on returning to app
+
+  AllWorkers[Length(AllWorkers) - 1].Fonts := '';
 end;
 
 
@@ -2712,11 +2714,18 @@ begin
       try
         Application.ProcessMessages; //process last logging data
 
+        //ToDo: set these vars only when their values are known
         SetTemplateVar('$WorkerCount$', IntToStr(Length(AllWorkers)));
         for i := 0 to Length(AllWorkers) - 1 do
         begin
-          SetTemplateVar('$Worker[' + IntToStr(i) + '].Name$', AllWorkers[i].Name);
-          SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);
+          if AllWorkers[i].Name <> '' then
+            SetTemplateVar('$Worker[' + IntToStr(i) + '].Name$', AllWorkers[i].Name);
+
+          if AllWorkers[i].OS <> '' then
+            SetTemplateVar('$Worker[' + IntToStr(i) + '].OS$', AllWorkers[i].OS);
+
+          if AllWorkers[i].Fonts <> '' then
+            SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);  //it is possible that on a subsequent run, the workers come up in a different order, so this info will be outdated
         end;
 
         if not Result then
