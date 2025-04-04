@@ -2319,11 +2319,27 @@ var
         //WorkersIndex := i mod Length(AllWorkers);
         WorkersIndex := (i + StartIndex) mod Length(AllWorkers);  //simple load balancing
 
+        //For font profiles, the first priority would be to allocate workers based on a plugin setting, which decides to use Win, Lin, or both.
+        //The second priority would be based on available fonts (there is a list on Win and another on Lin).
+        //AllWorkers[WorkersIndex].OS
+        //AllWorkers[WorkersIndex].Fonts
+
         if i < ATxtCount then
         begin
           AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Txt_' + IntToStr(i) + '=1&';
           Inc(AllWorkers[WorkersIndex].TxtCntW);
         end;
+      end;
+
+      Sleep(33);
+      Randomize;
+      StartIndex := Random(Length(AllWorkers));
+      for i := 0 to AMaxSplitActionsCount - 1 do //Length(SplitActions) - 1 do
+      begin
+        //WorkersIndex := i mod Length(AllWorkers);
+        WorkersIndex := (i + StartIndex) mod Length(AllWorkers);  //simple load balancing
+
+        //Worker allocation, for bmp and Pmtv should also take into account the worker OS and the plugin setting.
 
         if i < AListOfBmps.Count then
         begin
