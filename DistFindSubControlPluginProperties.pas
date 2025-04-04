@@ -139,7 +139,7 @@ const
   CRequiredSubControlPropertyTypes: array[0..CPropertiesCount - 1] of string = (
     'TextWithArrow', //FindSubControlActionPropertyName
 
-    'TextWithArrow', //CredentialsFullFileName
+    'FilePath', //CredentialsFullFileName
     'TextWithArrow', //Address
     'SpinText',      //Port
     'SpinText',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
