@@ -100,6 +100,7 @@ type
           SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
           SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
           SGetListOfFonts, SWaitForListOfFonts,
+          SUpdateCache, SLoadCache,
           SDisconnectFromBroker,
           SDone
          );
@@ -130,6 +131,7 @@ const
           'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
           'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
           'SGetListOfFonts', 'SWaitForListOfFonts',
+          'SUpdateCache', 'SLoadCache',
           'SDisconnectFromBroker',
           'SDone'
           );
@@ -154,6 +156,7 @@ var
 
   AddToLogCallback: TOnActionPlugin_AddToLog;
   ActionPlugin_InMemFSCallback: TOnActionPlugin_InMemFS;
+  ActionPlugin_ExecuteActionallback: TOnActionPlugin_ExecuteAction;
   GPluginReference: Pointer;
 
   FindSubControlActionPropertyValue: string;
@@ -161,6 +164,7 @@ var
   AddressPropertyValue: string;
   PortPropertyValue: string;
   VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore: string;
+  UpdateCacheActionName, LoadCacheActionName: string;
 
   GetAllControls: Boolean;
   WorkerQoS: Integer;
@@ -1686,7 +1690,6 @@ begin
 
     SGetListOfFonts:
     begin
-      //AddToLog('+++++++++++++++++++++++ Requesting list of fonts from ' + IntToStr(Length(AllWorkers)) + ' worker(s).');
       WaitingForWorkerFonts := True; //reset below
       for i := 0 to Length(AllWorkers) - 1 do
       begin
@@ -1703,6 +1706,34 @@ begin
     SWaitForListOfFonts:
     begin
 
+    end;
+
+    SUpdateCache:
+    begin
+      AddToLog('Updating plugin cache..');
+      if UpdateCacheActionName = '' then
+      begin
+        FSMError := 'There is no configured action for updating plugin cache.';
+        AddToLog(FSMError);
+      end
+      else
+        if not ActionPlugin_ExecuteActionallback(GPluginReference, @UpdateCacheActionName[1]) then
+          FSMError := 'Error updating plugin cache. The ' + UpdateCacheActionName + ' action failed.';
+          //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
+    end;
+
+    SLoadCache:
+    begin
+      AddToLog('Loading plugin cache..');
+      if LoadCacheActionName = '' then
+      begin
+        FSMError := 'There is no configured action for loading plugin cache.';
+        AddToLog(FSMError);
+      end
+      else
+        if not ActionPlugin_ExecuteActionallback(GPluginReference, @LoadCacheActionName[1]) then
+          FSMError := 'Error loading plugin cache. The ' + LoadCacheActionName + ' action failed.';
+          //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
     end;
 
     SDisconnectFromBroker:
@@ -1751,7 +1782,12 @@ begin
 
     SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
       if SubAckReceived then
-        NextState := SRequestCapabilities
+      begin
+        if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
+          NextState := SLoadCache
+        else
+          NextState := SRequestCapabilities
+      end
       else
         if GetTickCount64 - tk > 1000 then
           NextState := SDone //Timeout
@@ -1771,12 +1807,9 @@ begin
             NextState := SGetListOfFonts
           else
             if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndUpdateCache then
-            begin
-              NextState := SDisconnectFromBroker; /////////////// set here to a different state when implemented
-              AddToLog('________' + CReqCapOperation_wcsReqCapAndUpdateCache + ' not implemented yet...');  //remove comment
-            end
+              NextState := SUpdateCache
             else
-              if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
+              if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then   //////////// this should not happen in this state
               begin
                 NextState := SDisconnectFromBroker; /////////////// set here to a different state when implemented
                 AddToLog('________' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ' not implemented yet...'); //remove comment
@@ -1856,21 +1889,26 @@ begin
           NextState := SWaitForFindSubControlResults;
 
     SGetListOfFonts:
-    begin
       NextState := SWaitForListOfFonts;
-      //AddToLog('+++++++++++++++++++++++++++ Moving to SWaitForListOfFonts');
-    end;
 
     SWaitForListOfFonts:
       if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their fonts.
       begin
         NextState := SDisconnectFromBroker;
-        //AddToLog('+++++++++++++++++++++++++++ Moving to SGetFindSubControlActionContent');  //////////////////////////////////////////// temp redirect
-        //NextState := SGetFindSubControlActionContent;   //////////////////////////////////////////// temp redirect
         WaitingForWorkerFonts := False;
       end
       else
         NextState := SWaitForListOfFonts;
+
+    SUpdateCache:
+      NextState := SDisconnectFromBroker;
+
+    SLoadCache:
+    begin
+      //NextState := SGetFindSubControlActionContent;  //from SLoadCache, the next state should be SGetFindSubControlActionContent
+      WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndFindSubControl; //but the list of workers is not updated yet by the cache.  ToDo
+      NextState := SRequestCapabilities; //Go and get capabilities, which updates the list of workers and then execute FindSubControl. (Temp solution.)
+    end;
 
     SDisconnectFromBroker:
       NextState := SDone;
@@ -2584,6 +2622,7 @@ begin
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
       ActionPlugin_InMemFSCallback := AOnActionPlugin_InMemFS;
+      ActionPlugin_ExecuteActionallback := AOnActionPlugin_ExecuteAction;
       GPluginReference := APluginReference;
 
       if FLatestMsg <> '' then
@@ -2657,6 +2696,8 @@ begin
       FindSubControlTimeoutDiff := Min(Max(FindSubControlTimeoutDiff, 1500), 60000);  //limited to 50..60000
 
       WorkerCapabilitiesSource := PluginSettings.ValueFromIndex[CWorkerCapabilitiesSourcePropertyIndex];
+      UpdateCacheActionName := PluginSettings.ValueFromIndex[CSaveWorkerCapabilitiesCacheActionPropertyIndex];
+      LoadCacheActionName := PluginSettings.ValueFromIndex[CLoadWorkerCapabilitiesCacheActionPropertyIndex];
 
       SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
 
@@ -2733,7 +2774,10 @@ begin
       Result := DisconnectedSuccessfully;
 
       if FSMError <> '' then
+      begin
+        Result := False;
         FLatestMsg := FSMError;
+      end;
     finally
       try
         Application.ProcessMessages; //process last logging data
