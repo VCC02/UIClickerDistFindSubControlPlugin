@@ -97,6 +97,7 @@ const
 
   CReqCapOperation_wcsReqCapAndFindSubControl = 'wcsReqCapAndFindSubControl';
   CReqCapOperation_wcsReqCapAndGetFonts = 'wcsReqCapAndGetFonts';
+  CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl = 'wcsReqCapAndGetFontsAndFindSubControl';  //this is the slowest, but can do all 3 operations in a single action execution
   CReqCapOperation_wcsReqCapAndUpdateCache = 'wcsReqCapAndUpdateCache';
   CReqCapOperation_wcsLoadCacheAndFindSubControl = 'wcsLoadCacheAndFindSubControl';
 
@@ -209,7 +210,7 @@ const
     0, //GetWorkerCapabilitiesTimeout
     0, //FindSubControlWorkerTimeout
     0, //FindSubControlTimeoutDiff
-    4, //'EnumCombo',     //WorkerCapabilitiesSource
+    5, //'EnumCombo',     //WorkerCapabilitiesSource
     0, //LoadWorkerCapabilitiesCacheAction
     0, //SaveWorkerCapabilitiesCacheAction
 
@@ -241,7 +242,11 @@ const
     '', //GetWorkerCapabilitiesTimeout
     '', //FindSubControlWorkerTimeout
     '', //FindSubControlTimeoutDiff
-    CReqCapOperation_wcsReqCapAndFindSubControl + #4#5 + CReqCapOperation_wcsReqCapAndGetFonts + #4#5 + CReqCapOperation_wcsReqCapAndUpdateCache + #4#5 + CReqCapOperation_wcsLoadCacheAndFindSubControl, //WorkerCapabilitiesSource
+    CReqCapOperation_wcsReqCapAndFindSubControl + #4#5 +
+      CReqCapOperation_wcsReqCapAndGetFonts + #4#5 +
+      CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl + #4#5 +
+      CReqCapOperation_wcsReqCapAndUpdateCache + #4#5 +
+      CReqCapOperation_wcsLoadCacheAndFindSubControl, //WorkerCapabilitiesSource
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
 
@@ -275,6 +280,7 @@ const
     'Difference between plugin timeout and the actual FindSubControl execution timeout.' + #4#5 + 'Default value: 2500.', //FindSubControlTimeoutDiff
     '- When set to ' + CReqCapOperation_wcsReqCapAndFindSubControl + ', the plugin requests capabilities from workers, then it requests the FindSubControl operation.' + #4#5 +
       '- When set to ' + CReqCapOperation_wcsReqCapAndGetFonts + ', the plugin requests the list of fonts, updates back some variables and exits.' + #4#5 +
+      '- When set to ' + CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl + ', the plugin requests capabilities and the list of fonts, updates back some variables and then it requests the FindSubControl operation.' + #4#5 +
       '- When set to ' + CReqCapOperation_wcsReqCapAndUpdateCache + ', the plugin requests capabilities from workers, then it executes the action configured to SaveWorkerCapabilitiesCacheAction.' + #4#5 +
       '- When set to ' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ', the plugin executes the action configured to LoadWorkerCapabilitiesCacheAction, then it requests the FindSubControl operation.', //WorkerCapabilitiesSource
     'Name of a "LoadSetVarFromFile", "CallTemplate" or "Plugin" action, which loads the worker capabilities into specific variables.', //LoadWorkerCapabilitiesCacheAction
@@ -340,7 +346,7 @@ const
     '500',  //GetWorkerCapabilitiesTimeout
     '2000', //FindSubControlWorkerTimeout
     '2500', //FindSubControlTimeoutDiff
-    'wcsReqCapAndFindSubControl', //WorkerCapabilitiesSource
+    CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl, //WorkerCapabilitiesSource
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
 
