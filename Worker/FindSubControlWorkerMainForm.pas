@@ -90,6 +90,9 @@ type
     FMQTTUsername: string;
     FMQTTPassword: string;
     FCredentialsFile: string;
+    FWorkerExtraName: string;
+    FWorkerExtraCaption: string;
+
     FLoggingFIFO: TPollingFIFO;
     FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
     FInMemFS: TInMemFileSystem;
@@ -564,7 +567,8 @@ begin
 
       Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10;
       Msg := Msg + CProtocolParam_OS + '=' + OS + #13#10;
-      Msg := Msg + CProtocolParam_FileCache + '=' + FastReplace_ReturnTo45(frmFindSubControlWorkerMain.FInMemFS.ListMemFilesWithHashAsString);
+      Msg := Msg + CProtocolParam_FileCache + '=' + FastReplace_ReturnTo45(frmFindSubControlWorkerMain.FInMemFS.ListMemFilesWithHashAsString) + #13#10;
+      Msg := Msg + CProtocolParam_ExtraName + '=' + frmFindSubControlWorkerMain.FWorkerExtraName; //this is user-controlled
     end;
 
     1:
@@ -1836,6 +1840,21 @@ begin
       Inc(i);
     end;
 
+    if ParamStr(i) = '--SetWorkerExtraName' then
+    begin
+      FWorkerExtraName := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + FWorkerExtraName);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--SetWorkerExtraCaption' then
+    begin
+      FWorkerExtraCaption := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + FWorkerExtraCaption);
+      Caption := Caption + ' - ' + FWorkerExtraCaption;
+      Inc(i);
+    end;
+
     if ParamStr(i) = '--SkipSavingIni' then
     begin
       FSkipSavingIni := True;
@@ -1863,6 +1882,8 @@ begin
       AddToLog('To set the port UIClicker is listening on, use  --SetUIClickerPort <Port>');
       AddToLog('To set the full file name with the broker credentials, use  --SetBrokerCredFile <FullPathToFilename>. The file format is ini, with "Username" and "Password" keys under the "Credentials" section (no quotes). Default file is up.txt, near this exe.');
       AddToLog('To skip saving current settings to ini, use  --SkipSavingIni Yes');
+      AddToLog('To set the worker extra name, use  --SetWorkerExtraName <Name>. This name is reported in plugin and can be used to further identify the worker. By default, this name is a combination of multiple timestamp and random values.');
+      AddToLog('To set the worker extra caption, use  --SetWorkerExtraCaption <Caption>. This caption is concatenated (with a dash) to the existing window caption. It is useful to identify the window, by a master UIClicker, when arranging the windows on desktop.');
     end;
 
     Inc(i);
@@ -2151,14 +2172,17 @@ var
 begin
   tmrStartup.Enabled := False;
   FCredentialsFile := ExtractFilePath(ParamStr(0)) + 'up.txt';
+  Randomize;
+  FWorkerExtraName := DateTimeToStr(Now) + '_' + IntToStr(GetTickCount64) + '_' + IntToStr(Random(MaxInt));
+
+  FMQTTUsername := 'Username';
+  FMQTTPassword := '';
 
   LoadSettingsFromIni;
   LoadSettingsFromCmd;
 
   tmrProcessLog.Enabled := True;
   tmrProcessRecData.Enabled := True;
-
-  FMQTTPassword := '';
 
   Content := TClkIniReadonlyFile.Create(FCredentialsFile);
   try

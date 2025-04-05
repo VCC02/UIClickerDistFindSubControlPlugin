@@ -68,6 +68,7 @@ const
   CProtocolParam_Name = 'Name';
   CProtocolParam_OS = 'OS';
   CProtocolParam_FileCache = 'FileCache';
+  CProtocolParam_ExtraName = 'ExtraName';
 
   CProtocolParam_ImageSourceRawContent = 'ImageSourceRawContent';
   CProtocolParam_UsingCompression = 'UsingCompression';

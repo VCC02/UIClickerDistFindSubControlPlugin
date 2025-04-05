@@ -68,6 +68,7 @@ type
     OS: string; // Win/Lin
     WorkerSpecificTask: string; //This field is set by plugin when preparing FindSubControl requests. Every worker receives instructions about what part of a FindSubControl action should work on (not the entire action).
     FileCacheInfo: TStringList; //list of files and their hashes, currently present in worker's InMemFS (not its pair UIClicker).
+    ExtraName: string; //user-defined name
     FilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs etc)
     ArchiveStream: TMemoryStream;
     Archive: TMemArchive;
@@ -321,7 +322,8 @@ begin
 
   if Hi(AErr) = CMQTT_Reason_NotAuthorized then   // $87
   begin
-    AddToLog('Server error: Not authorized.');
+    FLatestMsg := 'MQTT broker error: Not authorized.';
+    AddToLog(FLatestMsg);
     if APacketType = CMQTT_CONNACK then
       AddToLog('             on receiving CONNACK.');
   end;
@@ -774,7 +776,7 @@ begin
 end;
 
 
-procedure AddNewWorkerToList(AName, AOS, AFileCacheInfoContent: string);
+procedure AddNewWorkerToList(AName, AOS, AFileCacheInfoContent, AExtraName: string);
 begin
   SetLength(AllWorkers, Length(AllWorkers) + 1);
   AllWorkers[Length(AllWorkers) - 1].Name := AName;
@@ -782,6 +784,7 @@ begin
   AllWorkers[Length(AllWorkers) - 1].WorkerSpecificTask := '';
   AllWorkers[Length(AllWorkers) - 1].FileCacheInfo := TStringList.Create;
   AllWorkers[Length(AllWorkers) - 1].FileCacheInfo.Text := AFileCacheInfoContent;
+  AllWorkers[Length(AllWorkers) - 1].ExtraName := AExtraName;
 
   AllWorkers[Length(AllWorkers) - 1].FilesToSend := '';
   AllWorkers[Length(AllWorkers) - 1].ArchiveStream := nil;   //created when required
@@ -886,7 +889,8 @@ begin
       if WaitingForWorkerCapabilities then //This is True only for a short while (see the state machine below). Any worker which publishes after this, is ignored.
         AddNewWorkerToList(Content.Values[CProtocolParam_Name],
                            Content.Values[CProtocolParam_OS],
-                           FastReplace_45ToReturn(Content.Values[CProtocolParam_FileCache]) //#4#5 separated list of files. Each item uses the CDefaultInMemFileNameHashSeparator string between name and hash.
+                           FastReplace_45ToReturn(Content.Values[CProtocolParam_FileCache]), //#4#5 separated list of files. Each item uses the CDefaultInMemFileNameHashSeparator string between name and hash.
+                           Content.Values[CProtocolParam_ExtraName]
                           );
 
 
@@ -2886,7 +2890,8 @@ begin
 
         //ToDo: set these vars only when their values are known
 
-        if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts then
+        if (WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts) or
+           (WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl) then
         begin
           SetTemplateVar('$WorkerCount$', IntToStr(Length(AllWorkers)));
           for i := 0 to Length(AllWorkers) - 1 do
@@ -2894,6 +2899,7 @@ begin
             SetTemplateVar('$Worker[' + IntToStr(i) + '].Name$', AllWorkers[i].Name);
             SetTemplateVar('$Worker[' + IntToStr(i) + '].OS$', AllWorkers[i].OS);
             SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);  //it is possible that on a subsequent run, the workers come up in a different order, so this info will be outdated
+            SetTemplateVar('$Worker[' + IntToStr(i) + '].ExtraName$', AllWorkers[i].ExtraName);
           end;
         end;
 
