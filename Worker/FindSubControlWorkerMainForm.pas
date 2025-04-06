@@ -694,6 +694,7 @@ begin
     Result := Copy(Result, Length('$RemoteExecResponse$=1') + 1, MaxInt);
     ListOfFonts := TStringList.Create;
     try
+      ListOfFonts.LineBreak := #13#10;
       ListOfFonts.Text := FastReplace_87ToReturn(Result);
       Result := ListOfFonts.Values[CGetListOfFontsResultVarName];
     finally
@@ -730,6 +731,7 @@ var
 begin
   WorkerTask := TStringList.Create;
   try
+    WorkerTask.LineBreak := #13#10;
     WorkerTask.Text := StringReplace(AThisWorkerTask, '&', #13#10, [rfReplaceAll]);
 
     for i := Length(AFindSubControl.MatchBitmapText) - 1 downto 0 do
@@ -751,6 +753,7 @@ var
 begin
   ActionContentList := TStringList.Create;
   try
+    ActionContentList.LineBreak := #13#10;
     ActionContentList.Text := StringReplace(AActionContent, '&', #13#10, [rfReplaceAll]);
 
     FindSubControlTimeout := StrToIntDef(ActionContentList.Values[CPropertyName_ActionTimeout], -2);
@@ -799,6 +802,7 @@ var
 begin
   Params := TStringList.Create;
   try
+    Params.LineBreak := #13#10;
     Params.Text := StringReplace(AActionContent, '&', #13#10, [rfReplaceAll]);
     TempMatchBitmapAlgorithm := Params.Values['MatchBitmapAlgorithm'];
   finally
@@ -835,6 +839,7 @@ begin
         begin
           PluginSettings := TStringList.Create;
           try
+            PluginSettings.LineBreak := #13#10;
             ///////////////////////// get PluginSettings from plugin using FillInLzmaOptionsFromPluginProperties
             TempLzmaOptions := FillInDefaultLzmaOptionsFromPluginProperties;  /////////////////////////this call should be replaced with getting the options from plugin
             TempArchiveHandlers.LzmaOptions := TempLzmaOptions;
@@ -1105,6 +1110,7 @@ begin
 
           ListOfArchiveFiles := TStringList.Create;
           try
+            ListOfArchiveFiles.LineBreak := #13#10;
             TempMemArchive.GetListOfFiles(ListOfArchiveFiles);
             for i := 0 to ListOfArchiveFiles.Count - 1 do
               if (ListOfArchiveFiles.Strings[i] <> CBackgroundFileNameInArchive) and
@@ -1975,6 +1981,7 @@ var
 begin
   TempList := TStringList.Create;
   try
+    TempList.LineBreak := #13#10;
     TempList.Text := FastReplace_45ToReturn(GetListOfFontsFromUIClicker);
     for i := 0 to TempList.Count - 1 do
       AddToLog(TempList.Strings[i]);

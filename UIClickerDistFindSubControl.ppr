@@ -783,6 +783,7 @@ begin
   AllWorkers[Length(AllWorkers) - 1].OS := AOS;
   AllWorkers[Length(AllWorkers) - 1].WorkerSpecificTask := '';
   AllWorkers[Length(AllWorkers) - 1].FileCacheInfo := TStringList.Create;
+  AllWorkers[Length(AllWorkers) - 1].FileCacheInfo.LineBreak := #13#10;
   AllWorkers[Length(AllWorkers) - 1].FileCacheInfo.Text := AFileCacheInfoContent;
   AllWorkers[Length(AllWorkers) - 1].ExtraName := AExtraName;
 
@@ -883,6 +884,7 @@ begin
 
   Content := TStringList.Create;
   try
+    Content.LineBreak := #13#10;
     Content.Text := Msg;
 
     if Topic = CTopicName_WorkerToApp_GetCapabilities then
@@ -1514,6 +1516,7 @@ var
 begin
   ListOfVarsForWorkers := TStringList.Create;
   try
+    ListOfVarsForWorkers.LineBreak := #13#10;
     AVarsForWorkers := StringReplace(AVarsForWorkers, ', ', #13#10, [rfReplaceAll]);
     AVarsForWorkers := StringReplace(AVarsForWorkers, ',', #13#10, [rfReplaceAll]);
 
@@ -1548,6 +1551,7 @@ begin
 
   ListOfVars := TStringList.Create;
   try
+    ListOfVars.LineBreak := #13#10;
     ListOfVars.Text := AListOfVars;
     CredentialsFullFileNamePropertyValue := EvaluateAllReplacements(ListOfVars, CredentialsFullFileNamePropertyValue);
 
@@ -2270,6 +2274,7 @@ var
     begin
       TempFilesToSend := TStringList.Create;
       try
+        TempFilesToSend.LineBreak := #13#10;
         TempFilesToSend.Text := AllWorkers[i].FilesToSend;
 
         for j := 0 to TempFilesToSend.Count - 1 do
@@ -2320,6 +2325,7 @@ var
   begin
     ListOfFonts := TStringList.Create;
     try
+      ListOfFonts.LineBreak := #13#10;
       ListOfFonts.Text := FastReplace_45ToReturn(AListOfFontsStr);
       Result := ListOfFonts.IndexOf(AFontName) > -1;
     finally
@@ -2531,6 +2537,7 @@ var
     //
     ListOfFindSubControlProperties := TStringList.Create;
     try
+      ListOfFindSubControlProperties.LineBreak := #13#10;
       ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
       //for i := 0 to ListOfFindSubControlProperties.Count - 1 do
       //  AddToLog('===Prop: ' + ListOfFindSubControlProperties.Strings[i]);
@@ -2565,6 +2572,9 @@ var
       BkArchive := TMemArchive.Create;
 
       try
+        ListOfBmps.LineBreak := #13#10;
+        ListOfPmtvs.LineBreak := #13#10;
+
         ListOfBmps.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CBmpFiles_PropName]);
         MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfBmps.Count);
 
@@ -2723,6 +2733,7 @@ begin
     TempPluginMQTTClientHandlers := TPluginMQTTClientHandlers.Create(nil);
     PluginSettings := TStringList.Create;
     try
+      PluginSettings.LineBreak := #13#10;
       DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
