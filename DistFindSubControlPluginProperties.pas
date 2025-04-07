@@ -29,7 +29,7 @@ unit DistFindSubControlPluginProperties;
 interface
 
 uses
-  Classes, SysUtils, ClickerUtils;
+  Classes, SysUtils, ClickerUtils, DistFindSubControlCommonConsts;
 
 
 const
@@ -250,7 +250,7 @@ const
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
 
-    'Win' + #4#5 + 'Lin' + #4#5 + 'Win+Lin' + #4#5, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
+    CReportedOS_Win + #4#5 + CReportedOS_Lin + #4#5 + CReportedOS_Win + '+' + CReportedOS_Lin + #4#5, //'EnumCombo',     //TextRenderingOS    - property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
     '', //ListOfMultiValue
     '',  //UseCompression
     'Zlib' + #4#5 + 'Lzma' + #4#5, //CompressionAlgorithm  'EnumCombo'

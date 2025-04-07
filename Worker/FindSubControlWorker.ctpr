@@ -132,7 +132,8 @@
 -dMMFreeBlocks
 -dRoundAlloc
 -dEnUserProperty
--d_SingleOutputBuffer"/>
+-d_SingleOutputBuffer
+-d_TestBuild"/>
     </Other>
   </CompilerOptions>
   <Debugging>

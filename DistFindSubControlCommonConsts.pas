@@ -97,6 +97,9 @@ const
 
   CGetListOfFontsResultVarName = '$GetListOfFontsResult$';
 
+  CReportedOS_Win = 'Win';
+  CReportedOS_Lin = 'Lin';
+
 
 type
   TOnAddToLogNoObj = procedure(AMsg: string);

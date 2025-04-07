@@ -98,6 +98,8 @@ type
     FInMemFS: TInMemFileSystem;
     FSkipSavingIni: Boolean;
     FThisWorkerTask: string;
+    FReportedOS: string;
+    FReportedFonts: string;   //this is used only if <> ''
 
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
@@ -550,23 +552,14 @@ function HandleOnBeforeSendingMQTT_PUBLISH(ClientInstance: DWord;  //The lower w
 var
   Msg: string;
   QoS: Byte;
-  OS: string;
 begin
   Result := True;
 
   case ACallbackID of
     0:
     begin
-      OS := 'Unknown';
-      {$IFDEF Windows}
-        OS := 'Win';
-      {$ENDIF}
-      {$IFDEF UNIX}
-        OS := 'Lin';
-      {$ENDIF}
-
-      Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10;
-      Msg := Msg + CProtocolParam_OS + '=' + OS + #13#10;
+      Msg :=       CProtocolParam_Name + '=' + AssignedClientID + #13#10;
+      Msg := Msg + CProtocolParam_OS + '=' + frmFindSubControlWorkerMain.FReportedOS + #13#10;
       Msg := Msg + CProtocolParam_FileCache + '=' + FastReplace_ReturnTo45(frmFindSubControlWorkerMain.FInMemFS.ListMemFilesWithHashAsString) + #13#10;
       Msg := Msg + CProtocolParam_ExtraName + '=' + frmFindSubControlWorkerMain.FWorkerExtraName; //this is user-controlled
     end;
@@ -1256,7 +1249,11 @@ begin
   begin
     frmFindSubControlWorkerMain.AddToLog('Getting the list of fonts.');
 
-    ProcResponse := GetListOfFontsFromUIClicker;
+    if frmFindSubControlWorkerMain.FReportedFonts <> '' then
+      ProcResponse := frmFindSubControlWorkerMain.FReportedFonts
+    else
+      ProcResponse := GetListOfFontsFromUIClicker;
+
     ResponseIndex := AddItemToResponses(ProcResponse);
     if not MQTT_PUBLISH(ClientInstance, 4 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
     begin
@@ -1708,6 +1705,16 @@ begin
   FRecBufFIFO := TPollingFIFO.Create;
   FInMemFS := TInMemFileSystem.Create;
 
+  FReportedOS := 'Unknown';
+  {$IFDEF Windows}
+    FReportedOS := CReportedOS_Win;
+  {$ENDIF}
+  {$IFDEF UNIX}
+    FReportedOS := CReportedOS_Lin;
+  {$ENDIF}
+
+  FReportedFonts := '';
+
   tmrStartup.Enabled := True;
 end;
 
@@ -1881,6 +1888,22 @@ begin
           AddToLog(ParamStr(i));
     end;
 
+    {$IFDEF TestBuild}
+      if ParamStr(i) = '--SetReportedOS' then
+      begin
+        FReportedOS := ParamStr(i + 1);
+        AddToLog(ParamStr(i) + ' ' + FReportedOS);
+        Inc(i);
+      end;
+
+      if ParamStr(i) = '--SetReportedFonts' then
+      begin
+        FReportedFonts := StringReplace(ParamStr(i + 1), ',', #4#5, [rfReplaceAll]);
+        AddToLog(ParamStr(i) + ' ' + FReportedFonts);
+        Inc(i);
+      end;
+    {$ENDIF}
+
     if UpperCase(ParamStr(i)) = '--HELP' then
     begin
       AddToLog('To set the address the broker is listening on, use  --SetBrokerAddress <Address>');
@@ -1890,6 +1913,8 @@ begin
       AddToLog('To skip saving current settings to ini, use  --SkipSavingIni Yes');
       AddToLog('To set the worker extra name, use  --SetWorkerExtraName <Name>. This name is reported in plugin and can be used to further identify the worker. By default, this name is a combination of multiple timestamp and random values.');
       AddToLog('To set the worker extra caption, use  --SetWorkerExtraCaption <Caption>. This caption is concatenated (with a dash) to the existing window caption. It is useful to identify the window, by a master UIClicker, when arranging the windows on desktop.');
+      AddToLog('To set the reported operating sytem, use  --SetReportedOS <OS>. This value is sent to the plugin and is available in test builds only.');
+      AddToLog('To set the reported fonts, instead of the available sytem fonts, use  --SetReportedFonts <comma-separated list of font names>. This value is sent to the plugin and is available in test builds only.');
     end;
 
     Inc(i);
