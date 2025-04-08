@@ -34,7 +34,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  InMemFileSystem, PollingFIFO, DynArrays,
+  InMemFileSystem, PollingFIFO, DynArrays, ClickerFileProviderClient,
   TplZlibUnit, TplLzmaUnit,
   IdGlobal, IdTCPClient, IdHTTPServer, IdCoderMIME, IdSchedulerOfThreadPool,
   IdCustomHTTPServer, IdContext, IdCustomTCPServer, IdHTTP;
@@ -100,11 +100,16 @@ type
     FThisWorkerTask: string;
     FReportedOS: string;
     FReportedFonts: string;   //this is used only if <> ''
+    FPollForMissingServerFilesTh: TPollForMissingServerFiles;
 
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
     procedure HandleClientOnConnected(Sender: TObject);
     procedure HandleClientOnDisconnected(Sender: TObject);
+
+    procedure HandleOnLoadMissingFileContent(AFileName: string; AFileContent: TMemoryStream);
+    function HandleOnFileExists(const AFileName: string): Boolean;
+    procedure HandleOnLogMissingServerFile(AMsg: string);
 
     procedure SendString(AString: string);
     procedure SendDynArrayOfByte(AArr: TDynArrayOfByte);
@@ -1127,6 +1132,11 @@ begin
                   Result := False;
                   Exit;
                 end;
+
+                AddToLog('++++++++++++++++++++++++++ Adding file ext and dir to FileProvider: ' + ListOfArchiveFiles.Strings[i]);
+                ////////////////////// implement dedup in FileProvider
+                frmFindSubControlWorkerMain.FPollForMissingServerFilesTh.AddListOfAccessibleDirs(ExtractFileDir(ListOfArchiveFiles.Strings[i]));
+                frmFindSubControlWorkerMain.FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions(ExtractFileExt(ListOfArchiveFiles.Strings[i]));
               end;
           finally
             ListOfArchiveFiles.Free;
@@ -1733,6 +1743,11 @@ begin
   end;
 
   try
+    FPollForMissingServerFilesTh.Terminate;
+  except
+  end;
+
+  try
     if not MQTT_DISCONNECT(0, 0) then
     begin
       AddToLog('Can''t prepare MQTTDisconnect packet.');
@@ -2023,6 +2038,11 @@ begin
   FreeAndNil(Th);
   MQTT_Done;
 
+  try
+    FreeAndNil(FPollForMissingServerFilesTh); //Enclosed by try..except, in case the app is closed before executing the tmrStartupTimer timer, which creates this object.
+  except
+  end;
+
   FreeAndNil(FInMemFS);
 end;
 
@@ -2255,6 +2275,21 @@ begin
     memLog.Font.Size := Font.Size;
   {$ENDIF}
 
+  FPollForMissingServerFilesTh := TPollForMissingServerFiles.Create(True);
+  FPollForMissingServerFilesTh.RemoteAddress := GetUIClickerAddr;
+
+  FPollForMissingServerFilesTh.OnLoadMissingFileContent := @HandleOnLoadMissingFileContent;
+  FPollForMissingServerFilesTh.OnFileExists := @HandleOnFileExists;
+  FPollForMissingServerFilesTh.OnLogMissingServerFile := @HandleOnLogMissingServerFile;
+
+  FPollForMissingServerFilesTh.FullTemplatesDir := ''; ///////////////////////// This may need to be set to the templates dir of UIClicker running the plugin. TBD
+  //FPollForMissingServerFilesTh.AddListOfAccessibleDirs(AList); /////////////////////////////// this may need to be called on every file, right before sending the file
+  //FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions(AList); ///////////////////////////////  -||-
+
+  FPollForMissingServerFilesTh.ConnectTimeout := 500;
+  FPollForMissingServerFilesTh.Start;
+  AddToLog('File provider is initialized. Remote address is set to ' + GetUIClickerAddr);
+
   tmrConnect.Enabled := True;
 end;
 
@@ -2266,6 +2301,24 @@ begin
     AddToLog('Can''t prepare MQTT_SUBSCRIBE packet.');
     Exit;
   end;
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.HandleOnLoadMissingFileContent(AFileName: string; AFileContent: TMemoryStream);
+begin
+  FInMemFS.LoadFileFromMemToStream(AFileName, AFileContent);
+end;
+
+
+function TfrmFindSubControlWorkerMain.HandleOnFileExists(const AFileName: string): Boolean;
+begin
+  Result := FInMemFS.FileExistsInMem(AFileName);
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.HandleOnLogMissingServerFile(AMsg: string);
+begin
+  AddToLog('[FileProvider]: ' + AMsg);
 end;
 
 

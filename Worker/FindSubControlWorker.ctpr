@@ -103,6 +103,10 @@
         <Filename Value="..\..\UIClicker\ClickerUtils\ClickerIniFiles.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerFileProviderClient.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

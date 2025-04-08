@@ -350,7 +350,7 @@ const
     '', //LoadWorkerCapabilitiesCacheAction
     '', //SaveWorkerCapabilitiesCacheAction
 
-    'Win', //TextRenderingOS    - property details
+    CReportedOS_Win + '+' + CReportedOS_Lin, //TextRenderingOS    - property details
     '', //ListOfMultiValue
     'True',  //UseCompression
     'Lzma', //CompressionAlgorithm  'EnumCombo'
