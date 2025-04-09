@@ -2105,12 +2105,16 @@ var
   function LoadBitmapAsStream(AFnm: string; AMemStream: TMemoryStream; AFileLocation: TImageSourceFileNameLocation): Boolean;
   var
     TempDenyReason: string;
+    IsPmtv: Byte;
   begin
     if BitmapIsAllowedToBeLoaded(AFnm, TempDenyReason) then                                      //isflDisk=0, isflMem=1
-      Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], AMemStream, Ord(AFileLocation), @HandleOnFileContentAsRawStream)
+    begin
+      IsPmtv := Ord(UpperCase(ExtractFileExt(AFnm)) = '.PMTV') shl 3;  //use bit 3 for "DoNotRender" flag, to reserve bits 2 and 1 for future use.
+      Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], AMemStream, Ord(AFileLocation) or IsPmtv, @HandleOnFileContentAsRawStream)
+    end
     else
     begin
-      AddToLog('Bitmap is not allowed to be loaded: "' + AFnm + '"   ' + TempDenyReason + '   ImgSrc: ' + CImageSourceFileNameLocationStr[AFileLocation]);
+      AddToLog('Bitmap/pmtv is not allowed to be loaded: "' + AFnm + '"   ' + TempDenyReason + '   ImgSrc: ' + CImageSourceFileNameLocationStr[AFileLocation]);
       Result := False;
     end;
   end;
@@ -2323,12 +2327,6 @@ var
         begin
           TempMemFile := TMemoryStream.Create;
           try
-            if ExtractFileExt(TempFilesToSend.Strings[j]) = '.pmtv' then
-            begin
-              AddToLog('++++++++++++++++++++++ The pmtv file will be rendered locally to bmp and sent as bmp. The destination UIClicker will attempt to open the pmtv file as text, but it won''t work.');
-              AddToLog('++++++++++++++++++++++ A new callback has to be implemented to load the file as it is.');
-            end;
-
             AddToLog('----------- loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
             if LoadBitmapAsStream(TempFilesToSend.Strings[j], TempMemFile, isflDisk) then
             begin
