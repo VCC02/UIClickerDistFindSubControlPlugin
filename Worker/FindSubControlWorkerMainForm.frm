@@ -204,6 +204,31 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     TabOrder = 5
     OnClick = btnGetListOfFontsClick
   end
+  object lbeUIClickerPath: TLabeledEdit
+    Left = 648
+    Height = 23
+    Hint = 'Required by FileProvider'
+    Top = 280
+    Width = 208
+    Anchors = [akLeft, akRight, akBottom]
+    EditLabel.Height = 15
+    EditLabel.Width = 208
+    EditLabel.Caption = 'UIClicker Path'
+    ParentShowHint = False
+    ReadOnly = True
+    ShowHint = True
+    TabOrder = 6
+  end
+  object btnBrowseUIClickerPath: TButton
+    Left = 864
+    Height = 25
+    Top = 278
+    Width = 25
+    Anchors = [akRight, akBottom]
+    Caption = '...'
+    TabOrder = 7
+    OnClick = btnBrowseUIClickerPathClick
+  end
   object tmrStartup: TTimer
     Enabled = False
     Interval = 10
@@ -287,5 +312,10 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     HTTPOptions = [hoForceEncodeParams]
     Left = 904
     Top = 144
+  end
+  object OpenDialog1: TOpenDialog
+    Filter = 'Executables (*.exe;*)|*.exe;*|All files (*.*)|*.*'
+    Left = 940
+    Top = 262
   end
 end

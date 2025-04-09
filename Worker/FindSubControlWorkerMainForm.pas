@@ -46,6 +46,7 @@ type
   TfrmFindSubControlWorkerMain = class(TForm)
     btnDisconnect: TButton;
     btnGetListOfFonts: TButton;
+    btnBrowseUIClickerPath: TButton;
     chkExtServerKeepAlive: TCheckBox;
     chkExtServerActive: TCheckBox;
     grpExtServer: TGroupBox;
@@ -56,6 +57,7 @@ type
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdTCPClient1: TIdTCPClient;
     imgFindSubControlBackground: TImage;
+    lbeUIClickerPath: TLabeledEdit;
     lbeLatestWork: TLabeledEdit;
     lbeUIClickerPort: TLabeledEdit;
     lblExtServerInfo: TLabel;
@@ -65,11 +67,13 @@ type
     lbeExtServerPort: TLabeledEdit;
     lblServerInfo: TLabel;
     memLog: TMemo;
+    OpenDialog1: TOpenDialog;
     tmrConnect: TTimer;
     tmrSubscribe: TTimer;
     tmrProcessLog: TTimer;
     tmrProcessRecData: TTimer;
     tmrStartup: TTimer;
+    procedure btnBrowseUIClickerPathClick(Sender: TObject);
     procedure btnDisconnectClick(Sender: TObject);
     procedure btnGetListOfFontsClick(Sender: TObject);
     procedure chkExtServerActiveChange(Sender: TObject);
@@ -124,6 +128,7 @@ type
     procedure LoadSettingsFromIni;
     procedure SaveSettingsToIni;
     procedure LoadSettingsFromCmd;
+    function ResolveTemplatePath(APath: string): string;
   public
 
   end;
@@ -1614,6 +1619,9 @@ begin
 
 
         try
+          if frmFindSubControlWorkerMain.IdTCPClient1 = nil then //don't mind the race condition, the next iteration will catch the var to be nil
+            Exit;
+
           TempByte := frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadByte;
           if not AddByteToDynArray(TempByte, TempReadBuf) then
           begin
@@ -1804,6 +1812,7 @@ begin
     lbeAddress.Text := Ini.ReadString('Settings', 'Address', lbeAddress.Text);
     lbePort.Text := IntToStr(Ini.ReadInteger('Settings', 'Port', 1883));
     lbeUIClickerPort.Text := IntToStr(Ini.ReadInteger('Settings', 'UIClickerPort', 33444));
+    lbeUIClickerPath.Text := Ini.ReadString('Settings', 'UIClickerPath', '');
   finally
     Ini.Free;
   end;
@@ -1824,6 +1833,7 @@ begin
     Ini.WriteString('Settings', 'Address', lbeAddress.Text);
     Ini.WriteInteger('Settings', 'Port', StrToIntDef(lbePort.Text, 1833));
     Ini.WriteInteger('Settings', 'UIClickerPort', StrToIntDef(lbeUIClickerPort.Text, 33444));
+    Ini.WriteString('Settings', 'UIClickerPath', lbeUIClickerPath.Text);
 
     Ini.UpdateFile;
   finally
@@ -2011,6 +2021,16 @@ begin
   FreeAndNil(Th);
 
   IdTCPClient1.Disconnect(False);
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.btnBrowseUIClickerPathClick(
+  Sender: TObject);
+begin
+  if not OpenDialog1.Execute then
+    Exit;
+
+  lbeUIClickerPath.Text := OpenDialog1.FileName;
 end;
 
 
@@ -2282,9 +2302,16 @@ begin
   FPollForMissingServerFilesTh.OnFileExists := @HandleOnFileExists;
   FPollForMissingServerFilesTh.OnLogMissingServerFile := @HandleOnLogMissingServerFile;
 
-  FPollForMissingServerFilesTh.FullTemplatesDir := ''; ///////////////////////// This may need to be set to the templates dir of UIClicker running the plugin. TBD
+  FPollForMissingServerFilesTh.FullAppDir := ExtractFileDir(lbeUIClickerPath.Text);
+  FPollForMissingServerFilesTh.FullTemplatesDir := FPollForMissingServerFilesTh.FullAppDir + PathDelim + 'ActionTemplates'; //hardcoded for now to 'ActionTemplates'
   //FPollForMissingServerFilesTh.AddListOfAccessibleDirs(AList); /////////////////////////////// this may need to be called on every file, right before sending the file
   //FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions(AList); ///////////////////////////////  -||-
+  FPollForMissingServerFilesTh.AddListOfAccessibleDirs('$AppDir$' + PathDelim + 'ActionTemplates' + PathDelim);
+  FPollForMissingServerFilesTh.AddListOfAccessibleDirs(FPollForMissingServerFilesTh.FullTemplatesDir + PathDelim);
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.clktmpl');
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.bmp');
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.png');
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.pmtv');
 
   FPollForMissingServerFilesTh.ConnectTimeout := 500;
   FPollForMissingServerFilesTh.Start;
@@ -2304,15 +2331,27 @@ begin
 end;
 
 
+function TfrmFindSubControlWorkerMain.ResolveTemplatePath(APath: string): string;
+begin
+  Result := StringReplace(APath, '$TemplateDir$', FPollForMissingServerFilesTh.FullTemplatesDir, [rfReplaceAll]);
+  //Result := StringReplace(Result, '$SelfTemplateDir$', ACustomSelfTemplateDir, [rfReplaceAll]);  //not available here
+  Result := StringReplace(Result, '$AppDir$', FPollForMissingServerFilesTh.FullAppDir, [rfReplaceAll]);
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.HandleOnLoadMissingFileContent(AFileName: string; AFileContent: TMemoryStream);
 begin
+  AFileName := ResolveTemplatePath(AFileName);
   FInMemFS.LoadFileFromMemToStream(AFileName, AFileContent);
 end;
 
 
 function TfrmFindSubControlWorkerMain.HandleOnFileExists(const AFileName: string): Boolean;
+var
+  TempFileName: string;
 begin
-  Result := FInMemFS.FileExistsInMem(AFileName);
+  TempFileName := ResolveTemplatePath(AFileName);
+  Result := FInMemFS.FileExistsInMem(TempFileName);
 end;
 
 
