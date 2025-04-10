@@ -207,13 +207,14 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   object lbeUIClickerPath: TLabeledEdit
     Left = 648
     Height = 23
-    Hint = 'Required by FileProvider'
+    Hint = 'Required by FileProvider.'#13#10'If not set, bmp, png and pmtv files, used by FindSubControl, which depend on $AppDir$ replacement, won''t be sent to UIClicker.'
     Top = 280
     Width = 208
-    Anchors = [akLeft, akRight, akBottom]
+    Anchors = [akLeft, akBottom]
+    Color = clBtnFace
     EditLabel.Height = 15
     EditLabel.Width = 208
-    EditLabel.Caption = 'UIClicker Path'
+    EditLabel.Caption = 'UIClicker path'
     ParentShowHint = False
     ReadOnly = True
     ShowHint = True
@@ -224,7 +225,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Height = 25
     Top = 278
     Width = 25
-    Anchors = [akRight, akBottom]
+    Anchors = [akLeft, akBottom]
     Caption = '...'
     TabOrder = 7
     OnClick = btnBrowseUIClickerPathClick

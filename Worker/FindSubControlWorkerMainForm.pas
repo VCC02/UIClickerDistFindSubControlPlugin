@@ -129,6 +129,7 @@ type
     procedure SaveSettingsToIni;
     procedure LoadSettingsFromCmd;
     function ResolveTemplatePath(APath: string): string;
+    procedure SetFileProviderMainDirs;
   public
 
   end;
@@ -2031,6 +2032,7 @@ begin
     Exit;
 
   lbeUIClickerPath.Text := OpenDialog1.FileName;
+  SetFileProviderMainDirs;
 end;
 
 
@@ -2238,6 +2240,13 @@ begin
 end;
 
 
+procedure TfrmFindSubControlWorkerMain.SetFileProviderMainDirs;
+begin
+  FPollForMissingServerFilesTh.FullAppDir := ExtractFileDir(lbeUIClickerPath.Text);
+  FPollForMissingServerFilesTh.FullTemplatesDir := FPollForMissingServerFilesTh.FullAppDir + PathDelim + 'ActionTemplates'; //hardcoded for now to 'ActionTemplates'
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.tmrStartupTimer(Sender: TObject);
 var
   Content: TClkIniReadonlyFile;
@@ -2286,11 +2295,13 @@ begin
     lbePort.Font.Size := Font.Size;
     lbeClientID.Font.Size := Font.Size;
     lbeUIClickerPort.Font.Size := Font.Size;
+    lbeUIClickerPath.Font.Size := Font.Size;
 
     lbeAddress.EditLabel.Font.Size := Font.Size;
     lbePort.EditLabel.Font.Size := Font.Size;
     lbeClientID.EditLabel.Font.Size := Font.Size;
     lbeUIClickerPort.EditLabel.Font.Size := Font.Size;
+    lbeUIClickerPath.EditLabel.Font.Size := Font.Size;
 
     memLog.Font.Size := Font.Size;
   {$ENDIF}
@@ -2302,10 +2313,7 @@ begin
   FPollForMissingServerFilesTh.OnFileExists := @HandleOnFileExists;
   FPollForMissingServerFilesTh.OnLogMissingServerFile := @HandleOnLogMissingServerFile;
 
-  FPollForMissingServerFilesTh.FullAppDir := ExtractFileDir(lbeUIClickerPath.Text);
-  FPollForMissingServerFilesTh.FullTemplatesDir := FPollForMissingServerFilesTh.FullAppDir + PathDelim + 'ActionTemplates'; //hardcoded for now to 'ActionTemplates'
-  //FPollForMissingServerFilesTh.AddListOfAccessibleDirs(AList); /////////////////////////////// this may need to be called on every file, right before sending the file
-  //FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions(AList); ///////////////////////////////  -||-
+  SetFileProviderMainDirs;
   FPollForMissingServerFilesTh.AddListOfAccessibleDirs('$AppDir$' + PathDelim + 'ActionTemplates' + PathDelim);
   FPollForMissingServerFilesTh.AddListOfAccessibleDirs(FPollForMissingServerFilesTh.FullTemplatesDir + PathDelim);
   FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.clktmpl');
