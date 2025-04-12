@@ -130,6 +130,7 @@ type
     procedure LoadSettingsFromCmd;
     function ResolveTemplatePath(APath: string): string;
     procedure SetFileProviderMainDirs;
+    procedure InitFileProvider;
   public
 
   end;
@@ -1128,7 +1129,11 @@ begin
 
                 /////////////////////////////////////////////////////// verify cache here
 
-                CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+                if Pos(CExtBmp_PrefixUpperCase, UpperCase(ListOfArchiveFiles.Strings[i])) = 1 then
+                  CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, ListOfArchiveFiles.Strings[i])
+                else
+                  CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+
                 frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
 
                 if CmdResult = 'Client exception: Connect timed out.' then
@@ -1138,11 +1143,6 @@ begin
                   Result := False;
                   Exit;
                 end;
-
-                AddToLog('++++++++++++++++++++++++++ Adding file ext and dir to FileProvider: ' + ListOfArchiveFiles.Strings[i]);
-                ////////////////////// implement dedup in FileProvider
-                frmFindSubControlWorkerMain.FPollForMissingServerFilesTh.AddListOfAccessibleDirs(ExtractFileDir(ListOfArchiveFiles.Strings[i]));
-                frmFindSubControlWorkerMain.FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions(ExtractFileExt(ListOfArchiveFiles.Strings[i]));
               end;
           finally
             ListOfArchiveFiles.Free;
@@ -2247,6 +2247,30 @@ begin
 end;
 
 
+procedure TfrmFindSubControlWorkerMain.InitFileProvider;
+begin
+  FPollForMissingServerFilesTh := TPollForMissingServerFiles.Create(True);
+  FPollForMissingServerFilesTh.RemoteAddress := GetUIClickerAddr;
+
+  FPollForMissingServerFilesTh.OnLoadMissingFileContent := @HandleOnLoadMissingFileContent;
+  FPollForMissingServerFilesTh.OnFileExists := @HandleOnFileExists;
+  FPollForMissingServerFilesTh.OnLogMissingServerFile := @HandleOnLogMissingServerFile;
+
+  SetFileProviderMainDirs;
+  FPollForMissingServerFilesTh.AddListOfAccessibleDirs('$AppDir$' + PathDelim + 'ActionTemplates' + PathDelim);
+  FPollForMissingServerFilesTh.AddListOfAccessibleDirs(FPollForMissingServerFilesTh.FullTemplatesDir + PathDelim);
+  FPollForMissingServerFilesTh.AddListOfAccessibleDirs(CExtBmp_Prefix + PathDelim);
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.clktmpl');
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.bmp');
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.png');
+  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.pmtv');
+
+  FPollForMissingServerFilesTh.ConnectTimeout := 500;
+  FPollForMissingServerFilesTh.Start;
+  AddToLog('File provider is initialized. Remote address is set to ' + GetUIClickerAddr);
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.tmrStartupTimer(Sender: TObject);
 var
   Content: TClkIniReadonlyFile;
@@ -2306,24 +2330,7 @@ begin
     memLog.Font.Size := Font.Size;
   {$ENDIF}
 
-  FPollForMissingServerFilesTh := TPollForMissingServerFiles.Create(True);
-  FPollForMissingServerFilesTh.RemoteAddress := GetUIClickerAddr;
-
-  FPollForMissingServerFilesTh.OnLoadMissingFileContent := @HandleOnLoadMissingFileContent;
-  FPollForMissingServerFilesTh.OnFileExists := @HandleOnFileExists;
-  FPollForMissingServerFilesTh.OnLogMissingServerFile := @HandleOnLogMissingServerFile;
-
-  SetFileProviderMainDirs;
-  FPollForMissingServerFilesTh.AddListOfAccessibleDirs('$AppDir$' + PathDelim + 'ActionTemplates' + PathDelim);
-  FPollForMissingServerFilesTh.AddListOfAccessibleDirs(FPollForMissingServerFilesTh.FullTemplatesDir + PathDelim);
-  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.clktmpl');
-  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.bmp');
-  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.png');
-  FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.pmtv');
-
-  FPollForMissingServerFilesTh.ConnectTimeout := 500;
-  FPollForMissingServerFilesTh.Start;
-  AddToLog('File provider is initialized. Remote address is set to ' + GetUIClickerAddr);
+  InitFileProvider;
 
   tmrConnect.Enabled := True;
 end;

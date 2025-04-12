@@ -176,6 +176,7 @@ var
   WorkerCapabilitiesSource: string; //set by property at CWorkerCapabilitiesSourcePropertyIndex
   RequestedTextRenderingOS: string;
   FindSubControlFonts: TClkFindControlMatchBitmapTextArr = nil; //used for sorting
+  DisplayExtraDebuggingInfo: Boolean;
 
   RecTh: TMQTTReceiveThread;
 
@@ -2315,6 +2316,7 @@ var
     i, j: Integer;
     TempFilesToSend: TStringList;
     TempMemFile: TMemoryStream;
+    FileLoc: TImageSourceFileNameLocation;
   begin
     for i := 0 to Length(AllWorkers) - 1 do
     begin
@@ -2328,7 +2330,13 @@ var
           TempMemFile := TMemoryStream.Create;
           try
             AddToLog('----------- loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
-            if LoadBitmapAsStream(TempFilesToSend.Strings[j], TempMemFile, isflDisk) then
+
+            if Pos(CExtBmp_PrefixUpperCase, UpperCase(TempFilesToSend.Strings[j])) = 1 then
+              FileLoc := isflMem
+            else
+              FileLoc := isflDisk;
+
+            if LoadBitmapAsStream(TempFilesToSend.Strings[j], TempMemFile, FileLoc) then
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
               AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
@@ -2939,6 +2947,7 @@ begin
       UpdateCacheActionName := PluginSettings.ValueFromIndex[CSaveWorkerCapabilitiesCacheActionPropertyIndex];
       LoadCacheActionName := PluginSettings.ValueFromIndex[CLoadWorkerCapabilitiesCacheActionPropertyIndex];
       RequestedTextRenderingOS := PluginSettings.ValueFromIndex[CTextRenderingOSPropertyIndex];
+      DisplayExtraDebuggingInfo := PluginSettings.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';
 
       SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
 
@@ -3035,6 +3044,11 @@ begin
             SetTemplateVar('$Worker[' + IntToStr(i) + '].OS$', AllWorkers[i].OS);
             SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);  //it is possible that on a subsequent run, the workers come up in a different order, so this info will be outdated
             SetTemplateVar('$Worker[' + IntToStr(i) + '].ExtraName$', AllWorkers[i].ExtraName);
+
+            if DisplayExtraDebuggingInfo then
+            begin
+              SetTemplateVar('$Worker[' + IntToStr(i) + '].WorkerSpecificTask$', AllWorkers[i].WorkerSpecificTask);
+            end;
           end;
         end;
 
