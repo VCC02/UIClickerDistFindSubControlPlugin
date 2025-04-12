@@ -68,6 +68,7 @@ type
     lblServerInfo: TLabel;
     memLog: TMemo;
     OpenDialog1: TOpenDialog;
+    tmrReconnectFileProvider: TTimer;
     tmrConnect: TTimer;
     tmrSubscribe: TTimer;
     tmrProcessLog: TTimer;
@@ -85,9 +86,11 @@ type
     procedure IdHTTPServer1Connect(AContext: TIdContext);
     procedure IdHTTPServer1Exception(AContext: TIdContext; AException: Exception
       );
+    procedure lbeUIClickerPortChange(Sender: TObject);
     procedure tmrConnectTimer(Sender: TObject);
     procedure tmrProcessLogTimer(Sender: TObject);
     procedure tmrProcessRecDataTimer(Sender: TObject);
+    procedure tmrReconnectFileProviderTimer(Sender: TObject);
     procedure tmrStartupTimer(Sender: TObject);
     procedure tmrSubscribeTimer(Sender: TObject);
   private
@@ -731,19 +734,54 @@ end;
 
 procedure FilterOutTasksForOtherWorkers(AThisWorkerTask: string; var AFindSubControl: TClkFindSubControlOptions);
 var
-  WorkerTask: TStringList;
+  WorkerTask, MatchingFiles: TStringList;
   i: Integer;
 begin
   WorkerTask := TStringList.Create;
+  MatchingFiles := TStringList.Create;
   try
     WorkerTask.LineBreak := #13#10;
     WorkerTask.Text := StringReplace(AThisWorkerTask, '&', #13#10, [rfReplaceAll]);
 
     for i := Length(AFindSubControl.MatchBitmapText) - 1 downto 0 do
-      if WorkerTask.IndexOf('Txt_' + IntToStr(i) + '=1') = -1 then
-        RemoveFontProfileByIndex(i, AFindSubControl);
+      if WorkerTask.IndexOf(CWorkerTask_TxtPrefix + IntToStr(i) + '=1') = -1 then
+        RemoveFontProfileByIndex(i, AFindSubControl); //delete from that index
+
+    AddToLog('Remaining font profiles after filtering:');
+    for i := 0 to Length(AFindSubControl.MatchBitmapText) - 1 do
+      AddToLog('    ' + AFindSubControl.MatchBitmapText[i].ProfileName + ' (' + AFindSubControl.MatchBitmapText[i].FontName + ' ' + IntToStr(AFindSubControl.MatchBitmapText[i].FontSize) + ')');
+
+    if Length(AFindSubControl.MatchBitmapText) = 0 then
+      AddToLog('');
+
+    MatchingFiles.Text := AFindSubControl.MatchBitmapFiles;
+    for i := MatchingFiles.Count - 1 downto 0 do
+      if WorkerTask.IndexOf(CWorkerTask_BmpPrefix + IntToStr(i) + '=1') = -1 then
+        MatchingFiles.Delete(i); //delete from that index
+    AFindSubControl.MatchBitmapFiles := MatchingFiles.Text;
+
+    AddToLog('Remaining bitmap files after filtering:');
+    for i := 0 to MatchingFiles.Count - 1 do
+      AddToLog('    ' + MatchingFiles.Strings[i]);
+
+    if MatchingFiles.Count = 0 then
+      AddToLog('');
+
+    MatchingFiles.Text := AFindSubControl.MatchPrimitiveFiles;
+    for i := MatchingFiles.Count - 1 downto 0 do
+      if WorkerTask.IndexOf(CWorkerTask_PmtvPrefix + IntToStr(i) + '=1') = -1 then
+        MatchingFiles.Delete(i); //delete from that index
+    AFindSubControl.MatchPrimitiveFiles := MatchingFiles.Text;
+
+    AddToLog('Remaining pmtv files after filtering:');
+    for i := 0 to MatchingFiles.Count - 1 do
+      AddToLog('    ' + MatchingFiles.Strings[i]);
+
+    if MatchingFiles.Count = 0 then
+      AddToLog('');
   finally
     WorkerTask.Free;
+    MatchingFiles.Free;
   end;
 end;
 
@@ -2178,6 +2216,17 @@ begin
 end;
 
 
+procedure TfrmFindSubControlWorkerMain.lbeUIClickerPortChange(Sender: TObject);
+begin
+  try
+    if FPollForMissingServerFilesTh <> nil then
+      if FPollForMissingServerFilesTh.RemoteAddress <> GetUIClickerAddr then
+        tmrReconnectFileProvider.Enabled := True;
+  except
+  end;
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.tmrConnectTimer(Sender: TObject);
 var
   tk: QWord;
@@ -2240,6 +2289,51 @@ begin
 end;
 
 
+procedure TfrmFindSubControlWorkerMain.tmrReconnectFileProviderTimer(
+  Sender: TObject);
+var
+  tk: QWord;
+begin
+  tmrReconnectFileProvider.Enabled := False;
+
+  try
+    if (FPollForMissingServerFilesTh <> nil) and (FPollForMissingServerFilesTh.RemoteAddress <> GetUIClickerAddr) then
+    begin
+      try
+        FPollForMissingServerFilesTh.Terminate;
+      except
+        on E: Exception do
+          AddToLog('Stopping FileProvider: ' + E.Message);
+      end;
+
+      lbeUIClickerPort.Enabled := False;
+      try
+        try
+          tk := GetTickCount64;
+          repeat
+            Application.ProcessMessages;
+            if FPollForMissingServerFilesTh.Done then
+              Break;
+          until FPollForMissingServerFilesTh.CheckTerminated or (GetTickCount64 - tk > 1000);
+
+          try
+            FreeAndNil(FPollForMissingServerFilesTh); //Enclosed by try..except, in case the app is closed before executing the tmrStartupTimer timer, which creates this object.
+          except
+          end;
+        finally
+          InitFileProvider;
+        end;
+      finally
+        lbeUIClickerPort.Enabled := True;
+      end;
+    end;
+  except  //catch all exceptions here, because the worker should display no pop-ups
+    on E: Exception do
+      AddToLog('Stopping FileProvider ex: ' + E.Message);
+  end;
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.SetFileProviderMainDirs;
 begin
   FPollForMissingServerFilesTh.FullAppDir := ExtractFileDir(lbeUIClickerPath.Text);
@@ -2249,6 +2343,7 @@ end;
 
 procedure TfrmFindSubControlWorkerMain.InitFileProvider;
 begin
+  AddToLog('Starting file provider...');
   FPollForMissingServerFilesTh := TPollForMissingServerFiles.Create(True);
   FPollForMissingServerFilesTh.RemoteAddress := GetUIClickerAddr;
 

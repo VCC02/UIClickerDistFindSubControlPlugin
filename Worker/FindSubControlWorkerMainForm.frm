@@ -177,6 +177,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     ParentFont = False
     TabOrder = 3
     Text = '33444'
+    OnChange = lbeUIClickerPortChange
   end
   object lbeLatestWork: TLabeledEdit
     Left = 8
@@ -318,5 +319,12 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Filter = 'Executables (*.exe;*)|*.exe;*|All files (*.*)|*.*'
     Left = 940
     Top = 262
+  end
+  object tmrReconnectFileProvider: TTimer
+    Enabled = False
+    Interval = 2000
+    OnTimer = tmrReconnectFileProviderTimer
+    Left = 911
+    Top = 221
   end
 end

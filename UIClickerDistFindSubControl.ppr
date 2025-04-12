@@ -2542,7 +2542,7 @@ var
           if Length(WorkersMatchingFonts) > 0 then
           begin
             WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Txt_' + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the profile index
+            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_TxtPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the profile index
             Inc(AllWorkers[WorkersIndex].TxtCntW);
           end;
         end;
@@ -2561,15 +2561,16 @@ var
         if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
           if i < AListOfBmps.Count then
           begin
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Bmp_' + IntToStr(i) + '=1&';
+            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
             AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
             Inc(AllWorkers[WorkersIndex].BmpCntW);
           end;
 
+        //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
         if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
           if i < AListOfPmtvs.Count then
           begin
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + 'Pmtv_' + IntToStr(i) + '=1&';
+            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
             AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
             Inc(AllWorkers[WorkersIndex].PmtvCntW);
           end;

@@ -100,6 +100,10 @@ const
   CReportedOS_Win = 'Win';
   CReportedOS_Lin = 'Lin';
 
+  CWorkerTask_TxtPrefix = 'Txt_';
+  CWorkerTask_BmpPrefix = 'Bmp_';
+  CWorkerTask_PmtvPrefix = 'Pmtv_';
+
 
 type
   TOnAddToLogNoObj = procedure(AMsg: string);
