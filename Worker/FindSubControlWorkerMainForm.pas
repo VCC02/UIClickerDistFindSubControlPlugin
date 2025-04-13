@@ -2312,9 +2312,11 @@ begin
           tk := GetTickCount64;
           repeat
             Application.ProcessMessages;
+            Sleep(10);
+
             if FPollForMissingServerFilesTh.Done then
               Break;
-          until FPollForMissingServerFilesTh.CheckTerminated or (GetTickCount64 - tk > 1000);
+          until GetTickCount64 - tk > 1000;
 
           try
             FreeAndNil(FPollForMissingServerFilesTh); //Enclosed by try..except, in case the app is closed before executing the tmrStartupTimer timer, which creates this object.
