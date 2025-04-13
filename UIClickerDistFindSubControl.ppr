@@ -39,7 +39,7 @@ uses
 
   ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
   MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties,
-  ClickerPluginInMemFileSystem;
+  ClickerPluginInMemFileSystem, ClickerPrimitives;
 
 type
   //TStringArr = array of string;
@@ -2243,7 +2243,7 @@ var
 
     BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
 
-    AddToLog('----------- loading background bitmap as stream and adding it to archive...');
+    AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
     TempBk := TMemoryStream.Create;
     try
       if LoadBitmapAsStream(ASourceFileName, TempBk, BkFileNameLocation) then
@@ -2313,10 +2313,12 @@ var
 
   procedure AddBitmapsToWorkerArchives;
   var
-    i, j: Integer;
+    i, j, k: Integer;
     TempFilesToSend: TStringList;
-    TempMemFile: TMemoryStream;
+    TempMemFile, UsedBmpTempMemFile: TMemoryStream;
     FileLoc: TImageSourceFileNameLocation;
+    PmtvIni: TClkIniReadonlyFile;
+    BmpsInPmtv: TStringList;
   begin
     for i := 0 to Length(AllWorkers) - 1 do
     begin
@@ -2329,7 +2331,7 @@ var
         begin
           TempMemFile := TMemoryStream.Create;
           try
-            AddToLog('----------- loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
+            AddToLog('----------- Loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
 
             if Pos(CExtBmp_PrefixUpperCase, UpperCase(TempFilesToSend.Strings[j])) = 1 then
               FileLoc := isflMem
@@ -2341,6 +2343,48 @@ var
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
               AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
               AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.');
+
+              if UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV' then
+              begin           //open the pmtv file and get the list of used bitmaps
+                TempMemFile.Position := 0;
+                PmtvIni := TClkIniReadonlyFile.Create(TempMemFile);
+                try
+                  BmpsInPmtv := TStringList.Create;
+                  try
+                    GetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
+                    for k := 0 to BmpsInPmtv.Count - 1 do
+                    begin
+                      UsedBmpTempMemFile := TMemoryStream.Create;
+                      try
+                        AddToLog('----------- Loading bitmap (used by pmtv) as stream: "' + BmpsInPmtv.Strings[k] + '" and adding it to archive.');
+
+                        if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpsInPmtv.Strings[k])) = 1 then
+                          FileLoc := isflMem
+                        else
+                          FileLoc := isflDisk;
+
+                        if LoadBitmapAsStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile, FileLoc) then
+                        begin
+                          BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
+                          AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);
+                          AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
+                        end
+                        else
+                        begin
+                          FLatestMsg := 'Error loading bitmap used by pmtv as stream: "' + BmpsInPmtv.Strings[k] + '".';
+                          raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
+                        end;
+                      finally
+                        UsedBmpTempMemFile.Free;
+                      end;
+                    end;
+                  finally
+                    BmpsInPmtv.Free;
+                  end;
+                finally
+                  PmtvIni.Free;
+                end;
+              end; //it's a pmtv file
             end
             else
             begin
