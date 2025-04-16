@@ -2008,7 +2008,6 @@ function ExecutePlugin(APluginReference: Pointer;
 var
   ActionCount, IndexOfFindSubControlActionProperty: Integer;
   PluginSettingsStr, AllVarsStr: string;
-  ListOfAllVars: TStringList;
   TempPluginMQTTClientHandlers: TPluginMQTTClientHandlers;
   s: string;
   ActionTypeDWord: DWord;
@@ -2093,21 +2092,25 @@ var
     end;
   end;
 
-  function LoadBitmap(AFnm: string; ADestBmp: TBitmap; AFileLocation: TImageSourceFileNameLocation): Boolean;
+  function LoadBitmap(AListOfAllVars: TStringList; AFnm: string; ADestBmp: TBitmap; AFileLocation: TImageSourceFileNameLocation): Boolean;
   var
     TempDenyReason: string;
   begin
+    AFnm := EvaluateAllReplacements(AListOfAllVars, AFnm);
+
     if BitmapIsAllowedToBeLoaded(AFnm, TempDenyReason) then                                      //isflDisk=0, isflMem=1
       Result := AOnActionPlugin_LoadBitmap(APluginReference, @AFnm[1], ADestBmp, Ord(AFileLocation), @HandleOnFileContent)
     else
       Result := False;
   end;
 
-  function LoadBitmapAsStream(AFnm: string; AMemStream: TMemoryStream; AFileLocation: TImageSourceFileNameLocation): Boolean;
+  function LoadBitmapAsStream(AListOfAllVars: TStringList; AFnm: string; AMemStream: TMemoryStream; AFileLocation: TImageSourceFileNameLocation): Boolean;
   var
     TempDenyReason: string;
     IsPmtv: Byte;
   begin
+    AFnm := EvaluateAllReplacements(AListOfAllVars, AFnm);
+
     if BitmapIsAllowedToBeLoaded(AFnm, TempDenyReason) then                                      //isflDisk=0, isflMem=1
     begin
       IsPmtv := Ord(UpperCase(ExtractFileExt(AFnm)) = '.PMTV') shl 3;  //use bit 3 for "DoNotRender" flag, to reserve bits 2 and 1 for future use.
@@ -2120,7 +2123,7 @@ var
     end;
   end;
 
-  procedure GenerateSomeResultImg;
+  procedure GenerateSomeResultImg(AListOfAllVars: TStringList);
   var
     TempBmp, BkBmp: TBitmap;
     TempStream: TMemoryStream;
@@ -2134,7 +2137,7 @@ var
       TempBmp.Canvas.Brush.Color := clBlack;
       TempBmp.Canvas.Pen.Color := clBlack;
 
-      if LoadBitmap(ExtractFilePath(ParamStr(0)) + 'Tests\TestFiles\Gradient30deg.bmp', BkBmp, isflDisk) then
+      if LoadBitmap(AListOfAllVars, ExtractFilePath(ParamStr(0)) + 'Tests\TestFiles\Gradient30deg.bmp', BkBmp, isflDisk) then
         TempBmp.Canvas.Draw(50, 25, BkBmp);
 
       TempBmp.Canvas.Font.Color := clYellow;
@@ -2222,7 +2225,7 @@ var
   end;
 
 
-  function AddBackgroundBitmapToWorkerArchives(AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
+  function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
   var
     TempBk: TMemoryStream;
     BkFileNameLocation: TImageSourceFileNameLocation;
@@ -2246,7 +2249,7 @@ var
     AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
     TempBk := TMemoryStream.Create;
     try
-      if LoadBitmapAsStream(ASourceFileName, TempBk, BkFileNameLocation) then
+      if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
       begin
         ABackgroundSize := TempBk.Size;
         BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
@@ -2311,7 +2314,7 @@ var
   end;
 
 
-  procedure AddBitmapsToWorkerArchives;
+  procedure AddBitmapsToWorkerArchives(AListOfAllVars: TStringList);
   var
     i, j, k: Integer;
     TempFilesToSend: TStringList;
@@ -2338,7 +2341,7 @@ var
             else
               FileLoc := isflDisk;
 
-            if LoadBitmapAsStream(TempFilesToSend.Strings[j], TempMemFile, FileLoc) then
+            if LoadBitmapAsStream(AListOfAllVars, TempFilesToSend.Strings[j], TempMemFile, FileLoc) then
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
               AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
@@ -2363,7 +2366,7 @@ var
                         else
                           FileLoc := isflDisk;
 
-                        if LoadBitmapAsStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile, FileLoc) then
+                        if LoadBitmapAsStream(AListOfAllVars, BmpsInPmtv.Strings[k], UsedBmpTempMemFile, FileLoc) then
                         begin
                           BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
                           AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);
@@ -2669,7 +2672,7 @@ var
     end;
   end;
 
-  function GetFindSubControlContent: Boolean;
+  function GetFindSubControlContent(AListOfAllVars: TStringList): Boolean;
   const
     CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
     CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
@@ -2789,7 +2792,8 @@ var
           //InitialRectangle_LeftOffset
           //Top, Right, Bottom
 
-          if not AddBackgroundBitmapToWorkerArchives(ListOfFindSubControlProperties.Values['ImageSource'],
+          if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
+                                                     ListOfFindSubControlProperties.Values['ImageSource'],
                                                      ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
                                                      ListOfFindSubControlProperties.Values['SourceFileName'],
                                                      BkSize,
@@ -2814,7 +2818,7 @@ var
           else
             AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
 
-          AddBitmapsToWorkerArchives;
+          AddBitmapsToWorkerArchives(AListOfAllVars);
         finally
           CloseWorkerArchives;
         end;
@@ -2896,6 +2900,7 @@ var
 var
   i: Integer;
   TempResponseVars: TResponseVars;
+  ListOfAllVars: TStringList;
 
 begin
   Result := False;
@@ -2909,6 +2914,7 @@ begin
     FRecBufFIFO := TPollingFIFO.Create;
     TempPluginMQTTClientHandlers := TPluginMQTTClientHandlers.Create(nil);
     PluginSettings := TStringList.Create;
+    ListOfAllVars := TStringList.Create;
     try
       PluginSettings.LineBreak := #13#10;
       DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
@@ -2949,6 +2955,7 @@ begin
 
       GetAllTemplateVars(AllVarsStr);
       GetPluginSettingsFromProperties(PluginSettings, AllVarsStr);
+      ListOfAllVars.Text := AllVarsStr;
 
       s := 'unset action';
       IndexOfFindSubControlActionProperty := -1;
@@ -3016,7 +3023,7 @@ begin
             if State = SGetFindSubControlActionContent then
             begin
               try
-                if not GetFindSubControlContent then
+                if not GetFindSubControlContent(ListOfAllVars) then
                 begin
                   AddToLog('Stopping FSM, because GetFindSubControlContent returned False.');
                   FSMDone := True;
@@ -3172,16 +3179,15 @@ begin
       FreeAndNil(TempPluginMQTTClientHandlers);
       FreeAndNil(PluginSettings);
 
-
       if Length(AllWorkers) = 0 then
       begin
-        GenerateSomeResultImg;
+        GenerateSomeResultImg(ListOfAllVars);
         AddToLog('No available workers for result image.');
       end
       else
         if AllWorkers[0].ResponseBitmapStream.Size = 0 then
         begin
-          GenerateSomeResultImg;
+          GenerateSomeResultImg(ListOfAllVars);
           AddToLog('Worker[0] returned an empty result image.');
         end
         else
@@ -3191,6 +3197,7 @@ begin
           AddToLog('Result image set from worker[0].');
         end;
 
+     FreeAndNil(ListOfAllVars);
 
       try
         for i := 0 to Length(AllWorkers) - 1 do
