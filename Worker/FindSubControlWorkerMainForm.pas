@@ -44,7 +44,7 @@ type
   { TfrmFindSubControlWorkerMain }
 
   TfrmFindSubControlWorkerMain = class(TForm)
-    btnDisconnect: TButton;
+    btnConnection: TButton;
     btnGetListOfFonts: TButton;
     btnBrowseUIClickerPath: TButton;
     chkExtServerKeepAlive: TCheckBox;
@@ -57,6 +57,7 @@ type
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdTCPClient1: TIdTCPClient;
     imgFindSubControlBackground: TImage;
+    lblBrokerConnectionStatus: TLabel;
     lbeUIClickerPath: TLabeledEdit;
     lbeLatestWork: TLabeledEdit;
     lbeUIClickerPort: TLabeledEdit;
@@ -75,7 +76,7 @@ type
     tmrProcessRecData: TTimer;
     tmrStartup: TTimer;
     procedure btnBrowseUIClickerPathClick(Sender: TObject);
-    procedure btnDisconnectClick(Sender: TObject);
+    procedure btnConnectionClick(Sender: TObject);
     procedure btnGetListOfFontsClick(Sender: TObject);
     procedure chkExtServerActiveChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -134,6 +135,9 @@ type
     function ResolveTemplatePath(APath: string): string;
     procedure SetFileProviderMainDirs;
     procedure InitFileProvider;
+
+    procedure ShowBrokerIsConnected(ASrcCall: string);
+    procedure ShowBrokerIsDisconnected(ASrcCall: string);
   public
 
   end;
@@ -165,6 +169,10 @@ type
 var
   AssignedClientID, TopicWithWorkerName_Background, TopicWithWorkerName_FindSubControl: string;
   Responses: TResponseArr;
+
+const
+  CBrokerIsConnectedStatus = 'Status: connected';
+  CBrokerIsDisconnectedStatus = 'Status: disconnected';
 
 
 function GetFirstAvailableResponseSlotIndex: Integer;
@@ -484,6 +492,7 @@ begin
 
   frmFindSubControlWorkerMain.tmrSubscribe.Enabled := False;
 
+  frmFindSubControlWorkerMain.ShowBrokerIsConnected('SUBACK');
   frmFindSubControlWorkerMain.AddToLog('');
 end;
 
@@ -555,6 +564,7 @@ begin
     frmFindSubControlWorkerMain.AddToLog('AUnsubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AUnsubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
   {$ENDIF}
 
+  frmFindSubControlWorkerMain.ShowBrokerIsDisconnected('UNSUBACK');
   frmFindSubControlWorkerMain.AddToLog('');
 end;
 
@@ -2027,39 +2037,91 @@ begin
 end;
 
 
-procedure TfrmFindSubControlWorkerMain.btnDisconnectClick(Sender: TObject);
+procedure TfrmFindSubControlWorkerMain.btnConnectionClick(Sender: TObject);
 var
   tk: QWord;
   ClientToServerBuf: {$IFDEF SingleOutputBuffer} PMQTTBuffer; {$ELSE} PMQTTMultiBuffer; {$ENDIF}
   Err: Word;
 begin
-  //if not MQTT_DISCONNECT(0, 0) then
-  //begin
-  //  AddToLog('Can''t prepare MQTTDisconnect packet.');
-  //  Exit;
-  //end;
+  if btnConnection.Tag = 0 then //Disconnect
+  begin
+    if Th = nil then
+      Exit;
 
-  //try
-  //  tk := GetTickCount64;
-  //  repeat
-  //    ClientToServerBuf := MQTT_GetClientToServerBuffer(0, Err);
-  //    Application.ProcessMessages;
-  //    Sleep(10);
-  //  until (GetTickCount64 - tk > 1500) or ((ClientToServerBuf <> nil) and (ClientToServerBuf^.Len = 0));
-  //except
-  //end;
+    btnConnection.Enabled := False;
+    try
+      if not MQTT_UNSUBSCRIBE(0, 0) then
+      begin
+        AddToLog('Can''t prepare MQTT_UNSUBSCRIBE packet.');
+        //Exit;
+      end;
 
-  tmrProcessRecData.Enabled := False;
-  tmrProcessLog.Enabled := False;
-  Th.Terminate;
-  tk := GetTickCount64;
-  repeat
-    Application.ProcessMessages;
-    Sleep(10);
-  until (GetTickCount64 - tk > 1500) or Th.Terminated;
-  FreeAndNil(Th);
+      memLog.Lines.Add(DateTimeToStr(Now) + '  Unsubscribing...');
 
-  IdTCPClient1.Disconnect(False);
+      tk := GetTickCount64;
+      repeat
+        Application.ProcessMessages;
+      until (GetTickCount64 - tk > 5000) or (lblBrokerConnectionStatus.Caption = CBrokerIsDisconnectedStatus);
+
+      memLog.Lines.Add(DateTimeToStr(Now) + '  Done waiting for unsubscribe response...');
+      memLog.Lines.Add(DateTimeToStr(Now) + '  Disconnecting...');
+
+      if not MQTT_DISCONNECT(0, 0) then
+      begin
+        AddToLog('Can''t prepare MQTTDisconnect packet.');
+        //Exit;
+      end;
+
+      tk := GetTickCount64;
+      repeat
+        Application.ProcessMessages;
+      until GetTickCount64 - tk > 800;   //wait a bit, so that the last log entries are processed
+
+      //try
+      //  tk := GetTickCount64;
+      //  repeat
+      //    ClientToServerBuf := MQTT_GetClientToServerBuffer(0, Err);
+      //    Application.ProcessMessages;
+      //    Sleep(10);
+      //  until (GetTickCount64 - tk > 1500) or ((ClientToServerBuf <> nil) and (ClientToServerBuf^.Len = 0));
+      //except
+      //end;
+
+      memLog.Lines.Add(DateTimeToStr(Now) + '  Stopping timers...');
+      tmrProcessRecData.Enabled := False;
+      tmrProcessLog.Enabled := False;
+      Th.Terminate;
+      tk := GetTickCount64;
+      repeat
+        Application.ProcessMessages;
+        Sleep(10);
+      until (GetTickCount64 - tk > 1500) or Th.Terminated;
+      FreeAndNil(Th);
+
+      memLog.Lines.Add(DateTimeToStr(Now) + '  Closing connection...');
+      IdTCPClient1.Disconnect(False);
+      memLog.Lines.Add(DateTimeToStr(Now) + '  Connection closed...');
+
+      btnConnection.Tag := 1;
+      btnConnection.Caption := 'Connect';
+      Exit;
+    finally
+      btnConnection.Enabled := True;
+    end;
+  end;
+
+  if btnConnection.Tag = 1 then //Connect
+  begin
+    btnConnection.Enabled := False;  //reenabled by tmrConnect timer
+    memLog.Lines.Add('');
+    memLog.Lines.Add(DateTimeToStr(Now) + '  Reconnecting...');
+    tmrProcessLog.Enabled := True;
+    tmrProcessRecData.Enabled := True;
+    tmrConnect.Enabled := True;
+
+    btnConnection.Tag := 0;
+    btnConnection.Caption := 'Disconnect';
+  end;
 end;
 
 
@@ -2231,10 +2293,11 @@ procedure TfrmFindSubControlWorkerMain.tmrConnectTimer(Sender: TObject);
 var
   tk: QWord;
 begin
+  AddToLog('Connecting to broker...');
   IdTCPClient1.OnConnected := @HandleClientOnConnected;
   IdTCPClient1.OnDisconnected := @HandleClientOnDisconnected;
 
-  //btnConnect.Enabled := False;
+  //btnConnect.Enabled := False;   //btnConnection.Enabled := True;
   try
     try
       IdTCPClient1.Connect(lbeAddress.Text, StrToIntDef(lbePort.Text, 1883));
@@ -2270,6 +2333,7 @@ begin
     end;
   finally
     //btnConnect.Enabled := True;
+    btnConnection.Enabled := True;
   end;
 end;
 
@@ -2451,6 +2515,22 @@ begin
 end;
 
 
+procedure TfrmFindSubControlWorkerMain.ShowBrokerIsConnected(ASrcCall: string);
+begin
+  lblBrokerConnectionStatus.Font.Color := clGreen;
+  lblBrokerConnectionStatus.Caption := CBrokerIsConnectedStatus; //used by UIClicker in tests
+  AddToLog(lblBrokerConnectionStatus.Caption + ' from "' + ASrcCall + '"');
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.ShowBrokerIsDisconnected(ASrcCall: string);
+begin
+  lblBrokerConnectionStatus.Font.Color := clMaroon;
+  lblBrokerConnectionStatus.Caption := CBrokerIsDisconnectedStatus; //used by UIClicker in tests
+  AddToLog(lblBrokerConnectionStatus.Caption + ' from "' + ASrcCall + '"');
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.HandleOnLoadMissingFileContent(AFileName: string; AFileContent: TMemoryStream);
 begin
   AFileName := ResolveTemplatePath(AFileName);
@@ -2482,6 +2562,7 @@ end;
 procedure TfrmFindSubControlWorkerMain.HandleClientOnDisconnected(Sender: TObject);
 begin
   AddToLog('Disconnected from broker...');
+  //ShowBrokerIsDisconnected;
 
   try
     if Th <> nil then

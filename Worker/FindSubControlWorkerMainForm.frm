@@ -76,23 +76,35 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
       Left = 144
       Height = 23
       Top = 19
-      Width = 256
+      Width = 240
       Anchors = [akLeft, akBottom]
       Color = 16640708
       EditLabel.Height = 15
-      EditLabel.Width = 256
+      EditLabel.Width = 240
       EditLabel.Caption = 'ClientID'
       ReadOnly = True
       TabOrder = 2
     end
-    object btnDisconnect: TButton
-      Left = 408
+    object btnConnection: TButton
+      Left = 392
       Height = 25
       Top = 17
-      Width = 69
+      Width = 77
       Caption = 'Disconnect'
       TabOrder = 3
-      OnClick = btnDisconnectClick
+      OnClick = btnConnectionClick
+    end
+    object lblBrokerConnectionStatus: TLabel
+      Left = 344
+      Height = 13
+      Top = 0
+      Width = 120
+      Caption = 'Status: disconnected'
+      Font.Color = clMaroon
+      Font.Height = -11
+      Font.Name = 'DejaVu Sans'
+      Font.Quality = fqNonAntialiased
+      ParentFont = False
     end
   end
   object grpExtServer: TGroupBox
