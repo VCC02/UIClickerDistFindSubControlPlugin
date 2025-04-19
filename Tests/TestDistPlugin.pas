@@ -38,7 +38,7 @@ type
   TTestDistPlugin = class(TTestHTTPAPI)
   protected
     procedure StartAllUIClickerInstances;
-    procedure StartAllWorkerInstances(AReportedOS: string = 'Win+Lin'; AReportedFonts: string = '');  //at least those from this machine
+    procedure StartAllWorkerInstances(const AReportedOSes, AReportedFonts: TStringArr);  //at least those from this machine
     procedure StartTestUtilities;
     procedure ExecuteTemplateOnTestDriver(ATemplatePath, AFileLocation: string; AAdditionalExpectedVar: string = ''; AAdditionalExpectedValue: string = '');
     procedure ArrangeMainUIClickerWindows;
@@ -52,9 +52,16 @@ type
     procedure ExpectWorkAtWorkerSide(const AWork: TStringArr; AExpectedUnreceivedWorkCount: Integer; const ATaskAllocationCountInfo: TStringArr; const ATaskAllocationCountCount: TIntArr);
     procedure ExpectWorkAtPluginSide(const AWork: TStringArr; AExpectedUnreceivedWorkCount: Integer; const ATaskAllocationCountInfo: TStringArr; const ATaskAllocationCountCount: TIntArr);
     procedure ExecutePluginTestTemplate_FullPath(ATemplatePath: string);
+
+    procedure BeforeAll(const AReportedOSes, AReportedFonts: TStringArr);
+    procedure AfterAll;
   public
     constructor Create; override;
 
+  end;
+
+
+  TTestDistPluginFullOSes = class(TTestDistPlugin)
   published
     procedure BeforeAll_AlwaysExecute;
 
@@ -160,20 +167,32 @@ begin
 end;
 
 
-procedure TTestDistPlugin.StartAllWorkerInstances(AReportedOS: string = 'Win+Lin'; AReportedFonts: string = '');  //at least those from this machine
+procedure TTestDistPlugin.StartAllWorkerInstances(const AReportedOSes, AReportedFonts: TStringArr);  //at least those from this machine
 var
   PathToDistWorker: string;
+  ReportedFonts: TStringArr;
+  i: Integer;
 begin
+  Expect(Length(AReportedOSes)).ToBe(4, 'Only 4 workers are supported for now (OSes).');   //Each AReportedOSes item matches a worker.
+  Expect(Length(AReportedFonts)).ToBe(4, 'Only 4 workers are supported for now (Fonts).'); //Each AReportedFonts item matches a worker. If an item is empty, the "reported fonts" feature is not used, so the worker gets the list of fonts from its UIClicker.
+
   //Other params: '--SetBrokerCredFile', '--SetBrokerAddress', '--SetBrokerPort'
   PathToDistWorker := ExtractFilePath(ParamStr(0)) + '..\Worker\FindSubControlWorker.exe';
 
-  FWorker1_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOS + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort1 + ' --SetWorkerExtraName First --SetWorkerExtraCaption First');
+  SetLength(ReportedFonts, Length(AReportedFonts));
+  for i := 0 to Length(ReportedFonts) - 1 do
+    if AReportedFonts[i] = '' then
+      ReportedFonts[i] := ''
+    else
+      ReportedFonts[i] := ' --SetReportedFonts "' + AReportedFonts[i] + '"'; //using double quotes, because of the command line
+
+  FWorker1_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[0] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort1 + ' --SetWorkerExtraName First --SetWorkerExtraCaption First' + ReportedFonts[0]);
   Sleep(500);
-  FWorker2_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOS + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort2 + ' --SetWorkerExtraName Second --SetWorkerExtraCaption Second');
+  FWorker2_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[1] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort2 + ' --SetWorkerExtraName Second --SetWorkerExtraCaption Second' + ReportedFonts[1]);
   Sleep(500);
-  FWorker3_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOS + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort3 + ' --SetWorkerExtraName Third --SetWorkerExtraCaption Third');
+  FWorker3_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[2] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort3 + ' --SetWorkerExtraName Third --SetWorkerExtraCaption Third' + ReportedFonts[2]);
   Sleep(500);
-  FWorker4_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOS + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort4 + ' --SetWorkerExtraName Fourth --SetWorkerExtraCaption Fourth');
+  FWorker4_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[3] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort4 + ' --SetWorkerExtraName Fourth --SetWorkerExtraCaption Fourth' + ReportedFonts[3]);
   Sleep(500);
 end;
 
@@ -339,10 +358,10 @@ begin
 end;
 
 
-procedure TTestDistPlugin.BeforeAll_AlwaysExecute;
+procedure TTestDistPlugin.BeforeAll(const AReportedOSes, AReportedFonts: TStringArr);
 begin
   StartAllUIClickerInstances;
-  StartAllWorkerInstances;
+  StartAllWorkerInstances(AReportedOSes, AReportedFonts);
   StartTestUtilities;
 
   WaitForDriverStartup;
@@ -372,98 +391,7 @@ begin
 end;
 
 
-procedure TTestDistPlugin.ExecutePluginTestTemplate_FullPath(ATemplatePath: string);
-begin
-  PrepareClickerUnderTestToLocalMode;
-
-  TestServerAddress := CTestDriverServerAddress_Client;
-  LoadTestTemplateInClickerUnderTest_FullPath(ATemplatePath);
-  ExecuteTemplateOnTestDriver(FTemplatesDir + 'PlayAllActionsFromAppUnderTest.clktmpl', CREParam_FileLocation_ValueDisk);
-  PrepareClickerUnderTestToReadItsVars;
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide([], 4, [], []);
-  ExpectWorkAtWorkerSide([], 4, [], []);
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfOneFontProfile_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneFontProfile.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
-  ExpectWorkAtWorkerSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&'], 2, [COneFontProfileTask], [2]);
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&'], 2, [COneFontProfileTask], [2]);
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 1, [COneFontProfileTask], [3]);
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 1, [COneFontProfileTask], [3]);
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 0, [COneFontProfileTask], [4]);
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 0, [COneFontProfileTask], [4]);
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [3, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [3, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [2, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [2, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [1, 3]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [1, 3]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [0, 4]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [0, 4]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
-end;
-
-
-procedure TTestDistPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
-begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineFontProfiles.clktmpl');
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
-end;
-
-
-procedure TTestDistPlugin.AfterAll_AlwaysExecute;
+procedure TTestDistPlugin.AfterAll;
 begin
   //the following instances should be terminated in this specific order:
   FClientAppUnderTest_Proc.Terminate(0);
@@ -498,9 +426,112 @@ begin
 end;
 
 
+procedure TTestDistPlugin.ExecutePluginTestTemplate_FullPath(ATemplatePath: string);
+begin
+  PrepareClickerUnderTestToLocalMode;
+
+  TestServerAddress := CTestDriverServerAddress_Client;
+  LoadTestTemplateInClickerUnderTest_FullPath(ATemplatePath);
+  ExecuteTemplateOnTestDriver(FTemplatesDir + 'PlayAllActionsFromAppUnderTest.clktmpl', CREParam_FileLocation_ValueDisk);
+  PrepareClickerUnderTestToReadItsVars;
+end;
+
+
+procedure TTestDistPluginFullOSes.BeforeAll_AlwaysExecute;
+begin
+  BeforeAll(['Win+Lin', 'Win+Lin', 'Win+Lin', 'Win+Lin'], ['', '', '', '']);
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneFontProfile.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&'], 2, [COneFontProfileTask], [2]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&'], 2, [COneFontProfileTask], [2]);
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 1, [COneFontProfileTask], [3]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 1, [COneFontProfileTask], [3]);
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 0, [COneFontProfileTask], [4]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 0, [COneFontProfileTask], [4]);
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [3, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [3, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [2, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [2, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [1, 3]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [1, 3]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [0, 4]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [0, 4]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
+end;
+
+
+procedure TTestDistPluginFullOSes.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineFontProfiles.clktmpl');
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginFullOSes.AfterAll_AlwaysExecute;
+begin
+  AfterAll;
+end;
+
+
 initialization
 
-  RegisterTest(TTestDistPlugin);
+  RegisterTest(TTestDistPluginFullOSes);
 
 end.
 
