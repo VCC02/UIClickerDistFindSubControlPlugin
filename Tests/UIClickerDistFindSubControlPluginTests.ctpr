@@ -22,6 +22,9 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="pl_ExCompress"/>
+      </Item>
+      <Item>
         <PackageName Value="pl_DCP"/>
       </Item>
       <Item>
@@ -74,6 +77,10 @@
         <Filename Value="..\..\UIClicker\Tests\UI\UITestUtils.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="..\DistFindSubControlCommonConsts.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -84,7 +91,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\MiscUtils\;..\..\UIClicker\Tests\;..\..\UIClicker\ClickerUtils\;..\..\UIClicker\Tests\UI\"/>
+      <OtherUnitFiles Value="..\..\MiscUtils\;..\..\UIClicker\Tests\;..\..\UIClicker\ClickerUtils\;..\..\UIClicker\Tests\UI\;.."/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\$(LCLWidgetType)"/>
     </SearchPaths>
     <Linking>
