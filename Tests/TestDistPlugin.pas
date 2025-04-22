@@ -433,6 +433,8 @@ const
   COneFontProfileTask = 'TxtCnt=1&BmpCnt=0&PmtvCnt=0&';
   CTwoFontProfilesTask = 'TxtCnt=2&BmpCnt=0&PmtvCnt=0&';
   CThreeFontProfilesTask = 'TxtCnt=3&BmpCnt=0&PmtvCnt=0&';
+  CFourFontProfilesTask = 'TxtCnt=4&BmpCnt=0&PmtvCnt=0&';
+  CFiveFontProfilesTask = 'TxtCnt=5&BmpCnt=0&PmtvCnt=0&';
 
 procedure ExpectWork(var AWorkersDbgInfo: TStringArray; const AWork: TStringArr; AExpectedUnreceivedWorkCount: Integer; const ATaskAllocationCountInfo: TStringArr; const ATaskAllocationCountCount: TIntArr);
 var
@@ -1038,52 +1040,51 @@ begin
 end;
 
 
-//ToDo:  fix the following expected counts:
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 0, [COneFontProfileTask], [4]);
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 0, [COneFontProfileTask], [4]);
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask], [0, 2]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask], [0, 2]);
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [3, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [3, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [2, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [2, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [1, 3]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [1, 3]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [0, 4]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask], [0, 4]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
 end;
 
 
