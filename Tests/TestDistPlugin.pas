@@ -177,6 +177,72 @@ type
   end;
 
 
+  TTestDistPluginWinLinDefaultFonts_LinPlugin = class(TTestDistPluginFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly; override;
+    procedure Test_AllocationOfTwoFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfThreeFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFourFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFiveFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSixFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
+  TTestDistPluginWinDefaultFonts_LinPlugin = class(TTestDistPluginFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly; override;
+    procedure Test_AllocationOfTwoFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfThreeFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFourFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFiveFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSixFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
+  TTestDistPluginLinDefaultFonts_WinPlugin = class(TTestDistPluginFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly; override;
+    procedure Test_AllocationOfTwoFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfThreeFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFourFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFiveFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSixFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
 implementation
 
 uses
@@ -1051,40 +1117,40 @@ end;
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 3 times.  CTwoFontProfilesTask should be found 1 time.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 1 time.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 2 times.  CTwoFontProfilesTask should be found 2 times.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 1 time.  CTwoFontProfilesTask should be found 3 times.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 0 time.  CTwoFontProfilesTask should be found 0 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 0 time.  CTwoFontProfilesTask should be found 0 times.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 4 times.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
 end;
 
 
 procedure TTestDistPluginWinLinDefaultFonts_WinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
-  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.  CThreeFontProfilesTask should be found 0 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.  CThreeFontProfilesTask should be found 0 time.
 end;
 
 
@@ -1094,6 +1160,317 @@ begin
 end;
 
 
+//
+
+
+constructor TTestDistPluginWinLinDefaultFonts_LinPlugin.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin
+  SetReportedFonts(['', '', '', '']);
+  SetPluginUsedOS(CReportedOS_Lin);
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&'], 2, [COneFontProfileTask], [2]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&'], 2, [COneFontProfileTask], [2]);
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 2, [COneFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 2, [COneFontProfileTask], [1]);
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask], [0, 2]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask], [0, 2]);
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 0 time.  CTwoFontProfilesTask should be found 0 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 1, 1]);  //COneFontProfileTask should be found 0 time.  CTwoFontProfilesTask should be found 0 times.
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 2]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.  CThreeFontProfilesTask should be found 0 time.
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 2, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 1, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 0 times.  CThreeFontProfilesTask should be found 0 time.
+end;
+
+
+procedure TTestDistPluginWinLinDefaultFonts_LinPlugin.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+//
+
+
+constructor TTestDistPluginWinDefaultFonts_LinPlugin.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Win, CReportedOS_Win]);       //all Win, no Lin
+  SetReportedFonts(['', '', '', '']);
+  SetPluginUsedOS(CReportedOS_Lin);                                                            //plugin requests to execute all tasks on Lin workers
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts_LinPlugin.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+//
+
+
+constructor TTestDistPluginLinDefaultFonts_WinPlugin.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Lin, CReportedOS_Lin, CReportedOS_Lin, CReportedOS_Lin]);       //all Lin, no Win
+  SetReportedFonts(['', '', '', '']);
+  SetPluginUsedOS(CReportedOS_Win);                                                            //plugin requests to execute all tasks on Win workers
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginLinDefaultFonts_WinPlugin.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
 
 initialization
 
@@ -1101,5 +1478,8 @@ initialization
   RegisterTest(TTestDistPluginLinDefaultFonts);
   RegisterTest(TTestDistPluginWinLinDefaultFonts);
   RegisterTest(TTestDistPluginWinLinDefaultFonts_WinPlugin);
+  RegisterTest(TTestDistPluginWinLinDefaultFonts_LinPlugin);
+  RegisterTest(TTestDistPluginWinDefaultFonts_LinPlugin);
+  RegisterTest(TTestDistPluginLinDefaultFonts_WinPlugin);
 end.
 
