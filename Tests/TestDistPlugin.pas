@@ -243,6 +243,50 @@ type
   end;
 
 
+  TTestDistPluginWinLinCustomFonts_WinPlugin = class(TTestDistPluginFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly; override;
+    procedure Test_AllocationOfTwoFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfThreeFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFourFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFiveFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSixFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
+  TTestDistPluginWinLinCustomFonts_LinPlugin = class(TTestDistPluginFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly; override;
+    procedure Test_AllocationOfTwoFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfThreeFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFourFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFiveFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSixFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
 implementation
 
 uses
@@ -501,6 +545,10 @@ const
   CThreeFontProfilesTask = 'TxtCnt=3&BmpCnt=0&PmtvCnt=0&';
   CFourFontProfilesTask = 'TxtCnt=4&BmpCnt=0&PmtvCnt=0&';
   CFiveFontProfilesTask = 'TxtCnt=5&BmpCnt=0&PmtvCnt=0&';
+  CSixFontProfilesTask = 'TxtCnt=6&BmpCnt=0&PmtvCnt=0&';
+  CSevenFontProfilesTask = 'TxtCnt=7&BmpCnt=0&PmtvCnt=0&';
+  CEightFontProfilesTask = 'TxtCnt=8&BmpCnt=0&PmtvCnt=0&';
+  CNineFontProfilesTask = 'TxtCnt=9&BmpCnt=0&PmtvCnt=0&';
 
 procedure ExpectWork(var AWorkersDbgInfo: TStringArray; const AWork: TStringArr; AExpectedUnreceivedWorkCount: Integer; const ATaskAllocationCountInfo: TStringArr; const ATaskAllocationCountCount: TIntArr);
 var
@@ -1472,6 +1520,215 @@ begin
 end;
 
 
+
+//
+
+
+constructor TTestDistPluginWinLinCustomFonts_WinPlugin.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin. Only one Win worker "implements" the used font.
+  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma', 'DejaVu Sans,DejaVu Sans Mono', 'Liberation Sans']);
+  SetPluginUsedOS(CReportedOS_Win);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask], [0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask], [0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask], [0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask], [0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask], [0, 0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask], [0, 0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask, CNineFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask, CNineFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_WinPlugin.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+//
+
+
+constructor TTestDistPluginWinLinCustomFonts_LinPlugin.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin. Only one Lin worker "implements" the used font.
+  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma', 'DejaVu Sans,DejaVu Sans Mono', 'Liberation Sans']);
+  SetPluginUsedOS(CReportedOS_Lin);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask], [0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask], [0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask], [0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask], [0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask], [0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask], [0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask], [0, 0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask], [0, 0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask, CNineFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 0, 1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 3, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask, CNineFontProfilesTask], [0, 0, 0, 0, 0, 0, 0, 0, 1]);
+end;
+
+
+procedure TTestDistPluginWinLinCustomFonts_LinPlugin.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
 initialization
 
   RegisterTest(TTestDistPluginWinDefaultFonts);
@@ -1481,5 +1738,7 @@ initialization
   RegisterTest(TTestDistPluginWinLinDefaultFonts_LinPlugin);
   RegisterTest(TTestDistPluginWinDefaultFonts_LinPlugin);
   RegisterTest(TTestDistPluginLinDefaultFonts_WinPlugin);
+  RegisterTest(TTestDistPluginWinLinCustomFonts_WinPlugin);
+  RegisterTest(TTestDistPluginWinLinCustomFonts_LinPlugin);
 end.
 
