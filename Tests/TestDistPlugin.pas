@@ -40,6 +40,7 @@ type
     FReportedOSes: TStringArr;
     FReportedFonts: TStringArr;
     FPluginUsedOS: string; //TextRenderingOS property
+    FCalledAction: string;
   protected
     procedure StartAllUIClickerInstances;
     procedure StartAllWorkerInstances(const AReportedOSes, AReportedFonts: TStringArr);  //at least those from this machine
@@ -64,6 +65,7 @@ type
     procedure SetReportedOSes(const AReportedOSes: TStringArr);
     procedure SetReportedFonts(const AReportedFonts: TStringArr);
     procedure SetTextRenderingOSInPluginAction(AOSName: string);
+    procedure SetTextRenderingPmtvActionInPluginAction(APmtvAction: string);
     procedure SetPluginUsedOS(AOSName: string);
   end;
 
@@ -287,6 +289,45 @@ type
   end;
 
 
+  //
+
+
+  TTestDistPlugin_PmtvText = class(TTestDistPlugin)
+  public
+    constructor Create; override;
+  published
+    procedure BeforeAll_AlwaysExecute; virtual;
+
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_WinLinFonts; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts; virtual;
+
+    procedure AfterAll_AlwaysExecute; virtual;
+  end;
+
+
+  TTestDistPlugin_PmtvText_WinLinWorkers = class(TTestDistPlugin_PmtvText)
+  public
+    constructor Create; override;
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly; override;
+    procedure Test_AllocationOfPmtvFontProfiles_WinLinFonts; override;
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly; override;
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts; override;
+    procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts; override;
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
 implementation
 
 uses
@@ -330,6 +371,7 @@ begin
   SetLength(FReportedOSes, 0);
   SetLength(FReportedFonts, 0);
   FPluginUsedOS := '';
+  FCalledAction := '';
 end;
 
 
@@ -363,6 +405,30 @@ begin
   EditTemplateOptions.WhichTemplate := etwtSelf;
   EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=True';
   EditTemplateOptions.ListOfEnabledProperties := 'TextRenderingOS';
+  EditTemplateOptions.EditedActionName := '"Plugin"';
+  EditTemplateOptions.EditedActionType := acPlugin;
+
+  PrepareClickerUnderTestToReadItsVars;
+  //TestServerAddress := CClientUnderTestServerPort;
+  //try
+  //  //connect to ClientUnderTest instance, which is now running in server mode
+    ExecuteEditTemplateAction(CTestClientAddress, EditTemplateOptions); //ExpectSuccessfulAction(FastReplace_87ToReturn(ExecuteEditTemplateAction(CTestClientAddress, EditTemplateOptions)));
+  //finally
+  //  TestServerAddress := CTestDriverServerAddress_Client; //restore
+  //end;
+end;
+
+
+procedure TTestDistPlugin.SetTextRenderingPmtvActionInPluginAction(APmtvAction: string);
+var
+  EditTemplateOptions: TClkEditTemplateOptions;
+begin
+  GetDefaultPropertyValues_EditTemplate(EditTemplateOptions);
+
+  EditTemplateOptions.Operation := etoSetProperty;
+  EditTemplateOptions.WhichTemplate := etwtSelf;
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=True';
+  EditTemplateOptions.ListOfEnabledProperties := 'FindSubControlAction';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
 
@@ -707,10 +773,17 @@ begin
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
   end;
 
+  if FCalledAction <> '' then
+  begin
+    SetTextRenderingPmtvActionInPluginAction(FCalledAction);
+    PrepareClickerUnderTestToLocalMode;
+    ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
+  end;
+
   ExecuteTemplateOnTestDriver(FTemplatesDir + 'PlayAllActionsFromAppUnderTest.clktmpl', CREParam_FileLocation_ValueDisk);
   PrepareClickerUnderTestToReadItsVars;
 
-  if FPluginUsedOS <> '' then
+  if (FPluginUsedOS <> '') or (FCalledAction <> '') then
   begin
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
     ExecuteTemplateOnTestDriver(FTemplatesDir + '..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestDriverFiles\CloseModifiedTemplatePrompt.clktmpl', CREParam_FileLocation_ValueDisk);
@@ -1007,7 +1080,7 @@ end;
 constructor TTestDistPluginWinLinDefaultFonts.Create;
 begin
   inherited Create;
-  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin
   SetReportedFonts(['', '', '', '']);
 end;
 
@@ -1110,7 +1183,7 @@ end;
 constructor TTestDistPluginWinLinDefaultFonts_WinPlugin.Create;
 begin
   inherited Create;
-  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin
   SetReportedFonts(['', '', '', '']);
   SetPluginUsedOS(CReportedOS_Win);
 end;
@@ -1214,7 +1287,7 @@ end;
 constructor TTestDistPluginWinLinDefaultFonts_LinPlugin.Create;
 begin
   inherited Create;
-  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin
   SetReportedFonts(['', '', '', '']);
   SetPluginUsedOS(CReportedOS_Lin);
 end;
@@ -1527,7 +1600,7 @@ end;
 constructor TTestDistPluginWinLinCustomFonts_WinPlugin.Create;
 begin
   inherited Create;
-  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin. Only one Win worker "implements" the used font.
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin. Only one Win worker "implements" the used font.
   SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma', 'DejaVu Sans,DejaVu Sans Mono', 'Liberation Sans']);
   SetPluginUsedOS(CReportedOS_Win);
 end;
@@ -1631,7 +1704,7 @@ end;
 constructor TTestDistPluginWinLinCustomFonts_LinPlugin.Create;
 begin
   inherited Create;
-  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, to Lin. Only one Lin worker "implements" the used font.
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin. Only one Lin worker "implements" the used font.
   SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma', 'DejaVu Sans,DejaVu Sans Mono', 'Liberation Sans']);
   SetPluginUsedOS(CReportedOS_Lin);
 end;
@@ -1729,6 +1802,144 @@ begin
 end;
 
 
+//
+
+
+constructor TTestDistPlugin_PmtvText.Create;
+begin
+  inherited Create;
+end;
+
+
+procedure TTestDistPlugin_PmtvText.BeforeAll_AlwaysExecute;
+begin
+  BeforeAll(FReportedOSes, FReportedFonts);
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
+begin
+  FCalledAction := 'Find_WinOnly';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
+begin
+  FCalledAction := 'Find_LinOnly';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinLinFonts;
+begin
+  FCalledAction := 'Find_WinLin';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
+begin
+  FCalledAction := 'Find_WinOnly_LinOnly';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
+begin
+  FCalledAction := 'Find_WinOnly_WinLin';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
+begin
+  FCalledAction := 'Find_LinOnly_WinLin';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
+begin
+  FCalledAction := 'Find_WinOnly_LinOnly_WinLin';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.AfterAll_AlwaysExecute;
+begin
+  AfterAll;
+end;
+
+
+//
+
+
+constructor TTestDistPlugin_PmtvText_WinLinWorkers.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);
+  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']);
+  //SetPluginUsedOS(CReportedOS_WinLin);
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+  //ExpectWorkAtPluginSide([], 4, [], []);   //something similar
+  //ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinLinFonts;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
 initialization
 
   RegisterTest(TTestDistPluginWinDefaultFonts);
@@ -1740,5 +1951,6 @@ initialization
   RegisterTest(TTestDistPluginLinDefaultFonts_WinPlugin);
   RegisterTest(TTestDistPluginWinLinCustomFonts_WinPlugin);
   RegisterTest(TTestDistPluginWinLinCustomFonts_LinPlugin);
+  RegisterTest(TTestDistPlugin_PmtvText_WinLinWorkers);
 end.
 
