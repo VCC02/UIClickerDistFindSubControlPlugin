@@ -2340,8 +2340,8 @@ var
               FileLoc := isflMem
             else
               FileLoc := isflDisk;
-
-            if LoadBitmapAsStream(AListOfAllVars, TempFilesToSend.Strings[j], TempMemFile, FileLoc) then
+                                                  //The use of ExpandFileName requires more testing.
+            if LoadBitmapAsStream(AListOfAllVars, ExpandFileName(ResolveTemplatePath(TempFilesToSend.Strings[j])), TempMemFile, FileLoc) then
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
               AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
@@ -2365,8 +2365,8 @@ var
                           FileLoc := isflMem
                         else
                           FileLoc := isflDisk;
-
-                        if LoadBitmapAsStream(AListOfAllVars, BmpsInPmtv.Strings[k], UsedBmpTempMemFile, FileLoc) then
+                                                              //The use of ExpandFileName requires more testing.
+                        if LoadBitmapAsStream(AListOfAllVars, ExpandFileName(ResolveTemplatePath(BmpsInPmtv.Strings[k])), UsedBmpTempMemFile, FileLoc) then
                         begin
                           BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
                           AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);

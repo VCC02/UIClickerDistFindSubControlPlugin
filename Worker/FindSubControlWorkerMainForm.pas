@@ -1252,6 +1252,7 @@ begin
   ThisWorkerTask := Copy(TempWorkerSpecificTask, Pos(WorkerName + CWorkerTaskAssignmentOperator, TempWorkerSpecificTask) + Length(WorkerName + CWorkerTaskAssignmentOperator), MaxInt);
   ThisWorkerTask := Copy(ThisWorkerTask, 1, Pos(CWorkerTaskLineBreak, ThisWorkerTask) - 1);
   frmFindSubControlWorkerMain.lbeLatestWork.Text := ThisWorkerTask;
+  frmFindSubControlWorkerMain.lbeLatestWork.Hint := 'Updated at ' + DateTimeToStr(Now);
   frmFindSubControlWorkerMain.FThisWorkerTask := ThisWorkerTask;
 
   frmFindSubControlWorkerMain.AddToLog('Received PUBLISH' + #13#10 +

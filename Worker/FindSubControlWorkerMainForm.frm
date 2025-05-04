@@ -201,7 +201,9 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     EditLabel.Height = 15
     EditLabel.Width = 480
     EditLabel.Caption = 'Latest work'
+    ParentShowHint = False
     ReadOnly = True
+    ShowHint = True
     TabOrder = 4
   end
   object btnGetListOfFonts: TButton
