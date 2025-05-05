@@ -621,8 +621,8 @@ const
   CNineFontProfilesTask = 'TxtCnt=9&BmpCnt=0&PmtvCnt=0&';
 
   COnePmtvFontProfileTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=1&';
-  CTwoPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=2&';
-  CThreePmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=3&';
+  //CTwoPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=2&';
+  //CThreePmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=3&';
   //CFourPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=4&';
   //CFivePmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=5&';
   //CSixPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=6&';
@@ -1957,7 +1957,7 @@ begin
   ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier New,Tahoma');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
 end;
 
 
@@ -1967,7 +1967,7 @@ begin
   ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Serif,Monospace,Ubuntu Mono');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
 end;
 
 
@@ -1977,15 +1977,15 @@ begin
   ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);
+  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
   try
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
     ExpectWorkerOSOnSpecificTask('Pmtv_1=1&', CReportedOS_Lin);
@@ -1995,11 +1995,11 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier New,Tahoma,Verdana');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Serif,Monospace,Ubuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Serif,Monospace,Ubuntu Mono');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier New,Tahoma,Verdana');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');
   end;
 end;
 
@@ -2007,22 +2007,18 @@ end;
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);
-  try
-    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
-    ExpectWorkerOSOnSpecificTask('Pmtv_1=1&', CReportedOS_Lin);
-  except
-    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
-    ExpectWorkerOSOnSpecificTask('Pmtv_1=1&', CReportedOS_Win);
-  end;
+  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+
+  ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);   //both are expected to be Win
+  ExpectWorkerOSOnSpecificTask('Pmtv_1=1&', CReportedOS_Win);
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier New,Tahoma,Verdana');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Sans,DejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');
   except
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier New,Tahoma,Verdana');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');
   end;
 end;
 
@@ -2030,8 +2026,8 @@ end;
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);
+  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
   try
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
     ExpectWorkerOSOnSpecificTask('Pmtv_1=1&', CReportedOS_Lin);
@@ -2041,11 +2037,11 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Serif,Monospace,Ubuntu Mono');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Sans,DejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Serif,Monospace,Ubuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');
   end;
 end;
 
@@ -2053,8 +2049,8 @@ end;
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
 begin
   inherited;
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Pmtv_2=1&'], 1, [CThreePmtvFontProfilesTask], [1]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Pmtv_2=1&'], 1, [CThreePmtvFontProfilesTask], [1]);
+  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Pmtv_2=1&'], 1, [COnePmtvFontProfileTask], [3]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Pmtv_2=1&'], 1, [COnePmtvFontProfileTask], [3]);
   try //2 Win workers and 1 Lin worker (see allocation above)
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
     ExpectWorkerOSOnSpecificTask('Pmtv_1=1&', CReportedOS_Lin);
@@ -2072,33 +2068,33 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Serif,Monospace,Ubuntu Mono'); //Lin
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Sans,DejaVu Serif');           //WinLin
-    ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier New,Tahoma,Verdana');         //Win
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier NewTahomaVerdana');         //Win
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Serif,Monospace,Ubuntu Mono'); //Lin
-      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier New,Tahoma,Verdana');         //Win
-      ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu Sans,DejaVu Serif');           //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahoma,Verdana');         //Win
+      ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SansDejaVu Serif');           //WinLin
     except
       try
-        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier New,Tahoma,Verdana');         //Win
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Serif,Monospace,Ubuntu Mono'); //Lin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu Sans,DejaVu Serif');           //WinLin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SansDejaVu Serif');           //WinLin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');           //WinLin
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Serif,Monospace,Ubuntu Mono'); //Lin
-          ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier New,Tahoma,Verdana');         //Win
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier NewTahomaVerdana');         //Win
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');           //WinLin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier New,Tahoma,Verdana');         //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu Serif,Monospace,Ubuntu Mono'); //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');         //Win
+            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier New,Tahoma,Verdana');         //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu Sans,DejaVu Serif');           //WinLin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu Serif,Monospace,Ubuntu Mono'); //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
           end;
         end;
       end;

@@ -176,6 +176,7 @@ var
   WorkerCapabilitiesSource: string; //set by property at CWorkerCapabilitiesSourcePropertyIndex
   RequestedTextRenderingOS: string;
   FindSubControlFonts: TClkFindControlMatchBitmapTextArr = nil; //used for sorting
+  FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
   DisplayExtraDebuggingInfo: Boolean;
 
   RecTh: TMQTTReceiveThread;
@@ -2436,7 +2437,38 @@ var
   end;
 
 
-  function CompFuncByTaskCount(const a, b: Int64): Integer;
+  //Searches for fonts from AListOfSearchedFontNames in AListOfFontsStr. All must exist.
+  function MultipleFontsExistInList(AListOfSearchedFontNames, AListOfFontsStr: string): Boolean;
+  var
+    ListOfSearchedFonts: TStringList;
+    ListOfFonts: TStringList;
+    i: Integer;
+  begin
+    if AListOfSearchedFontNames = '' then
+    begin
+      Result := False;
+      Exit;
+    end;
+
+    ListOfFonts := TStringList.Create;
+    ListOfSearchedFonts := TStringList.Create;
+    try
+      ListOfFonts.LineBreak := #13#10;
+      ListOfSearchedFonts.LineBreak := #13#10;
+      ListOfFonts.Text := FastReplace_45ToReturn(AListOfFontsStr);
+      ListOfSearchedFonts.Text := FastReplace_45ToReturn(AListOfSearchedFontNames);  //probably the FastReplace_45ToReturn is not needed here, since this is used for fonts from pmtv files, which are stored as #13#10 separated items.
+
+      Result := True;
+      for i := 0 to ListOfSearchedFonts.Count - 1 do
+        Result := Result and (ListOfFonts.IndexOf(ListOfSearchedFonts.Strings[i]) > -1);
+    finally
+      ListOfFonts.Free;
+      ListOfSearchedFonts.Free;
+    end;
+  end;
+
+
+  function CompFuncByTxtTaskCount(const a, b: Int64): Integer;
   begin
     try
       if AllWorkers[a].TxtCntW < AllWorkers[b].TxtCntW then
@@ -2448,7 +2480,24 @@ var
           Result := 1;
     except
       Result := -1;
-      AddToLog('Ex on CompFuncByTaskCount  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(AllWorkers) = ' + IntToStr(Length(AllWorkers)));
+      AddToLog('Ex on CompFuncByTxtTaskCount  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(AllWorkers) = ' + IntToStr(Length(AllWorkers)));
+    end;
+  end;
+
+
+  function CompFuncByPmtvTaskCount(const a, b: Int64): Integer;
+  begin
+    try
+      if AllWorkers[a].PmtvCntW < AllWorkers[b].PmtvCntW then
+        Result := -1
+      else
+        if AllWorkers[a].PmtvCntW = AllWorkers[b].PmtvCntW then
+          Result := 0
+        else
+          Result := 1;
+    except
+      Result := -1;
+      AddToLog('Ex on CompFuncByPmtvTaskCount  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(AllWorkers) = ' + IntToStr(Length(AllWorkers)));
     end;
   end;
 
@@ -2477,9 +2526,15 @@ var
   end;
 
 
-  procedure SortByTaskCount(var AArr: TIntArr);
+  procedure SortByTxtTaskCount(var AArr: TIntArr);
   begin
-    CustomSortByTaskCount(AArr, @CompFuncByTaskCount);
+    CustomSortByTaskCount(AArr, @CompFuncByTxtTaskCount);
+  end;
+
+
+  procedure SortByPmtvTaskCount(var AArr: TIntArr);
+  begin
+    CustomSortByTaskCount(AArr, @CompFuncByPmtvTaskCount);
   end;
 
 
@@ -2497,7 +2552,21 @@ var
   end;
 
 
-  function CompFuncByDupFonts(const a, b: Int64): Integer;
+  function MultipleFontsExistInAllWorkers(AFontNames: string): Boolean;
+  var
+    i: Integer;
+  begin
+    Result := True;
+    for i := 0 to Length(AllWorkers) - 1 do                          //with so many nested loops, these arrays should be cached
+      if not MultipleFontsExistInList(AFontNames, AllWorkers[i].Fonts) then
+      begin
+        Result := False;
+        Break;
+      end;
+  end;
+
+
+  function CompFuncByDupFonts_Txt(const a, b: Int64): Integer;
   var
     a_bool: Boolean;
     b_bool: Boolean;
@@ -2529,19 +2598,102 @@ var
   end;
 
 
-  procedure SortByDupFonts(var AArr: TIntArr);
+  function CompFuncByDupFonts_Pmtv(const a, b: Int64): Integer;
+  var
+    a_bool: Boolean;
+    b_bool: Boolean;
   begin
-    CustomSortByTaskCount(AArr, @CompFuncByDupFonts);
+    if Length(FontsUsedByPmtvs) = 0 then
+    begin
+      AddToLog('+++++++++++++++++++++++++++++ FontsUsedByPmtvs is empty');
+      Result := -1;
+      Exit;
+    end;
+
+    try
+      a_bool := MultipleFontsExistInAllWorkers(FontsUsedByPmtvs[a]);
+      b_bool := MultipleFontsExistInAllWorkers(FontsUsedByPmtvs[b]);
+
+      Result := 0;
+      if not a_bool and b_bool then
+        Result := -1
+      //else           //the following comparisons are not required:
+        //if (a_bool and b_bool) or (not a_bool and not b_bool) then    //"not a_bool and not b_bool" should not be the case
+        //  Result := 0
+        //else
+        //  if a_bool and not b_bool then
+        //    Result := 1;
+    except
+      Result := -1;
+      AddToLog('Ex on CompFuncByDupFonts  a = ' + FindSubControlFonts[a].FontName + '  b = ' + FindSubControlFonts[b].FontName + '  Len(Fonts) = ' + IntToStr(Length(FindSubControlFonts)));
+    end;
   end;
 
 
-  procedure AssignTasksToWorkers(AMaxSplitActionsCount: Integer; AListOfBmps, AListOfPmtvs: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions);
+  procedure SortByDupFonts_Txt(var AArr: TIntArr);
+  begin
+    CustomSortByTaskCount(AArr, @CompFuncByDupFonts_Txt);
+  end;
+
+
+  procedure SortByDupFonts_Pmtv(var AArr: TIntArr);
+  begin
+    CustomSortByTaskCount(AArr, @CompFuncByDupFonts_Pmtv);
+  end;
+
+
+  procedure GetFontsUsedByPmtvs(AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions; var AFontsUsedByPmtvs: TStringArray);
+  var
+    ListOfPmtvFiles: TStringList;
+    i: Integer;
+    TempMemFile: TMemoryStream;
+    PmtvIni: TClkIniReadonlyFile;
+    FileLoc: TImageSourceFileNameLocation;
+  begin
+    ListOfPmtvFiles := TStringList.Create;
+    try
+      ListOfPmtvFiles.LineBreak := #13#10;
+      ListOfPmtvFiles.Text := AFindSubControlOptions.MatchPrimitiveFiles;
+
+      SetLength(AFontsUsedByPmtvs, ListOfPmtvFiles.Count);
+      for i := 0 to ListOfPmtvFiles.Count - 1 do
+      begin
+        if Pos(CExtBmp_PrefixUpperCase, UpperCase(ListOfPmtvFiles.Strings[i])) = 1 then
+          FileLoc := isflMem
+        else
+          FileLoc := isflDisk;
+
+        TempMemFile := TMemoryStream.Create;
+        try
+                                                //The use of ExpandFileName requires more testing.
+          if LoadBitmapAsStream(AListOfAllVars, ExpandFileName(ResolveTemplatePath(ListOfPmtvFiles.Strings[i])), TempMemFile, FileLoc) then
+          begin
+            TempMemFile.Position := 0;
+            PmtvIni := TClkIniReadonlyFile.Create(TempMemFile);
+            try
+              AFontsUsedByPmtvs[i] := GetListOfFontsUsedByPrimitivesFile(PmtvIni);
+            finally
+              PmtvIni.Free;
+            end;
+          end; //LoadBitmapAsStream  - load pmtv file
+        finally
+          TempMemFile.Free;
+        end;
+      end;
+    finally
+      ListOfPmtvFiles.Free;
+    end;
+  end;
+
+
+  procedure AssignTasksToWorkers(AMaxSplitActionsCount: Integer; AListOfBmps, AListOfPmtvs, AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions);
   var
     i, j: Integer;
     WorkersIndex, StartIndex: Integer;
     WorkersMatchingOS: TIntArr; //each item is an index in the AllWorkers array
     WorkersMatchingFonts: TIntArr; //this is a subset of WorkersMatchingOS, based on what fonts are available on every worker
     SortedByDuplicatedFont: TIntArr;
+    //FontsUsedByPmtvs: TStringArray;  //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
   begin
     Randomize;
 
@@ -2569,7 +2721,7 @@ var
         //The first elements of this array should point to profiles, which do not exist in all workers, then the last, in all workers.
 
         FindSubControlFonts := AFindSubControlOptions.MatchBitmapText;
-        SortByDupFonts(SortedByDuplicatedFont);
+        SortByDupFonts_Txt(SortedByDuplicatedFont);
 
         //Filter, based on available fonts.
         for i := 0 to Length(AFindSubControlOptions.MatchBitmapText) - 1 do
@@ -2583,7 +2735,7 @@ var
             end;
 
           //Here, WorkersMatchingFonts is sorted based on AllWorkers[WorkersMatchingFonts[k]].TxtCntW;  where, k goes from 0 to Length(WorkersMatchingFonts)
-          SortByTaskCount(WorkersMatchingFonts);
+          SortByTxtTaskCount(WorkersMatchingFonts);
 
           //Allocate:
           if Length(WorkersMatchingFonts) > 0 then
@@ -2614,12 +2766,46 @@ var
       //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
       if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
       begin
-        for i := 0 to AListOfPmtvs.Count - 1 do
+        GetFontsUsedByPmtvs(AListOfAllVars, AFindSubControlOptions, FontsUsedByPmtvs);   //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
+
+        SetLength(SortedByDuplicatedFont, Length(FontsUsedByPmtvs));
+        for i := 0 to Length(SortedByDuplicatedFont) - 1 do
+          SortedByDuplicatedFont[i] := i;
+
+        //FontsUsedByPmtvs is already set  (as "FindSubControlFonts := .." above)
+        SortByDupFonts_Pmtv(SortedByDuplicatedFont);
+
+        //Old code, without sorting by used fonts:
+        //for i := 0 to AListOfPmtvs.Count - 1 do
+        //begin
+        //  WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
+        //  AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
+        //  AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
+        //  Inc(AllWorkers[WorkersIndex].PmtvCntW);
+        //end;
+
+        //Filter, based on available fonts.                 //ToDo: Find out why this allocation is unstable. Sometimes not enough workers receive work.  - verify sorting and worker limitations for restricted file locations on FileProvider.
+        for i := 0 to Length(FontsUsedByPmtvs) - 1 do
         begin
-          WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
-          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
-          AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
-          Inc(AllWorkers[WorkersIndex].PmtvCntW);
+          SetLength(WorkersMatchingFonts, 0);
+          for j := 0 to Length(WorkersMatchingOS) - 1 do
+            if MultipleFontsExistInList(FontsUsedByPmtvs[SortedByDuplicatedFont[i]], AllWorkers[WorkersMatchingOS[j]].Fonts) then
+            begin
+              SetLength(WorkersMatchingFonts, Length(WorkersMatchingFonts) + 1);
+              WorkersMatchingFonts[Length(WorkersMatchingFonts) - 1] := WorkersMatchingOS[j];
+            end;
+
+          //Here, WorkersMatchingFonts is sorted based on AllWorkers[WorkersMatchingFonts[k]].PmtvCntW;  where, k goes from 0 to Length(WorkersMatchingFonts)
+          SortByPmtvTaskCount(WorkersMatchingFonts);
+
+          //Allocate:
+          if Length(WorkersMatchingFonts) > 0 then
+          begin
+            WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
+            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the pmtv index
+            AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;   //AListOfPmtvs has the same length as FontsUsedByPmtvs
+            Inc(AllWorkers[WorkersIndex].PmtvCntW);
+          end;
         end;
       end;
 
@@ -2701,9 +2887,9 @@ var
 
   function GetFindSubControlContent(AListOfAllVars: TStringList): Boolean;
   const
-    CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
-    CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
-    CWillMatchPrimitiveFiles = 'WillMatchPrimitiveFiles'; //0..1
+    //CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
+    //CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
+    //CWillMatchPrimitiveFiles = 'WillMatchPrimitiveFiles'; //0..1
     CTxtProfilesCount_PropName = 'MatchBitmapText.Count';
     CBmpFiles_PropName = 'MatchBitmapFiles';     // #4#5 separated paths
     CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
@@ -2714,7 +2900,7 @@ var
     ActionContentStr: string;
     ActionContentPtr: Pointer;
     ActionContentLen: DWord;
-    i, WorkersIndex: Integer;
+    i{, WorkersIndex}: Integer;
     ListOfFindSubControlProperties, ListOfBmps, ListOfPmtvs: TStringList;
     MaxSplitActionsCount, TxtCount: Integer;
     DecodedAction: TClkFindSubControlOptions;
@@ -2797,7 +2983,7 @@ var
         //Otherwise (if it's greater), then some workers will receive more work.
         //Delete from every action if the subproperty index is greater than MaxSplitActionsCount
 
-        AssignTasksToWorkers(MaxSplitActionsCount, ListOfBmps, ListOfPmtvs, DecodedAction);
+        AssignTasksToWorkers(MaxSplitActionsCount, ListOfBmps, ListOfPmtvs, AListOfAllVars, DecodedAction);
 
         UsingCompression := PluginSettings.ValueFromIndex[CUseCompressionPropertyIndex] = 'True';
         if UsingCompression then
