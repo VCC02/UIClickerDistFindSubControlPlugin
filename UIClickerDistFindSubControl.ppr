@@ -2597,38 +2597,65 @@ var
 
       Sleep(33);
       Randomize;
-      StartIndex := Random(Length(AllWorkers));
-      for i := 0 to AMaxSplitActionsCount - 1 do //Length(SplitActions) - 1 do         //AMaxSplitActionsCount includes text profiles. This might require some changes.
+      StartIndex := Random(Length(WorkersMatchingOS));
+
+      if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
       begin
-        //WorkersIndex := i mod Length(AllWorkers);
-        WorkersIndex := (i + StartIndex) mod Length(AllWorkers);  //simple load balancing
-
-        //Worker allocation, for bmp and Pmtv should also take into account the worker OS and the plugin setting.
-
-        if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
-          if i < AListOfBmps.Count then
-          begin
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
-            AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
-            Inc(AllWorkers[WorkersIndex].BmpCntW);
-          end;
-
-        //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
-        if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
-          if i < AListOfPmtvs.Count then
-          begin
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
-            AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
-            Inc(AllWorkers[WorkersIndex].PmtvCntW);
-          end;
+        for i := 0 to AListOfBmps.Count - 1 do
+        begin
+          WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
+          AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
+          Inc(AllWorkers[WorkersIndex].BmpCntW);
+        end;
       end;
+
+      //continue with the value of StartIndex, set by WillMatchBitmapFiles section above (if that's the case)
+      //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
+      if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
+      begin
+        for i := 0 to AListOfPmtvs.Count - 1 do
+        begin
+          WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
+          AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
+          Inc(AllWorkers[WorkersIndex].PmtvCntW);
+        end;
+      end;
+
+      //old allocation algorithm, based on AMaxSplitActionsCount (without OS filtering)
+      //StartIndex := Random(Length(AllWorkers));
+      //for i := 0 to AMaxSplitActionsCount - 1 do //Length(SplitActions) - 1 do         //AMaxSplitActionsCount includes text profiles. This might require some changes.
+      //begin
+      //  //WorkersIndex := i mod Length(AllWorkers);
+      //  WorkersIndex := (i + StartIndex) mod Length(AllWorkers);  //simple load balancing
+      //
+      //  //Worker allocation, for bmp and Pmtv should also take into account the worker OS and the plugin setting.
+      //
+      //  if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
+      //    if i < AListOfBmps.Count then
+      //    begin
+      //      AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
+      //      AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
+      //      Inc(AllWorkers[WorkersIndex].BmpCntW);
+      //    end;
+      //
+      //  //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
+      //  if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
+      //    if i < AListOfPmtvs.Count then
+      //    begin
+      //      AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
+      //      AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
+      //      Inc(AllWorkers[WorkersIndex].PmtvCntW);
+      //    end;
+      //end;
 
       for i := 0 to Length(AllWorkers) - 1 do
         AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
                                             'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
                                             'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
                                             AllWorkers[i].WorkerSpecificTask;
-    end;
+    end; //Length(AllWorkers) > 0
   end;
 
   procedure CloseWorkerArchives;
