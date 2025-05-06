@@ -302,6 +302,8 @@ type
   published
     procedure BeforeAll_AlwaysExecute; virtual;
 
+    procedure Test_AllocationOfPmtvFontProfiles_FindEmpty; virtual;
+    procedure Test_AllocationOfPmtvFontProfiles_NoFonts; virtual;
     procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly; virtual;
     procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly; virtual;
     procedure Test_AllocationOfPmtvFontProfiles_WinLinFonts; virtual;
@@ -320,6 +322,8 @@ type
   published
     procedure BeforeAll_AlwaysExecute; override;
 
+    procedure Test_AllocationOfPmtvFontProfiles_FindEmpty; override;
+    procedure Test_AllocationOfPmtvFontProfiles_NoFonts; override;
     procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly; override;
     procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly; override;
     procedure Test_AllocationOfPmtvFontProfiles_WinLinFonts; override;
@@ -1875,6 +1879,20 @@ begin
 end;
 
 
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_FindEmpty;
+begin
+  FCalledAction := 'Find_Empty';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts;
+begin
+  FCalledAction := 'Find_NoFonts';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
 begin
   FCalledAction := 'Find_WinOnly';
@@ -1948,6 +1966,28 @@ begin
   //OSes:  [ Win,                        Win,                          Lin,                            Lin                                ]
   //Fonts: ['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']
   //Pmtvs: WinLin                        Win                                                           Lin
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_FindEmpty;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_NoFonts;
+begin
+  inherited;      //in case of no fonts, at least one worker should receive the task
+  ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+
+  try
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
+  except
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
+  end;
 end;
 
 

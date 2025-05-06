@@ -3120,6 +3120,7 @@ begin
   DebugPoint := @DbgPoint;
   SetLength(AllWorkers, 0);
   FLatestMsg := 'Error message not set.';
+  WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
 
   try
     IdTCPClient1 := TIdTCPClient.Create;
@@ -3213,6 +3214,8 @@ begin
       LoadCacheActionName := PluginSettings.ValueFromIndex[CLoadWorkerCapabilitiesCacheActionPropertyIndex];
       RequestedTextRenderingOS := PluginSettings.ValueFromIndex[CTextRenderingOSPropertyIndex];
       DisplayExtraDebuggingInfo := PluginSettings.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';
+
+      AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
 
       SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
 
@@ -3410,7 +3413,7 @@ begin
           AddToLog('Result image set from worker[0].');
         end;
 
-     FreeAndNil(ListOfAllVars);
+      FreeAndNil(ListOfAllVars);
 
       try
         for i := 0 to Length(AllWorkers) - 1 do
