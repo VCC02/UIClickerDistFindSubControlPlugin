@@ -2446,7 +2446,8 @@ var
   begin
     if AListOfSearchedFontNames = '' then
     begin
-      Result := False;
+      //Result := False;
+      Result := True;
       Exit;
     end;
 
@@ -2790,11 +2791,11 @@ var
         SortByDupFonts_Pmtv(SortedByDuplicatedFont);
 
         //Filter, based on available fonts.                 //ToDo: Find out why this allocation is unstable. Sometimes not enough workers receive work.  - verify sorting and worker limitations for restricted file locations on FileProvider.
-        for i := 0 to Length(FontsUsedByPmtvs) - 1 do
+        for i := 0 to Length(FontsUsedByPmtvs) - 1 do       //It is possible that some of the workers are still waiting for UIClicker to time out, when their FileProvider module is not allowed to send files. Because of this, they are not available for work.
         begin
           SetLength(WorkersMatchingFonts, 0);
           for j := 0 to Length(WorkersMatchingOS) - 1 do
-            if MultipleFontsExistInList(FontsUsedByPmtvs[SortedByDuplicatedFont[i]], AllWorkers[WorkersMatchingOS[j]].Fonts) then
+            if MultipleFontsExistInList(FontsUsedByPmtvs[SortedByDuplicatedFont[i]], AllWorkers[WorkersMatchingOS[j]].Fonts) then   //MultipleFontsExistInList returns True if FontsUsedByPmtvs[<idx>] is ''. That means that every worker is capable of non-SetFont work.
             begin
               SetLength(WorkersMatchingFonts, Length(WorkersMatchingFonts) + 1);
               WorkersMatchingFonts[Length(WorkersMatchingFonts) - 1] := WorkersMatchingOS[j];
@@ -2813,19 +2814,20 @@ var
           end;
         end;
 
+        //This section should not be needed, since MultipleFontsExistInList returns True for pmtv without SetFont.
         //The remaining pmtv files should also be allocated. Ideally, they should be allocated, based on a sorted array, for better load balancing.
-        for i := 0 to AListOfPmtvs.Count - 1 do   //should be the same count as the length of FontsUsedByPmtvs
-          if FontsUsedByPmtvs[i] = '' then
-          begin
-            WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];
-
-            //if not IndexExistsInWorkersMatchingFonts(WorkersIndex, WorkersMatchingFonts) then
-            begin
-              AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
-              AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
-              Inc(AllWorkers[WorkersIndex].PmtvCntW);
-            end;
-          end;
+        //for i := 0 to AListOfPmtvs.Count - 1 do   //should be the same count as the length of FontsUsedByPmtvs
+        //  if FontsUsedByPmtvs[i] = '' then
+        //  begin
+        //    WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];
+        //
+        //    //if not IndexExistsInWorkersMatchingFonts(WorkersIndex, WorkersMatchingFonts) then
+        //    begin
+        //      AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
+        //      AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
+        //      Inc(AllWorkers[WorkersIndex].PmtvCntW);
+        //    end;
+        //  end;
       end;
 
       //old allocation algorithm, based on AMaxSplitActionsCount (without OS filtering)
