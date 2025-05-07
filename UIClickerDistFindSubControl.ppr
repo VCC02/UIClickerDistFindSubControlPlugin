@@ -2687,20 +2687,6 @@ var
   end;
 
 
-  function IndexExistsInWorkersMatchingFonts(AWorkersIndex: Integer; var AWorkersMatchingFonts: TIntArr): Boolean;
-  var
-    i: Integer;
-  begin
-    Result := False;
-    for i := 0 to Length(AWorkersMatchingFonts) - 1 do
-      if AWorkersMatchingFonts[i] = AWorkersIndex then
-      begin
-        Result := True;
-        Break;
-      end;
-  end;
-
-
   procedure AssignTasksToWorkers(AMaxSplitActionsCount: Integer; AListOfBmps, AListOfPmtvs, AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions);
   var
     i, j: Integer;
@@ -2708,7 +2694,6 @@ var
     WorkersMatchingOS: TIntArr; //each item is an index in the AllWorkers array
     WorkersMatchingFonts: TIntArr; //this is a subset of WorkersMatchingOS, based on what fonts are available on every worker
     SortedByDuplicatedFont: TIntArr;
-    //FontsUsedByPmtvs: TStringArray;  //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
   begin
     Randomize;
 
@@ -2813,49 +2798,7 @@ var
             Inc(AllWorkers[WorkersIndex].PmtvCntW);
           end;
         end;
-
-        //This section should not be needed, since MultipleFontsExistInList returns True for pmtv without SetFont.
-        //The remaining pmtv files should also be allocated. Ideally, they should be allocated, based on a sorted array, for better load balancing.
-        //for i := 0 to AListOfPmtvs.Count - 1 do   //should be the same count as the length of FontsUsedByPmtvs
-        //  if FontsUsedByPmtvs[i] = '' then
-        //  begin
-        //    WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];
-        //
-        //    //if not IndexExistsInWorkersMatchingFonts(WorkersIndex, WorkersMatchingFonts) then
-        //    begin
-        //      AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
-        //      AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
-        //      Inc(AllWorkers[WorkersIndex].PmtvCntW);
-        //    end;
-        //  end;
       end;
-
-      //old allocation algorithm, based on AMaxSplitActionsCount (without OS filtering)
-      //StartIndex := Random(Length(AllWorkers));
-      //for i := 0 to AMaxSplitActionsCount - 1 do //Length(SplitActions) - 1 do         //AMaxSplitActionsCount includes text profiles. This might require some changes.
-      //begin
-      //  //WorkersIndex := i mod Length(AllWorkers);
-      //  WorkersIndex := (i + StartIndex) mod Length(AllWorkers);  //simple load balancing
-      //
-      //  //Worker allocation, for bmp and Pmtv should also take into account the worker OS and the plugin setting.
-      //
-      //  if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
-      //    if i < AListOfBmps.Count then
-      //    begin
-      //      AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
-      //      AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
-      //      Inc(AllWorkers[WorkersIndex].BmpCntW);
-      //    end;
-      //
-      //  //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
-      //  if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
-      //    if i < AListOfPmtvs.Count then
-      //    begin
-      //      AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(i) + '=1&';
-      //      AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;
-      //      Inc(AllWorkers[WorkersIndex].PmtvCntW);
-      //    end;
-      //end;
 
       AddToLog('Worker allocation:');
       for i := 0 to Length(AllWorkers) - 1 do

@@ -118,6 +118,7 @@ type
     procedure HandleOnLoadMissingFileContent(AFileName: string; AFileContent: TMemoryStream);
     function HandleOnFileExists(const AFileName: string): Boolean;
     procedure HandleOnLogMissingServerFile(AMsg: string);
+    procedure HandleOnDenyFile(AFileName: string);
 
     procedure SendString(AString: string);
     procedure SendDynArrayOfByte(AArr: TDynArrayOfByte);
@@ -2417,6 +2418,7 @@ begin
   FPollForMissingServerFilesTh.OnLoadMissingFileContent := @HandleOnLoadMissingFileContent;
   FPollForMissingServerFilesTh.OnFileExists := @HandleOnFileExists;
   FPollForMissingServerFilesTh.OnLogMissingServerFile := @HandleOnLogMissingServerFile;
+  FPollForMissingServerFilesTh.OnDenyFile := @HandleOnDenyFile;
 
   SetFileProviderMainDirs;
   FPollForMissingServerFilesTh.AddListOfAccessibleDirs('$AppDir$' + PathDelim + 'ActionTemplates' + PathDelim);
@@ -2551,6 +2553,16 @@ end;
 procedure TfrmFindSubControlWorkerMain.HandleOnLogMissingServerFile(AMsg: string);
 begin
   AddToLog('[FileProvider]: ' + AMsg);
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.HandleOnDenyFile(AFileName: string);
+var
+  Response: string;
+begin                //This handler is executed by a different thread, not the UI one.    -  AddToLog puts an item into a FIFO
+  AddToLog('Sending a "' + CRECmd_TerminateWaitingForFileAvailability + '" command to server, because of denied file: "' + AFileName + '".');
+  Response := TerminateWaitingForFileAvailability(GetUIClickerAddr, CREParam_TerminateWaitingLoop_ValueAll, 0, False);
+  AddToLog('"TerminateWaitingForFileAvailability" response: ' + Response);
 end;
 
 
