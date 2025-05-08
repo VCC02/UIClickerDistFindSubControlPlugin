@@ -2355,6 +2355,7 @@ var
                 try
                   BmpsInPmtv := TStringList.Create;
                   try
+                    BmpsInPmtv.LineBreak := #13#10;
                     GetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
                     for k := 0 to BmpsInPmtv.Count - 1 do
                     begin
@@ -3088,6 +3089,7 @@ begin
   DebugPoint := @DbgPoint;
   SetLength(AllWorkers, 0);
   FLatestMsg := 'Error message not set.';
+  SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
   WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
 
   try
@@ -3099,6 +3101,7 @@ begin
     ListOfAllVars := TStringList.Create;
     try
       PluginSettings.LineBreak := #13#10;
+      ListOfAllVars.LineBreak := #13#10;
       DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
@@ -3122,7 +3125,8 @@ begin
       ActionCount := AOnActionPlugin_GetActionCount(APluginReference);
       if ActionCount = 0 then
       begin
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'This plugin does not run on an empty template.');
+        FLatestMsg := 'This plugin does not run on an empty template.';
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
         Exit;
       end;
 
@@ -3131,7 +3135,8 @@ begin
 
       if PluginSettings.Count <> CPropertiesCount then
       begin
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Cannot get the list of plugin properties.');
+        FLatestMsg := 'Cannot get the list of plugin properties.';
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
         Exit;
       end;
 
@@ -3161,7 +3166,10 @@ begin
 
       if IndexOfFindSubControlActionProperty = -1 then
       begin
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'FindSubControl action not configured.');
+        FLatestMsg := 'FindSubControl action not configured.';
+        AddToLog(FLatestMsg);
+        SetTemplateVar('$ExecAction_Err$', FLatestMsg); //probably this var will be used for other type of errors.
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
         Exit;
       end;
 
@@ -3184,8 +3192,6 @@ begin
       DisplayExtraDebuggingInfo := PluginSettings.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';
 
       AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
-
-      SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
 
       Application.Initialize;
       FExHandler := TExHandler.Create;
