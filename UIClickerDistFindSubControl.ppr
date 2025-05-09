@@ -2323,6 +2323,7 @@ var
     FileLoc: TImageSourceFileNameLocation;
     PmtvIni: TClkIniReadonlyFile;
     BmpsInPmtv: TStringList;
+    Fnm: string;
   begin
     for i := 0 to Length(AllWorkers) - 1 do
     begin
@@ -2341,8 +2342,13 @@ var
               FileLoc := isflMem
             else
               FileLoc := isflDisk;
-                                                  //The use of ExpandFileName requires more testing.
-            if LoadBitmapAsStream(AListOfAllVars, ExpandFileName(ResolveTemplatePath(TempFilesToSend.Strings[j])), TempMemFile, FileLoc) then
+
+                   //The use of ExpandFileName requires more testing.
+            Fnm := ResolveTemplatePath(TempFilesToSend.Strings[j]);
+            if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+              Fnm := ExpandFileName(Fnm);
+
+            if LoadBitmapAsStream(AListOfAllVars, Fnm, TempMemFile, FileLoc) then
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
               AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
@@ -2367,8 +2373,13 @@ var
                           FileLoc := isflMem
                         else
                           FileLoc := isflDisk;
-                                                              //The use of ExpandFileName requires more testing.
-                        if LoadBitmapAsStream(AListOfAllVars, ExpandFileName(ResolveTemplatePath(BmpsInPmtv.Strings[k])), UsedBmpTempMemFile, FileLoc) then
+
+                        Fnm := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
+                        //The use of ExpandFileName requires more testing.
+                        if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                          Fnm := ExpandFileName(Fnm);
+
+                        if LoadBitmapAsStream(AListOfAllVars, Fnm, UsedBmpTempMemFile, FileLoc) then
                         begin
                           BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
                           AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);
