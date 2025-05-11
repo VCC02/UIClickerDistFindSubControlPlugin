@@ -339,6 +339,70 @@ type
   end;
 
 
+  TTestDistPluginExtBmpLinDefaultFonts = class(TTestDistPluginExtBmpFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly; override;
+    procedure Test_AllocationOfTwoFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfThreeFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFourFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfFiveFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSixFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
+  TTestDistPluginDiskBmpFullOSes = class(TTestDistPlugin)
+  public
+    constructor Create; override;
+  published
+    procedure BeforeAll_AlwaysExecute; virtual;
+
+    procedure Test_AllocationOfZeroBitmaps; virtual;
+    procedure Test_AllocationOfOneBitmap; virtual;
+    procedure Test_AllocationOfTwoBitmaps; virtual;
+    procedure Test_AllocationOfThreeBitmaps; virtual;
+    procedure Test_AllocationOfFourBitmaps; virtual;
+    procedure Test_AllocationOfFiveBitmaps; virtual;
+    procedure Test_AllocationOfSixBitmaps; virtual;
+    procedure Test_AllocationOfSevenBitmaps; virtual;
+    procedure Test_AllocationOfEightBitmaps; virtual;
+    procedure Test_AllocationOfNineBitmaps; virtual;
+
+    procedure AfterAll_AlwaysExecute; virtual;
+  end;
+
+
+  TTestDistPluginDiskBmpWinDefaultFonts = class(TTestDistPluginDiskBmpFullOSes)
+  public
+    constructor Create; override;
+
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_AllocationOfZeroBitmaps; override;
+    procedure Test_AllocationOfOneBitmap; override;
+    procedure Test_AllocationOfTwoBitmaps; override;
+    procedure Test_AllocationOfThreeBitmaps; override;
+    procedure Test_AllocationOfFourBitmaps; override;
+    procedure Test_AllocationOfFiveBitmaps; override;
+    procedure Test_AllocationOfSixBitmaps; override;
+    procedure Test_AllocationOfSevenBitmaps; override;
+    procedure Test_AllocationOfEightBitmaps; override;
+    procedure Test_AllocationOfNineBitmaps; override;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
   //
 
 
@@ -2004,6 +2068,7 @@ end;
 
 //
 
+
 constructor TTestDistPluginExtBmpWinDefaultFonts.Create;
 begin
   inherited Create;
@@ -2099,6 +2164,293 @@ end;
 
 
 procedure TTestDistPluginExtBmpWinDefaultFonts.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+//
+
+
+constructor TTestDistPluginExtBmpLinDefaultFonts.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Lin, CReportedOS_Lin, CReportedOS_Lin, CReportedOS_Lin]);
+  SetReportedFonts(['', '', '', '']);
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfOneFontProfile_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&'], 3, [COneBmpTask], [1]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&'], 3, [COneBmpTask], [1]);
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&'], 2, [COneBmpTask], [2]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&'], 2, [COneBmpTask], [2]);
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&'], 1, [COneBmpTask], [3]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&'], 1, [COneBmpTask], [3]);
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfFourFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&'], 0, [COneBmpTask], [4]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&'], 0, [COneBmpTask], [4]);
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&'], 0, [COneBmpTask, CTwoBmpsTask], [3, 1]);  //COneBmpTask should be found 3 times.  CTwoBmpsTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&'], 0, [COneBmpTask, CTwoBmpsTask], [3, 1]);  //COneBmpTask should be found 3 times.  CTwoBmpsTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfSixFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&'], 0, [COneBmpTask, CTwoBmpsTask], [2, 2]);  //COneBmpTask should be found 2 times.  CTwoBmpsTask should be found 2 times.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&'], 0, [COneBmpTask, CTwoBmpsTask], [2, 2]);  //COneBmpTask should be found 2 times.  CTwoBmpsTask should be found 2 times.
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&'], 0, [COneBmpTask, CTwoBmpsTask], [1, 3]);  //COneBmpTask should be found 1 time.  CTwoBmpsTask should be found 3 times.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&'], 0, [COneBmpTask, CTwoBmpsTask], [1, 3]);  //COneBmpTask should be found 1 time.  CTwoBmpsTask should be found 3 times.
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfEightFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&'], 0, [COneBmpTask, CTwoBmpsTask], [0, 4]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 4 times.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&'], 0, [COneBmpTask, CTwoBmpsTask], [0, 4]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 4 times.
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.Test_AllocationOfNineFontProfiles_WinFontsOnly;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&', 'Bmp_8=1&'], 0, [COneBmpTask, CTwoBmpsTask, CThreeBmpsTask], [0, 3, 1]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 3 times.  CThreeBmpsTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&', 'Bmp_8=1&'], 0, [COneBmpTask, CTwoBmpsTask, CThreeBmpsTask], [0, 3, 1]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 3 times.  CThreeBmpsTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginExtBmpLinDefaultFonts.AfterAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+//
+
+
+constructor TTestDistPluginDiskBmpFullOSes.Create;
+begin
+  inherited Create;
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.BeforeAll_AlwaysExecute;
+begin
+  BeforeAll(FReportedOSes, FReportedFonts);
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfZeroBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfOneBitmap;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneBitmapFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfTwoBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfThreeBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfFourBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfFiveBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfSixBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfSevenBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfEightBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfNineBitmaps;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineBitmapsFromDisk.clktmpl');
+end;
+
+
+procedure TTestDistPluginDiskBmpFullOSes.AfterAll_AlwaysExecute;
+begin
+  AfterAll;
+end;
+
+
+//
+
+
+constructor TTestDistPluginDiskBmpWinDefaultFonts.Create;
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Win, CReportedOS_Win]);
+  SetReportedFonts(['', '', '', '']);
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.BeforeAll_AlwaysExecute;
+begin
+  inherited;
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfZeroBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide([], 4, [], []);
+  ExpectWorkAtWorkerSide([], 4, [], []);
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfOneBitmap;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&'], 3, [COneBmpTask], [1]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&'], 3, [COneBmpTask], [1]);
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfTwoBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&'], 2, [COneBmpTask], [2]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&'], 2, [COneBmpTask], [2]);
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfThreeBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&'], 1, [COneBmpTask], [3]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&'], 1, [COneBmpTask], [3]);
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfFourBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&'], 0, [COneBmpTask], [4]);
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&'], 0, [COneBmpTask], [4]);
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfFiveBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&'], 0, [COneBmpTask, CTwoBmpsTask], [3, 1]);  //COneBmpTask should be found 3 times.  CTwoBmpsTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&'], 0, [COneBmpTask, CTwoBmpsTask], [3, 1]);  //COneBmpTask should be found 3 times.  CTwoBmpsTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfSixBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&'], 0, [COneBmpTask, CTwoBmpsTask], [2, 2]);  //COneBmpTask should be found 2 times.  CTwoBmpsTask should be found 2 times.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&'], 0, [COneBmpTask, CTwoBmpsTask], [2, 2]);  //COneBmpTask should be found 2 times.  CTwoBmpsTask should be found 2 times.
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfSevenBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&'], 0, [COneBmpTask, CTwoBmpsTask], [1, 3]);  //COneBmpTask should be found 1 time.  CTwoBmpsTask should be found 3 times.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&'], 0, [COneBmpTask, CTwoBmpsTask], [1, 3]);  //COneBmpTask should be found 1 time.  CTwoBmpsTask should be found 3 times.
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfEightBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&'], 0, [COneBmpTask, CTwoBmpsTask], [0, 4]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 4 times.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&'], 0, [COneBmpTask, CTwoBmpsTask], [0, 4]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 4 times.
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.Test_AllocationOfNineBitmaps;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&', 'Bmp_8=1&'], 0, [COneBmpTask, CTwoBmpsTask, CThreeBmpsTask], [0, 3, 1]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 3 times.  CThreeBmpsTask should be found 1 time.
+  ExpectWorkAtWorkerSide(['Bmp_0=1&', 'Bmp_1=1&', 'Bmp_2=1&', 'Bmp_3=1&', 'Bmp_4=1&', 'Bmp_5=1&', 'Bmp_6=1&', 'Bmp_7=1&', 'Bmp_8=1&'], 0, [COneBmpTask, CTwoBmpsTask, CThreeBmpsTask], [0, 3, 1]);  //COneBmpTask should be found 0 times.  CTwoBmpsTask should be found 3 times.  CThreeBmpsTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginDiskBmpWinDefaultFonts.AfterAll_AlwaysExecute;
 begin
   inherited;
 end;
@@ -2570,6 +2922,9 @@ initialization
   RegisterTest(TTestDistPluginWinLinCustomFonts_LinPlugin);
 
   RegisterTest(TTestDistPluginExtBmpWinDefaultFonts);
+  RegisterTest(TTestDistPluginExtBmpLinDefaultFonts);
+
+  RegisterTest(TTestDistPluginDiskBmpWinDefaultFonts);
 
   RegisterTest(TTestDistPlugin_PmtvText_WinLinWorkers);
 end.
