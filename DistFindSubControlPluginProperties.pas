@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 25;
+  CAdditionalPropertiesCount = 26;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -66,6 +66,7 @@ const
 
   CVariablesForWorkersPropertyIndex = 24;
   CExtraDebuggingInfoPropertyIndex = 25;
+  CEvaluateFileNameBeforeSendingPropertyIndex = 26;
 
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
@@ -96,6 +97,7 @@ const
 
   CVariablesForWorkersPropertyName = 'VariablesForWorkers';
   CExtraDebuggingInfoPropertyName = 'ExtraDebuggingInfo';
+  CEvaluateFileNameBeforeSendingPropertyName = 'EvaluateFileNameBeforeSending';
 
   CReqCapOperation_wcsReqCapAndFindSubControl = 'wcsReqCapAndFindSubControl';
   CReqCapOperation_wcsReqCapAndGetFonts = 'wcsReqCapAndGetFonts';
@@ -134,7 +136,8 @@ const
     CLzmaFastBytesPropertyName,
 
     CVariablesForWorkersPropertyName,
-    CExtraDebuggingInfoPropertyName
+    CExtraDebuggingInfoPropertyName,
+    CEvaluateFileNameBeforeSendingPropertyName
   );
 
   //property details: (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
@@ -169,7 +172,8 @@ const
     'EnumCombo',     //LzmaPosBits,
     'SpinText',      //LzmaFastBytes
     'TextWithArrow', //VariablesForWorkers
-    'BooleanCombo'   //ExtraDebuggingInfo
+    'BooleanCombo',  //ExtraDebuggingInfo
+    'BooleanCombo'   //EvaluateFileNameBeforeSending
   );
 
   CRequiredSubControlPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
@@ -202,7 +206,8 @@ const
     CDTInteger, //LzmaFastBytesPropertyName
 
     CDTString,  //VariablesForWorkers
-    CDTBool     //ExtraDebuggingInfo
+    CDTBool,    //ExtraDebuggingInfo
+    CDTBool     //EvaluateFileNameBeforeSending
   );
 
   CPluginEnumCounts: array[0..CPropertiesCount - 1] of Integer = (
@@ -235,7 +240,8 @@ const
     0, //LzmaFastBytesPropertyName
 
     0, //VariablesForWorkers
-    0  //ExtraDebuggingInfo
+    0, //ExtraDebuggingInfo
+    0  //EvaluateFileNameBeforeSending
   );
 
   CPluginEnumStrings: array[0..CPropertiesCount - 1] of string = (
@@ -272,7 +278,8 @@ const
     '0', //LzmaFastBytesPropertyName
 
     '', //VariablesForWorkers
-    ''  //ExtraDebuggingInfo
+    '', //ExtraDebuggingInfo
+    ''  //EvaluateFileNameBeforeSending
   );
 
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
@@ -309,7 +316,8 @@ const
     'Default value: 128. Valid range: [5, 273].' + #4#5 + 'E.g.: A value of 273 gives the best compression. A value of 5 results in the fastest compression.',   //LzmaFastBytesPropertyName
 
     'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.',  //VariablesForWorkers
-    'When set to True, the plugin updates a few variables with debugging information or statistics,' + #4#5 + 'like task allocation to workers - what font profiles end up on what workers, what bmp/pmtv files end up on what workers etc.'   //ExtraDebuggingInfo
+    'When set to True, the plugin updates a few variables with debugging information or statistics,' + #4#5 + 'like task allocation to workers - what font profiles end up on what workers, what bmp/pmtv files end up on what workers etc.',  //ExtraDebuggingInfo
+    'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.' //EvaluateFileNameBeforeSending
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -342,7 +350,8 @@ const
     'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaFastBytesPropertyName
 
     '', //VariablesForWorkers
-    ''  //ExtraDebuggingInfo
+    '', //ExtraDebuggingInfo
+    ''  //EvaluateFileNameBeforeSending
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -374,7 +383,8 @@ const
     '0', //LzmaPosBitsPropertyName,
     '5', //LzmaFastBytesPropertyName
     '$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$',  //VariablesForWorkers
-    'False' //ExtraDebuggingInfo
+    'False', //ExtraDebuggingInfo
+    'False' //EvaluateFileNameBeforeSending
   );
 
 

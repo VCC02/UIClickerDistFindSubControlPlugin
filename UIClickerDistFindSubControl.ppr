@@ -178,6 +178,7 @@ var
   FindSubControlFonts: TClkFindControlMatchBitmapTextArr = nil; //used for sorting
   FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
   DisplayExtraDebuggingInfo: Boolean;
+  EvaluateFileNameBeforeSending: Boolean;
 
   RecTh: TMQTTReceiveThread;
 
@@ -2346,13 +2347,19 @@ var
                    //The use of ExpandFileName requires more testing.
             Fnm := ResolveTemplatePath(TempFilesToSend.Strings[j]);
             if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-              Fnm := ExpandFileName(Fnm);
+              if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                Fnm := ExpandFileName(Fnm);
 
             if LoadBitmapAsStream(AListOfAllVars, Fnm, TempMemFile, FileLoc) then
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
-              AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
-              AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.');
+
+              if EvaluateFileNameBeforeSending then
+                AllWorkers[i].Archive.AddFromStream(EvaluateAllReplacements(AListOfAllVars, Fnm), TempMemFile)
+              else
+                AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
+
+              AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
 
               if UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV' then
               begin           //open the pmtv file and get the list of used bitmaps
@@ -2377,12 +2384,17 @@ var
                         Fnm := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
                         //The use of ExpandFileName requires more testing.
                         if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-                          Fnm := ExpandFileName(Fnm);
+                          if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\Win.bmp", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                            Fnm := ExpandFileName(Fnm);
 
                         if LoadBitmapAsStream(AListOfAllVars, Fnm, UsedBmpTempMemFile, FileLoc) then
                         begin
                           BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
-                          AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);
+
+                          if EvaluateFileNameBeforeSending then
+                            AllWorkers[i].Archive.AddFromStream(EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]), UsedBmpTempMemFile)
+                          else
+                            AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);
                           AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
                         end
                         else
@@ -2404,7 +2416,7 @@ var
             end
             else
             begin
-              FLatestMsg := 'Error loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '".';
+              FLatestMsg := 'Error loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '".   Resolved name: ' + Fnm + '  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".';
               raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
             end;
           finally
@@ -2662,6 +2674,7 @@ var
     TempMemFile: TMemoryStream;
     PmtvIni: TClkIniReadonlyFile;
     FileLoc: TImageSourceFileNameLocation;
+    Fnm: string;
   begin
     ListOfPmtvFiles := TStringList.Create;
     try
@@ -2678,8 +2691,12 @@ var
 
         TempMemFile := TMemoryStream.Create;
         try
-                                                //The use of ExpandFileName requires more testing.
-          if LoadBitmapAsStream(AListOfAllVars, ExpandFileName(ResolveTemplatePath(ListOfPmtvFiles.Strings[i])), TempMemFile, FileLoc) then
+          Fnm := ResolveTemplatePath(ListOfPmtvFiles.Strings[i]);
+          if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+            if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+              Fnm :=  ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+
+          if LoadBitmapAsStream(AListOfAllVars, Fnm, TempMemFile, FileLoc) then
           begin
             TempMemFile.Position := 0;
             PmtvIni := TClkIniReadonlyFile.Create(TempMemFile);
@@ -2778,6 +2795,7 @@ var
       //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
       if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
       begin
+        AddToLog('Loading pmtv files, to get the list of used fonts.');
         GetFontsUsedByPmtvs(AListOfAllVars, AFindSubControlOptions, FontsUsedByPmtvs);   //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
 
         SetLength(SortedByDuplicatedFont, Length(FontsUsedByPmtvs));
@@ -3201,6 +3219,7 @@ begin
       LoadCacheActionName := PluginSettings.ValueFromIndex[CLoadWorkerCapabilitiesCacheActionPropertyIndex];
       RequestedTextRenderingOS := PluginSettings.ValueFromIndex[CTextRenderingOSPropertyIndex];
       DisplayExtraDebuggingInfo := PluginSettings.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';
+      EvaluateFileNameBeforeSending := PluginSettings.ValueFromIndex[CEvaluateFileNameBeforeSendingPropertyIndex] = 'True';
 
       AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
 

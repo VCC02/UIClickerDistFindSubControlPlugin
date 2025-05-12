@@ -70,7 +70,7 @@ AllowToFail=0
 WaitForControlToGoAway=0
 MatchBitmapTextArr=1
 MatchBitmapText_Count=0
-MatchBitmapFiles=$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_0.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_1.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_2.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_3.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_4.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_5.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_6.png$AppDir$\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\Win_7.png
+MatchBitmapFiles=$TestFilesDir$\Win_0.png$TestFilesDir$\Win_1.png$TestFilesDir$\Win_2.png$TestFilesDir$\Win_3.png$TestFilesDir$\Win_4.png$TestFilesDir$\Win_5.png$TestFilesDir$\Win_6.png$TestFilesDir$\Win_7.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -119,7 +119,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dll
-ListOfPropertiesAndValues=FindSubControlAction=EightBitmapsCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=True
+ListOfPropertiesAndValues=FindSubControlAction=EightBitmapsCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=True
 
 [Notes]
 Content=

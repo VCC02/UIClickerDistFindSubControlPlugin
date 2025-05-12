@@ -798,6 +798,12 @@ begin
 end;
 
 
+procedure SetVariableOnClickerUnderTest(AVarName, AVarValue: string; AEvalVarBefore: Boolean = False); //ClickerUnderTest must be in server mode.
+begin
+  SetVariableOnCustomTestDriverClient(CTestClientAddress, AVarName, AVarValue, AEvalVarBefore);
+end;
+
+
 procedure WaitForDriverStartup;
 begin
   WaitForCustomDriverStartup(CTestDriverServerAddress_Client);
@@ -1016,6 +1022,9 @@ begin
   Sleep(500);
 
   FTemplatesDir := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\ActionTemplates\';
+
+  PrepareClickerUnderTestToReadItsVars; //or write..
+  SetVariableOnClickerUnderTest('$TestFilesDir$', ExpandFileName(ExtractFilePath(ParamStr(0)) + 'TestFiles'));
 end;
 
 
@@ -3380,7 +3389,7 @@ begin
   inherited Create;
   SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);
   SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']);
-  //SetPluginUsedOS(CReportedOS_WinLin);
+  //SetPluginUsedOS(CReportedOS_WinLin);  //Leave commented. The plugin is Win+Lin by default in template.
 end;
 
 
