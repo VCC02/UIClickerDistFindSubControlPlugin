@@ -1,5 +1,5 @@
 [Actions]
-Count=4
+Count=5
 Version=2
 
 [Action_0]
@@ -29,14 +29,28 @@ InitialRectangle.LeftOffset=0
 InitialRectangle.TopOffset=0
 InitialRectangle.RightOffset=0
 InitialRectangle.BottomOffset=0
-StartSearchingWithCachedControl=0
-CachedControlLeft=
-CachedControlTop=
+StartSearchingWithCachedControl=1
+CachedControlLeft=$CF_Left$
+CachedControlTop=$CF_Top$
 GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
 [Action_1]
+ActionName=Cache Common Fonts window
+Action=SetVar
+ActionTimeout=0
+ActionEnabled=1
+ActionCondition=
+BreakpointExists=0
+BreakpointEnabled=0
+BreakpointCondition=
+ListOfVarNames=$CF_Left$$CF_Top$$CF_Right$$CF_Bottom$$CF_Width$$CF_Height$$CF_Text$$CF_Class$$CF_Handle$
+ListOfVarValues=$Control_Left$$Control_Top$$Control_Right$$Control_Bottom$$Control_Width$$Control_Height$$Control_Text$$Control_Class$$Control_Handle$
+ListOfVarEvalBefore=111111111
+FailOnException=0
+
+[Action_2]
 ActionName=Bring to front
 Action=WindowOperations
 ActionTimeout=0
@@ -53,7 +67,7 @@ NewHeight=
 NewPositionEnabled=0
 NewSizeEnabled=0
 
-[Action_2]
+[Action_3]
 ActionName=SevenProfiles
 Action=FindSubControl
 ActionTimeout=1000
@@ -228,7 +242,7 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_3]
+[Action_4]
 ActionName="Plugin"
 Action=Plugin
 ActionTimeout=0
