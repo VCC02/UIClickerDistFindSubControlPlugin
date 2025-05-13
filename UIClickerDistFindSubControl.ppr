@@ -2322,9 +2322,9 @@ var
     TempFilesToSend: TStringList;
     TempMemFile, UsedBmpTempMemFile: TMemoryStream;
     FileLoc: TImageSourceFileNameLocation;
-    PmtvIni: TClkIniReadonlyFile;
+    PmtvIni: TClkIniFile;
     BmpsInPmtv: TStringList;
-    Fnm: string;
+    Fnm, BmpFnm, FnmForArchive: string;
   begin
     for i := 0 to Length(AllWorkers) - 1 do
     begin
@@ -2354,17 +2354,25 @@ var
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
 
-              if EvaluateFileNameBeforeSending then
-                AllWorkers[i].Archive.AddFromStream(EvaluateAllReplacements(AListOfAllVars, Fnm), TempMemFile)
-              else
-                AllWorkers[i].Archive.AddFromStream(TempFilesToSend.Strings[j], TempMemFile);
-
-              AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
-
+              //if EvaluateFileNameBeforeSending then
+              //begin
+              //  FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
+              //  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+              //  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile)
+              //end
+              //else
+              //begin
+              //  FnmForArchive := TempFilesToSend.Strings[j];
+              //  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+              //  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+              //end;
+              //
+              //AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
+              //
               if UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV' then
               begin           //open the pmtv file and get the list of used bitmaps
                 TempMemFile.Position := 0;
-                PmtvIni := TClkIniReadonlyFile.Create(TempMemFile);
+                PmtvIni := TClkIniFile.Create(TempMemFile);
                 try
                   BmpsInPmtv := TStringList.Create;
                   try
@@ -2381,30 +2389,54 @@ var
                         else
                           FileLoc := isflDisk;
 
-                        Fnm := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
+                        BmpFnm := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
                         //The use of ExpandFileName requires more testing.
-                        if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-                          if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\Win.bmp", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                            Fnm := ExpandFileName(Fnm);
+                        if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpFnm)) = 0 then //do not expand ExtMem paths
+                          if Pos('$APPDIR$', UpperCase(BmpFnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\Win.bmp", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                            BmpFnm := ExpandFileName(BmpFnm);
 
-                        if LoadBitmapAsStream(AListOfAllVars, Fnm, UsedBmpTempMemFile, FileLoc) then
+                        if LoadBitmapAsStream(AListOfAllVars, BmpFnm, UsedBmpTempMemFile, FileLoc) then
                         begin
                           BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
 
                           if EvaluateFileNameBeforeSending then
-                            AllWorkers[i].Archive.AddFromStream(EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]), UsedBmpTempMemFile)
+                          begin
+                            FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
+                            AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+                            AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile)
+                          end
                           else
-                            AllWorkers[i].Archive.AddFromStream(BmpsInPmtv.Strings[k], UsedBmpTempMemFile);
+                          begin
+                            FnmForArchive := BmpsInPmtv.Strings[k];
+                            AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+                            AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                          end;
+
                           AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
                         end
                         else
                         begin
+                          FnmForArchive := BmpsInPmtv.Strings[k]; //Provide a default. Anyway, the task will fail.
                           FLatestMsg := 'Error loading bitmap used by pmtv as stream: "' + BmpsInPmtv.Strings[k] + '".';
                           raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
                         end;
                       finally
                         UsedBmpTempMemFile.Free;
                       end;
+
+                      if EvaluateFileNameBeforeSending then
+                      begin
+                        AddToLog('--------------- Updating "' + BmpsInPmtv.Strings[k] + '" to "' + FnmForArchive + '" in pmtv.  Initial pmtv file size: ' + IntToStr(TempMemFile.Size));
+                        BmpsInPmtv.Strings[k] := FnmForArchive;
+                      end;
+                    end;  //for k
+
+                    if EvaluateFileNameBeforeSending then
+                    begin
+                      SetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
+                      //PmtvIni.WriteString('[NewSection]', 'For debugging', 'Increased size.');
+                      PmtvIni.UpdateStream; //this updates TempMemFile to the new content of PmtvIni
+                      AddToLog('--------------- Updated bmp file names in pmtv.  Updated pmtv file size: ' + IntToStr(TempMemFile.Size));
                     end;
                   finally
                     BmpsInPmtv.Free;
@@ -2413,6 +2445,23 @@ var
                   PmtvIni.Free;
                 end;
               end; //it's a pmtv file
+
+              TempMemFile.Position := 0;
+              if EvaluateFileNameBeforeSending then    //moved from before "UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV'", because the pmtv may be modified here, to have evaluated paths to bmps
+              begin
+                FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
+                AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+                AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile)
+              end
+              else
+              begin
+                FnmForArchive := TempFilesToSend.Strings[j];
+                AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+                AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+              end;
+
+              AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
+
             end
             else
             begin
@@ -2694,7 +2743,7 @@ var
           Fnm := ResolveTemplatePath(ListOfPmtvFiles.Strings[i]);
           if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
             if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-              Fnm :=  ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+              Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
 
           if LoadBitmapAsStream(AListOfAllVars, Fnm, TempMemFile, FileLoc) then
           begin
@@ -2905,6 +2954,7 @@ var
     DecodingErr: string;
     ActionOptions: TClkActionOptions;
     TempBkStr: string;
+    Fnm: string;
     TempArchiveHandlers: TArchiveHandlers;
     BkSize: Int64;
     BackgroundWidth, BackgroundHeight: Integer;
@@ -3028,6 +3078,43 @@ var
           end
           else
             AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
+
+          if EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
+          begin
+            AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
+            for i := 0 to ListOfBmps.Count - 1 do
+            begin
+              Fnm := ListOfBmps.Strings[i];
+              Fnm := ResolveTemplatePath(Fnm);
+              Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
+              if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                begin
+                  Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+                  AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
+                  ListOfBmps.Strings[i] := Fnm;
+                end;
+            end;
+
+            for i := 0 to ListOfPmtvs.Count - 1 do
+            begin
+              Fnm := ListOfPmtvs.Strings[i];
+              Fnm := ResolveTemplatePath(Fnm);
+              Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
+              if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                begin
+                  Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+                  AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
+                  ListOfPmtvs.Strings[i] := Fnm;
+                end;
+            end;
+
+            DecodedAction.MatchBitmapFiles := ListOfBmps.Text;
+            DecodedAction.MatchPrimitiveFiles := ListOfPmtvs.Text;
+            ActionContentStr := GetFindSubControlActionProperties(DecodedAction);
+            AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
+          end;
 
           AddBitmapsToWorkerArchives(AListOfAllVars);
         finally

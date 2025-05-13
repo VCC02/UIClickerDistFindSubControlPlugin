@@ -535,6 +535,9 @@ type
     procedure Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly; virtual;
     procedure Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts; virtual;
 
+    procedure Test_AllocationOfPmtv_WithDiskBmp; virtual;
+    procedure Test_AllocationOfPmtv_WithExtBmp; virtual;
+
     procedure AfterAll_AlwaysExecute; virtual;
   end;
 
@@ -557,6 +560,9 @@ type
     procedure Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly; override;
     procedure Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly; override;
     procedure Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts; override;
+
+    procedure Test_AllocationOfPmtv_WithDiskBmp; override;
+    procedure Test_AllocationOfPmtv_WithExtBmp; override;
 
     procedure AfterAll_AlwaysExecute; override;
   end;
@@ -3375,6 +3381,20 @@ begin
 end;
 
 
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithDiskBmp;
+begin
+  FCalledAction := 'Find_DiskBmp';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithExtBmp;
+begin
+  FCalledAction := 'Find_ExtBmp';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
 procedure TTestDistPlugin_PmtvText.AfterAll_AlwaysExecute;
 begin
   AfterAll;
@@ -3719,6 +3739,34 @@ begin
         end;
       end;
     end;
+  end;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtv_WithDiskBmp;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+
+  try
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
+  except
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
+  end;
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtv_WithExtBmp;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+
+  try
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
+  except
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
   end;
 end;
 

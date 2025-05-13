@@ -2423,6 +2423,7 @@ begin
   SetFileProviderMainDirs;
   FPollForMissingServerFilesTh.AddListOfAccessibleDirs('$AppDir$' + PathDelim + 'ActionTemplates' + PathDelim);
   FPollForMissingServerFilesTh.AddListOfAccessibleDirs(FPollForMissingServerFilesTh.FullTemplatesDir + PathDelim);
+  FPollForMissingServerFilesTh.AddListOfAccessibleDirs(ExpandFileName(ExtractFilePath(ParamStr(0)) + '..' + PathDelim + 'Tests' + PathDelim + 'TestFiles' + PathDelim)); //probably, this will have to be moved to a cmd line option
   FPollForMissingServerFilesTh.AddListOfAccessibleDirs(CExtBmp_Prefix + PathDelim);
   FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.clktmpl');
   FPollForMissingServerFilesTh.AddListOfAccessibleFileExtensions('.bmp');
