@@ -1,5 +1,5 @@
 [Actions]
-Count=11
+Count=13
 Version=2
 
 [Action_0]
@@ -29,14 +29,28 @@ InitialRectangle.LeftOffset=0
 InitialRectangle.TopOffset=0
 InitialRectangle.RightOffset=0
 InitialRectangle.BottomOffset=0
-StartSearchingWithCachedControl=0
-CachedControlLeft=
-CachedControlTop=
+StartSearchingWithCachedControl=1
+CachedControlLeft=$ActWin_Left$
+CachedControlTop=$ActWin_Top$
 GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
 [Action_1]
+ActionName=Cache Actions Window
+Action=SetVar
+ActionTimeout=0
+ActionEnabled=1
+ActionCondition=
+BreakpointExists=0
+BreakpointEnabled=0
+BreakpointCondition=
+ListOfVarNames=$ActWin_Left$$ActWin_Top$$ActWin_Right$$ActWin_Bottom$$ActWin_Width$$ActWin_Height$$ActWin_Text$$ActWin_Class$$ActWin_Handle$
+ListOfVarValues=$Control_Left$$Control_Top$$Control_Right$$Control_Bottom$$Control_Width$$Control_Height$$Control_Text$$Control_Class$$Control_Handle$
+ListOfVarEvalBefore=111111111
+FailOnException=56
+
+[Action_2]
 ActionName=Bring to front
 Action=WindowOperations
 ActionTimeout=0
@@ -53,7 +67,7 @@ NewHeight=
 NewPositionEnabled=0
 NewSizeEnabled=0
 
-[Action_2]
+[Action_3]
 ActionName=Find Main Player
 Action=FindControl
 ActionTimeout=3000
@@ -80,14 +94,28 @@ InitialRectangle.LeftOffset=0
 InitialRectangle.TopOffset=0
 InitialRectangle.RightOffset=0
 InitialRectangle.BottomOffset=0
-StartSearchingWithCachedControl=0
-CachedControlLeft=
-CachedControlTop=
+StartSearchingWithCachedControl=1
+CachedControlLeft=$Player_Left$
+CachedControlTop=$Player_Top$
 GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
-[Action_3]
+[Action_4]
+ActionName=Cache Main Player
+Action=SetVar
+ActionTimeout=0
+ActionEnabled=1
+ActionCondition=
+BreakpointExists=0
+BreakpointEnabled=0
+BreakpointCondition=
+ListOfVarNames=$Player_Left$$Player_Top$$Player_Right$$Player_Bottom$$Player_Width$$Player_Height$$Player_Text$$Player_Class$$Player_Handle$
+ListOfVarValues=$Control_Left$$Control_Top$$Control_Right$$Control_Bottom$$Control_Width$$Control_Height$$Control_Text$$Control_Class$$Control_Handle$
+ListOfVarEvalBefore=111111111
+FailOnException=56
+
+[Action_5]
 ActionName=Find "New..." button
 Action=FindSubControl
 ActionTimeout=1000
@@ -160,7 +188,7 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_4]
+[Action_6]
 ActionName=Click New
 Action=Click
 ActionTimeout=0
@@ -197,7 +225,7 @@ DelayAfterMouseDown=200
 MoveDuration=-1
 UseClipCursor=0
 
-[Action_5]
+[Action_7]
 ActionName=Find dialog
 Action=FindControl
 ActionTimeout=3000
@@ -231,7 +259,7 @@ GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
-[Action_6]
+[Action_8]
 ActionName=Cache dialog
 Action=SetVar
 ActionTimeout=0
@@ -243,9 +271,9 @@ BreakpointCondition=
 ListOfVarNames=$D_Left$$D_Top$$D_Right$$D_Bottom$$D_Width$$D_Height$$D_Text$$D_Class$$D_Handle$
 ListOfVarValues=$Control_Left$$Control_Top$$Control_Right$$Control_Bottom$$Control_Width$$Control_Height$$Control_Text$$Control_Class$$Control_Handle$
 ListOfVarEvalBefore=111111111
-FailOnException=56
+FailOnException=0
 
-[Action_7]
+[Action_9]
 ActionName=Confirm message
 Action=FindControl
 ActionTimeout=3000
@@ -279,7 +307,7 @@ GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
-[Action_8]
+[Action_10]
 ActionName=Restore cached dialog
 Action=SetVar
 ActionTimeout=0
@@ -291,9 +319,9 @@ BreakpointCondition=
 ListOfVarNames=$Control_Left$$Control_Top$$Control_Right$$Control_Bottom$$Control_Width$$Control_Height$$Control_Text$$Control_Class$$Control_Handle$
 ListOfVarValues=$D_Left$$D_Top$$D_Right$$D_Bottom$$D_Width$$D_Height$$D_Text$$D_Class$$D_Handle$
 ListOfVarEvalBefore=111111111
-FailOnException=56
+FailOnException=0
 
-[Action_9]
+[Action_11]
 ActionName=Find Yes button
 Action=FindControl
 ActionTimeout=3000
@@ -327,7 +355,7 @@ GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
-[Action_10]
+[Action_12]
 ActionName=Click Yes
 Action=Click
 ActionTimeout=0
