@@ -537,6 +537,8 @@ type
 
     procedure Test_AllocationOfPmtv_WithDiskBmp; virtual;
     procedure Test_AllocationOfPmtv_WithExtBmp; virtual;
+    procedure Test_AllocationOfPmtv_WithDiskBmp_NotFound; virtual;
+    procedure Test_AllocationOfPmtv_WithExtBmp_NotFound; virtual;
 
     procedure AfterAll_AlwaysExecute; virtual;
   end;
@@ -563,6 +565,8 @@ type
 
     procedure Test_AllocationOfPmtv_WithDiskBmp; override;
     procedure Test_AllocationOfPmtv_WithExtBmp; override;
+    procedure Test_AllocationOfPmtv_WithDiskBmp_NotFound; override;
+    procedure Test_AllocationOfPmtv_WithExtBmp_NotFound; override;
 
     procedure AfterAll_AlwaysExecute; override;
   end;
@@ -3395,6 +3399,20 @@ begin
 end;
 
 
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
+begin
+  FCalledAction := 'DoNotFind_DiskBmp';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
+procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithExtBmp_NotFound;
+begin
+  FCalledAction := 'DoNotFind_ExtBmp';
+  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+end;
+
+
 procedure TTestDistPlugin_PmtvText.AfterAll_AlwaysExecute;
 begin
   AfterAll;
@@ -3754,6 +3772,8 @@ begin
   except
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
   end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', '');
 end;
 
 
@@ -3768,6 +3788,43 @@ begin
   except
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
   end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', '');
+end;
+
+
+const
+  CBmpNotFoundErr = 'None of the responding workers found the SubControl. ResponseCount = 4 / 4.';
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+
+  try
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
+  except
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
+  end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', CBmpNotFoundErr);
+end;
+
+
+procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtv_WithExtBmp_NotFound;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
+
+  try
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
+  except
+    ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
+  end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', CBmpNotFoundErr);
 end;
 
 
