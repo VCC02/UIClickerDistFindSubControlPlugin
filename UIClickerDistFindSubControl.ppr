@@ -3503,13 +3503,29 @@ begin
           end;
 
         if ResultImageAvailable then
-          for i := 0 to Length(AllWorkers) - 1 do
-            if AllWorkers[i].FindSubControlFound then
-            begin
-              AOnActionPlugin_SetResultImg(APluginReference, 0, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
-              AddToLog('Result image set from worker[' + IntToStr(i) + '].');
-              Break;
-            end;
+        begin
+          if Result then
+          begin
+            for i := 0 to Length(AllWorkers) - 1 do
+              if AllWorkers[i].FindSubControlFound then
+              begin
+                AOnActionPlugin_SetResultImg(APluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
+                AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+                Break;
+              end;
+          end
+          else
+          begin
+            for i := 0 to Length(AllWorkers) - 1 do
+              if (AllWorkers[i].WorkerSpecificTask <> '') and
+                 (AllWorkers[i].WorkerSpecificTask <> 'TxtCnt=0&BmpCnt=0&PmtvCnt=0&') then  //Find a worker which received something to work on.
+              begin
+                AOnActionPlugin_SetResultImg(APluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
+                AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+                Break;
+              end;
+          end;
+        end;
 
         if not ResultImageAvailable then
         begin
