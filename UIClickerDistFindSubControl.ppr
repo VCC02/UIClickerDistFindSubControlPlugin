@@ -3199,6 +3199,7 @@ var
   i: Integer;
   TempResponseVars: TResponseVars;
   ListOfAllVars: TStringList;
+  ResultImageAvailable: Boolean;
 
 begin
   Result := False;
@@ -3492,17 +3493,33 @@ begin
         AddToLog('No available workers for result image.');
       end
       else
-        if AllWorkers[0].ResponseBitmapStream.Size = 0 then
+      begin
+        ResultImageAvailable := False;
+        for i := 0 to Length(AllWorkers) - 1 do
+          if AllWorkers[i].ResponseBitmapStream.Size > 0 then
+          begin
+            ResultImageAvailable := True;
+            Break;
+          end;
+
+        if ResultImageAvailable then
+          for i := 0 to Length(AllWorkers) - 1 do
+            if AllWorkers[i].FindSubControlFound then
+            begin
+              AOnActionPlugin_SetResultImg(APluginReference, 0, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
+              AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+              Break;
+            end;
+
+        if not ResultImageAvailable then
         begin
           GenerateSomeResultImg(ListOfAllVars);
-          AddToLog('Worker[0] returned an empty result image.');
-        end
-        else
-        begin
-          AOnActionPlugin_SetResultImg(APluginReference, 0, 0, 0, AllWorkers[0].ResponseBitmapStream.Memory, AllWorkers[0].ResponseBitmapStream.Size, -1, -1);
-          FreeAndNil(AllWorkers[0].ResponseBitmapStream);
-          AddToLog('Result image set from worker[0].');
+          AddToLog('None of the workers returned a result image.');
         end;
+
+        for i := 0 to Length(AllWorkers) - 1 do
+          FreeAndNil(AllWorkers[i].ResponseBitmapStream);
+      end;
 
       FreeAndNil(ListOfAllVars);
 
