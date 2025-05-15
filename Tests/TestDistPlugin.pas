@@ -3614,6 +3614,10 @@ begin
 end;
 
 
+const
+  CBmpNotFoundErr = 'None of the responding workers found the SubControl. ResponseCount = 4 / 4.';
+
+
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly;
 begin
   inherited;      //In case of no fonts, at least one worker should receive the task. Another worker, should receive the "Fonts" task (with priority).
@@ -3660,6 +3664,8 @@ begin
       end;
     end;
   end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', CBmpNotFoundErr);
 end;
 
 
@@ -3709,6 +3715,8 @@ begin
       end;
     end;
   end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', CBmpNotFoundErr);
 end;
 
 
@@ -3758,6 +3766,8 @@ begin
       end;
     end;
   end;
+
+  ExpectVarFromClientUnderTest('$PluginError$', CBmpNotFoundErr);
 end;
 
 
@@ -3792,9 +3802,6 @@ begin
   ExpectVarFromClientUnderTest('$PluginError$', '');
 end;
 
-
-const
-  CBmpNotFoundErr = 'None of the responding workers found the SubControl. ResponseCount = 4 / 4.';
 
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
 begin
