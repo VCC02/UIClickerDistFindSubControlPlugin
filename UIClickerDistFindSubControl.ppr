@@ -138,6 +138,9 @@ const
           'SDone'
           );
 
+ CNoWorkerFoundSubControlErr = 'None of the responding workers found the SubControl.';
+ CNoWorkerMatchesOSErr = 'None of the responding workers matches the selected target OS.';
+
 var
   IdTCPClient1: TIdTCPClient;
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
@@ -1875,7 +1878,7 @@ begin
         else
           FSMError := 'Some of the responding workers could not send the the background image to their local UIClicker.';
 
-        FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';
+        FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
 
         AddToLog(FSMError);
       end
@@ -1904,9 +1907,9 @@ begin
           if WorkerRespondedCount = 0 then
             FSMError := 'Timeout waiting for workers to find the SubControl.'
           else
-            FSMError := 'None of the responding workers found the SubControl.';
+            FSMError := CNoWorkerFoundSubControlErr;
 
-          FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';
+          FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
 
           AddToLog(FSMError);
         end
@@ -2937,9 +2940,9 @@ var
     end;
   end;
 
-  function GetFindSubControlContent(AListOfAllVars: TStringList): Boolean;
+  function GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
   const
-    //CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
+    CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
     //CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
     //CWillMatchPrimitiveFiles = 'WillMatchPrimitiveFiles'; //0..1
     CTxtProfilesCount_PropName = 'MatchBitmapText.Count';
@@ -2971,6 +2974,7 @@ var
     AOnActionPlugin_GetActionContentByIndex(APluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
     SetLength(ActionContentStr, ActionContentLen);
 
+    AHasTxtTasks := False;
     //AddToLog('ActionContentStr: ' + #13#10 + ActionContentStr);
     //
     ListOfFindSubControlProperties := TStringList.Create;
@@ -2995,6 +2999,8 @@ var
 
       TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
       MaxSplitActionsCount := TxtCount;
+
+      AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1');
 
       ListOfBmps := TStringList.Create;
       ListOfPmtvs := TStringList.Create;
@@ -3213,7 +3219,7 @@ var
   TempResponseVars: TResponseVars;
   ListOfAllVars: TStringList;
   ResultImageAvailable: Boolean;
-
+  FoundMatchingOS, HasTxtTasks: Boolean;
 begin
   Result := False;
   DebugPoint := @DbgPoint;
@@ -3344,7 +3350,7 @@ begin
             if State = SGetFindSubControlActionContent then
             begin
               try
-                if not GetFindSubControlContent(ListOfAllVars) then
+                if not GetFindSubControlContent(ListOfAllVars, HasTxtTasks) then
                 begin
                   AddToLog('Stopping FSM, because GetFindSubControlContent returned False.');
                   FSMDone := True;
@@ -3426,7 +3432,23 @@ begin
         end;
 
         if not Result then
-          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg)
+        begin
+          if FLatestMsg = CNoWorkerFoundSubControlErr + ' ResponseCount = ' + IntToStr(Length(AllWorkers)) + ' / ' + IntToStr(Length(AllWorkers)) + '.' then
+          begin
+            FoundMatchingOS := False;
+            for i := 0 to Length(AllWorkers) - 1 do
+              if AllWorkers[i].OS = RequestedTextRenderingOS then
+              begin
+                FoundMatchingOS := True;
+                Break;
+              end;
+
+            if not FoundMatchingOS and HasTxtTasks then //no matching OS, but there are txt tasks
+              FLatestMsg := CNoWorkerMatchesOSErr;
+          end;
+
+          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
+        end
         else
         begin
           for i := 0 to Length(AllWorkers) - 1 do
