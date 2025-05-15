@@ -70,6 +70,7 @@ type
     FileCacheInfo: TStringList; //list of files and their hashes, currently present in worker's InMemFS (not its pair UIClicker).
     ExtraName: string; //user-defined name
     FilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs etc)
+    BmpFilesToSend, PmtvFilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs) - two different lists, used for updating actions
     ArchiveStream: TMemoryStream;
     Archive: TMemArchive;
     CompressionTime: QWord;   //for statistics only
@@ -792,6 +793,8 @@ begin
   AllWorkers[Length(AllWorkers) - 1].ExtraName := AExtraName;
 
   AllWorkers[Length(AllWorkers) - 1].FilesToSend := '';
+  AllWorkers[Length(AllWorkers) - 1].BmpFilesToSend := '';
+  AllWorkers[Length(AllWorkers) - 1].PmtvFilesToSend := '';
   AllWorkers[Length(AllWorkers) - 1].ArchiveStream := nil;   //created when required
   AllWorkers[Length(AllWorkers) - 1].Archive := nil;         //created when required
 
@@ -2836,6 +2839,7 @@ var
           WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
           AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
           AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
+          AllWorkers[WorkersIndex].BmpFilesToSend := AllWorkers[WorkersIndex].BmpFilesToSend + AListOfBmps.Strings[i] + #13#10;
           Inc(AllWorkers[WorkersIndex].BmpCntW);
         end;
       end;
@@ -2874,10 +2878,11 @@ var
             WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
             AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the pmtv index
             AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;   //AListOfPmtvs has the same length as FontsUsedByPmtvs
+            AllWorkers[WorkersIndex].PmtvFilesToSend := AllWorkers[WorkersIndex].PmtvFilesToSend + AListOfPmtvs.Strings[i] + #13#10;
             Inc(AllWorkers[WorkersIndex].PmtvCntW);
           end;
         end;
-      end;
+      end;  //WillMatchPrimitiveFiles
 
       AddToLog('Worker allocation:');
       for i := 0 to Length(AllWorkers) - 1 do
@@ -2886,7 +2891,7 @@ var
                                             'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
                                             'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
                                             AllWorkers[i].WorkerSpecificTask;
-        AddToLog('  Worker[' + IntToStr(i) + '] = ' + AllWorkers[i].WorkerSpecificTask);
+        AddToLog('  Worker[' + IntToStr(i) + '] = ' + AllWorkers[i].WorkerSpecificTask + '  Files to send: ' + FastReplace_ReturnTo45(AllWorkers[i].FilesToSend));
       end;
     end; //Length(AllWorkers) > 0
   end;
@@ -2947,7 +2952,7 @@ var
     ActionContentStr: string;
     ActionContentPtr: Pointer;
     ActionContentLen: DWord;
-    i{, WorkersIndex}: Integer;
+    i, WorkersIndex: Integer;
     ListOfFindSubControlProperties, ListOfBmps, ListOfPmtvs: TStringList;
     MaxSplitActionsCount, TxtCount: Integer;
     DecodedAction: TClkFindSubControlOptions;
@@ -3079,43 +3084,51 @@ var
           else
             AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
 
-          if EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
+          for WorkersIndex := 0 to Length(AllWorkers) - 1 do
           begin
-            AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
-            for i := 0 to ListOfBmps.Count - 1 do
+            ListOfBmps.Text := AllWorkers[WorkersIndex].BmpFilesToSend;   //use only the worker-specific list
+            ListOfPmtvs.Text := AllWorkers[WorkersIndex].PmtvFilesToSend; //use only the worker-specific list
+
+            if EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
             begin
-              Fnm := ListOfBmps.Strings[i];
-              Fnm := ResolveTemplatePath(Fnm);
-              Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
-              if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-                //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                begin
-                  Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-                  AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
-                  ListOfBmps.Strings[i] := Fnm;
-                end;
-            end;
+              AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
+              for i := 0 to ListOfBmps.Count - 1 do
+              begin
+                Fnm := ListOfBmps.Strings[i];
+                Fnm := ResolveTemplatePath(Fnm);
+                Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
+                if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                  //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                  begin
+                    Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+                    AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
+                    ListOfBmps.Strings[i] := Fnm;
+                  end;
+              end;
 
-            for i := 0 to ListOfPmtvs.Count - 1 do
-            begin
-              Fnm := ListOfPmtvs.Strings[i];
-              Fnm := ResolveTemplatePath(Fnm);
-              Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
-              if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-                //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                begin
-                  Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-                  AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
-                  ListOfPmtvs.Strings[i] := Fnm;
-                end;
-            end;
+              for i := 0 to ListOfPmtvs.Count - 1 do
+              begin
+                Fnm := ListOfPmtvs.Strings[i];
+                Fnm := ResolveTemplatePath(Fnm);
+                Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
+                if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                  //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                  begin
+                    Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+                    AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
+                    ListOfPmtvs.Strings[i] := Fnm;
+                  end;
+              end;
 
-            DecodedAction.MatchBitmapFiles := ListOfBmps.Text;
-            DecodedAction.MatchPrimitiveFiles := ListOfPmtvs.Text;
-            ActionContentStr := GetFindSubControlActionProperties(DecodedAction);
-            AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
-          end;
+              //update the action for every worker:
+              DecodedAction.MatchBitmapFiles := ListOfBmps.Text;
+              DecodedAction.MatchPrimitiveFiles := ListOfPmtvs.Text;
+              ActionContentStr := GetFindSubControlActionProperties(DecodedAction);
+              AllWorkers[WorkersIndex].WorkerActionContentStr := ActionContentStr;
+            end; //if EvaluateFileNameBeforeSending
+          end; //for WorkersIndex
 
+          AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
           AddBitmapsToWorkerArchives(AListOfAllVars);
         finally
           CloseWorkerArchives;
@@ -3152,7 +3165,7 @@ var
             if AllWorkers[i].ArchiveStream.Size = 0 then
               AllWorkers[i].ArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
 
-            AllWorkers[i].WorkerActionContentStr := ActionContentStr +
+            AllWorkers[i].WorkerActionContentStr := AllWorkers[i].WorkerActionContentStr + //ActionContentStr +  //initialized above, with worker-specific action (list of bmps and list of pmtvs)
                                 '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - FindSubControlTimeoutDiff)) +
                                 '&' + AllWorkers[i].WorkerSpecificTask +
                                 '&' + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
