@@ -2322,7 +2322,25 @@ var
   end;
 
 
+  //procedure RemoveDuplicatesFromTStringList(AListOfStr: TStringList);
+  //var
+  //  i, j: Integer;
+  //  s: string;
+  //begin
+  //  for i := AListOfStr.Count - 1 downto 0 do
+  //  begin
+  //    s := AListOfStr.Strings[i]; //use a temp var, because the item will be deleted
+  //    for j := AListOfStr.Count - 1 downto 0 do
+  //      if j <> i then
+  //        if AListOfStr.Strings[j] = s then
+  //          AListOfStr.Delete(j);
+  //  end;
+  //end;
+
+
   procedure AddBitmapsToWorkerArchives(AListOfAllVars: TStringList);
+  const
+    CFileExistsInArchiveErr = 'Another file with the exact same name is already in archive.';
   var
     i, j, k: Integer;
     TempFilesToSend: TStringList;
@@ -2338,6 +2356,8 @@ var
       try
         TempFilesToSend.LineBreak := #13#10;
         TempFilesToSend.Text := AllWorkers[i].FilesToSend;
+
+        //RemoveDuplicatesFromTStringList(TempFilesToSend); //not enough to be called here
 
         for j := 0 to TempFilesToSend.Count - 1 do
         begin
@@ -2394,13 +2414,25 @@ var
                           begin
                             FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
                             AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
-                            AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile)
+                            try
+                              AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                            except
+                              on E: Exception do
+                                if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                                  raise;
+                            end;
                           end
                           else
                           begin
                             FnmForArchive := BmpsInPmtv.Strings[k];
                             AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
-                            AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                            try
+                              AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                            except
+                              on E: Exception do
+                                if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                                  raise;
+                            end;
                           end;
 
                           AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
@@ -2442,13 +2474,25 @@ var
               begin
                 FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
                 AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
-                AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile)
+                try
+                  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+                except
+                  on E: Exception do
+                    if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                      raise;
+                end;
               end
               else
               begin
                 FnmForArchive := TempFilesToSend.Strings[j];
                 AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
-                AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+                try
+                  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+                except
+                  on E: Exception do
+                    if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                      raise;
+                end;
               end;
 
               AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
@@ -2846,8 +2890,8 @@ var
         //FontsUsedByPmtvs is already set  (as "FindSubControlFonts := .." above)
         SortByDupFonts_Pmtv(SortedByDuplicatedFont);
 
-        //Filter, based on available fonts.                 //ToDo: Find out why this allocation is unstable. Sometimes not enough workers receive work.  - verify sorting and worker limitations for restricted file locations on FileProvider.
-        for i := 0 to Length(FontsUsedByPmtvs) - 1 do       //It is possible that some of the workers are still waiting for UIClicker to time out, when their FileProvider module is not allowed to send files. Because of this, they are not available for work.
+        //Filter, based on available fonts.
+        for i := 0 to Length(FontsUsedByPmtvs) - 1 do
         begin
           SetLength(WorkersMatchingFonts, 0);
           for j := 0 to Length(WorkersMatchingOS) - 1 do
