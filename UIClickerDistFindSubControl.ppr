@@ -2360,21 +2360,6 @@ var
             begin
               TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
 
-              //if EvaluateFileNameBeforeSending then
-              //begin
-              //  FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
-              //  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
-              //  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile)
-              //end
-              //else
-              //begin
-              //  FnmForArchive := TempFilesToSend.Strings[j];
-              //  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
-              //  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
-              //end;
-              //
-              //AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
-              //
               if UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV' then
               begin           //open the pmtv file and get the list of used bitmaps
                 TempMemFile.Position := 0;

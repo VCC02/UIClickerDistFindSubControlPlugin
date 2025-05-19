@@ -1,5 +1,5 @@
 [Actions]
-Count=21
+Count=20
 Version=2
 
 [Action_0]
@@ -54,7 +54,7 @@ NewPositionEnabled=0
 NewSizeEnabled=0
 
 [Action_2]
-ActionName=Find_Empty
+ActionName=Find_NoFonts_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -63,7 +63,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -87,80 +87,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
-ColorError=0
-AllowedColorErrorCount=0
-MatchBitmapAlgorithm=0
-MatchBitmapAlgorithm_Grid_XMultipleOf=1
-MatchBitmapAlgorithm_Grid_YMultipleOf=1
-MatchBitmapAlgorithm_Grid_XOffset=0
-MatchBitmapAlgorithm_Grid_YOffset=0
-InitialRectangle.Left=$Control_Left$
-InitialRectangle.Top=$Control_Top$
-InitialRectangle.Right=$Control_Right$
-InitialRectangle.Bottom=$Control_Bottom$
-UseWholeScreen=0
-InitialRectangle.LeftOffset=0
-InitialRectangle.TopOffset=0
-InitialRectangle.RightOffset=0
-InitialRectangle.BottomOffset=0
-StartSearchingWithCachedControl=0
-CachedControlLeft=
-CachedControlTop=
-MatchPrimitiveFiles=
-GetAllControls=0
-UseFastSearch=1
-FastSearchAllowedColorErrorCount=10
-IgnoredColors=
-SleepySearch=0
-StopSearchOnMismatch=1
-ImageSource=0
-SourceFileName=
-ImageSourceFileNameLocation=1
-PrecisionTimeout=1
-FullBackgroundImageInResult=1
-MatchByHistogramSettings.MinPercentColorMatch=50
-MatchByHistogramSettings.MostSignificantColorCountInSubBmp=10
-MatchByHistogramSettings.MostSignificantColorCountInBackgroundBmp=15
-EvaluateTextCount=-1
-CropFromScreenshot=0
-ThreadCount=2
-
-[Action_3]
-ActionName=Find_NoFonts
-Action=FindSubControl
-ActionTimeout=1000
-ActionEnabled=0
-ActionCondition=
-BreakpointExists=0
-BreakpointEnabled=0
-BreakpointCondition=
-MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
-MatchCriteria.WillMatchPrimitiveFiles=1
-MatchText=-bit
-AllowToFail=0
-WaitForControlToGoAway=0
-MatchBitmapTextArr=1
-MatchBitmapText_Count=1
-MatchBitmapText[0].ForegroundColor=$Color_WindowText$
-MatchBitmapText[0].BackgroundColor=008000
-MatchBitmapText[0].FontName=DejaVu Sans
-MatchBitmapText[0].FontSize=9
-MatchBitmapText[0].Bold=0
-MatchBitmapText[0].Italic=0
-MatchBitmapText[0].Underline=0
-MatchBitmapText[0].StrikeOut=0
-MatchBitmapText[0].FontQuality=0
-MatchBitmapText[0].FontQualityUsesReplacement=0
-MatchBitmapText[0].FontQualityReplacement=
-MatchBitmapText[0].ProfileName=Profile [0]
-MatchBitmapText[0].CropLeft=0
-MatchBitmapText[0].CropTop=0
-MatchBitmapText[0].CropRight=0
-MatchBitmapText[0].CropBottom=0
-MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -199,8 +126,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_4]
-ActionName=Find_WinOnly
+[Action_3]
+ActionName=Find_WinOnly_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -209,7 +136,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -233,7 +160,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -272,8 +199,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_5]
-ActionName=Find_LinOnly
+[Action_4]
+ActionName=Find_LinOnly_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -282,7 +209,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -306,7 +233,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -345,8 +272,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_6]
-ActionName=Find_WinLin
+[Action_5]
+ActionName=Find_WinLin_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -355,7 +282,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -379,7 +306,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -418,8 +345,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_7]
-ActionName=Find_WinOnly_LinOnly
+[Action_6]
+ActionName=Find_WinOnly_LinOnly_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -428,7 +355,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -452,7 +379,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -491,8 +418,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_8]
-ActionName=Find_WinOnly_WinLin
+[Action_7]
+ActionName=Find_WinOnly_WinLin_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -501,7 +428,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -525,7 +452,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -564,8 +491,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_9]
-ActionName=Find_LinOnly_WinLin
+[Action_8]
+ActionName=Find_LinOnly_WinLin_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -574,7 +501,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -598,7 +525,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -637,8 +564,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_10]
-ActionName=Find_WinOnly_LinOnly_WinLin
+[Action_9]
+ActionName=Find_WinOnly_LinOnly_WinLin_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -647,7 +574,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -671,7 +598,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -710,8 +637,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_11]
-ActionName=Find_NoFonts_WinOnly
+[Action_10]
+ActionName=Find_NoFonts_WinOnly_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -720,7 +647,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -744,7 +671,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -783,8 +710,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_12]
-ActionName=Find_NoFonts_LinOnly
+[Action_11]
+ActionName=Find_NoFonts_LinOnly_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -793,7 +720,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -817,7 +744,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -856,8 +783,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_13]
-ActionName=Find_NoFonts_WinLin
+[Action_12]
+ActionName=Find_NoFonts_WinLin_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -866,7 +793,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -890,7 +817,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -929,8 +856,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_14]
-ActionName=Find_Win_And_Lin
+[Action_13]
+ActionName=Find_Win_And_Lin_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -939,7 +866,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -963,7 +890,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -1002,8 +929,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_15]
-ActionName=Find_DiskBmp
+[Action_14]
+ActionName=Find_DiskBmp_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -1012,7 +939,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -1036,7 +963,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -1075,8 +1002,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_16]
-ActionName=Find_ExtBmp
+[Action_15]
+ActionName=Find_ExtBmp_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -1085,7 +1012,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -1109,7 +1036,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -1148,8 +1075,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_17]
-ActionName=DoNotFind_DiskBmp
+[Action_16]
+ActionName=DoNotFind_DiskBmp_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -1158,7 +1085,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -1182,7 +1109,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -1221,8 +1148,8 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_18]
-ActionName=DoNotFind_ExtBmp
+[Action_17]
+ActionName=DoNotFind_ExtBmp_OneBmp
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -1231,7 +1158,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 MatchCriteria.WillMatchBitmapText=0
-MatchCriteria.WillMatchBitmapFiles=0
+MatchCriteria.WillMatchBitmapFiles=1
 MatchCriteria.WillMatchPrimitiveFiles=1
 MatchText=-bit
 AllowToFail=0
@@ -1255,7 +1182,7 @@ MatchBitmapText[0].CropTop=0
 MatchBitmapText[0].CropRight=0
 MatchBitmapText[0].CropBottom=0
 MatchBitmapText[0].IgnoreBackgroundColor=0
-MatchBitmapFiles=
+MatchBitmapFiles=$TestFilesDir$\Win_0.png
 ColorError=0
 AllowedColorErrorCount=0
 MatchBitmapAlgorithm=0
@@ -1294,7 +1221,7 @@ EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
 
-[Action_19]
+[Action_18]
 ActionName=RenderTextOnly
 Action=FindSubControl
 ActionTimeout=1000
@@ -1384,7 +1311,7 @@ EvaluateTextCount=-1
 CropFromScreenshot=1
 ThreadCount=2
 
-[Action_20]
+[Action_19]
 ActionName="Plugin"
 Action=Plugin
 ActionTimeout=0

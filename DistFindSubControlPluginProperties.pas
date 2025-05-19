@@ -50,7 +50,7 @@ const
   CSaveWorkerCapabilitiesCacheActionPropertyIndex = 10;
 
   CTextRenderingOSPropertyIndex = 11;
-  CListOfMultiValuePropertyNamesPropertyIndex = 12;
+  CListOfMultiValuePropertyNamesPropertyIndex = 12;  //reserved - not used for now
   CUseCompressionPropertyIndex = 13;
   CCompressionAlgorithmPropertyIndex = 14;
 
@@ -300,8 +300,8 @@ const
     'Name of a "LoadSetVarFromFile", "CallTemplate" or "Plugin" action, which loads the worker capabilities into specific variables.', //LoadWorkerCapabilitiesCacheAction
     'Name of a "SaveSetVarToFile", "CallTemplate" or "Plugin" action, which saves the worker capabilities into specific variables.', //SaveWorkerCapabilitiesCacheAction
 
-    'Target operating system where this action should be executed.' + #4#5 + 'If this setting matches the existing worker OS, then the FindSubControl action is executed there.' + #4#5 + 'This is useful, because of different rendering settings or different lists of font types.',
-    'Used in case the configured FindSubControl action points to a plugin action.' + #4#5 + 'It tells this plugin what properties to use, to distribute the action between multiple workers.' + #4#5 + 'If a FindSubControl action is configured, this property is ignored and the action is distributed by Txt profiles, Bmp files and Pmtv files.',
+    'Target operating system where this action should be executed.' + #4#5 + 'If this setting matches the existing worker OS, then the FindSubControl action is executed there.' + #4#5 + 'This is useful, because of different rendering settings or different lists of font types.' + #4#5 + 'Initially, this was intended to affect text rendering only, but now it is used for all types of searched bitmaps (text, bmp and pmtv).',
+    'Reserved (ignored for now).' + #4#5 + 'Used in case the configured FindSubControl action points to a plugin action.' + #4#5 + 'It tells this plugin what properties to use, to distribute the action between multiple workers.' + #4#5 + 'If a FindSubControl action is configured, this property is ignored and the action is distributed by Txt profiles, Bmp files and Pmtv files.', //ListOfMultiValuePropertyNames
     'Enables compression of transferred bitmaps.', //UseCompression
     'Compression algorithm',
 
@@ -335,7 +335,7 @@ const
     'PropertyValue[8]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [10]
 
     '', //'EnumCombo',     //TextRenderingOS    - EnumCombo cannot be used until the plugin API allows defining property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
-    '', //ListOfMultiValue
+    'PropertyValue[12]==Reserved', //ListOfMultiValue   //this is  [13]
     '', //UseCompression    //this is  [13]
     'PropertyValue[13]==True',  //CompressionAlgorithm    //this is  [14]
 
