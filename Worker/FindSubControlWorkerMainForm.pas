@@ -120,6 +120,8 @@ type
     procedure HandleOnLogMissingServerFile(AMsg: string);
     procedure HandleOnDenyFile(AFileName: string);
 
+    function HandleOnComputeInMemFileHash(AFileContent: Pointer; AFileSize: Int64): string;
+
     procedure SendString(AString: string);
     procedure SendDynArrayOfByte(AArr: TDynArrayOfByte);
     procedure SendPacketToServer(ClientInstance: DWord);
@@ -1773,6 +1775,7 @@ begin
   FLoggingFIFO := TPollingFIFO.Create;
   FRecBufFIFO := TPollingFIFO.Create;
   FInMemFS := TInMemFileSystem.Create;
+  FInMemFS.OnComputeInMemFileHash := @HandleOnComputeInMemFileHash;
 
   FReportedOS := 'Unknown';
   {$IFDEF Windows}
@@ -2587,6 +2590,11 @@ begin
   end;
 end;
 
+
+function TfrmFindSubControlWorkerMain.HandleOnComputeInMemFileHash(AFileContent: Pointer; AFileSize: Int64): string;
+begin
+  Result := ClickerExtraUtils.ComputeHash(AFileContent, AFileSize);
+end;
 
 end.
 

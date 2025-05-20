@@ -2233,6 +2233,15 @@ var
   end;
 
 
+  function FileExistsInCache(AWorkerCache: TStringList; AFileName: string; AFileContent: TMemoryStream): Boolean;
+  var
+    FileHash: string;
+  begin
+    FileHash := ClickerExtraUtils.ComputeHash(AFileContent.Memory, AFileContent.Size);
+    Result := AWorkerCache.IndexOf(AFileName + CDefaultInMemFileNameHashSeparator + FileHash) > -1;
+  end;
+
+
   function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
   var
     TempBk: TMemoryStream;
@@ -2261,6 +2270,8 @@ var
       begin
         ABackgroundSize := TempBk.Size;
         BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
+
+        //if not FileExistsInCache(AllWorkers[0].FileCacheInfo, CBackgroundFileNameInArchive, TempBk) then    The problem right now, is that the same background archive is sent to all workers. That means the cache has to be verified for all workers and only some of them may need thi archive.
         BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
 
         TempBmp := TBitmap.Create;
@@ -2415,7 +2426,8 @@ var
                             FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
                             AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
                             try
-                              AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                              if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
+                                AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
                             except
                               on E: Exception do
                                 if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
@@ -2427,7 +2439,8 @@ var
                             FnmForArchive := BmpsInPmtv.Strings[k];
                             AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
                             try
-                              AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                              if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
+                                AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
                             except
                               on E: Exception do
                                 if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
@@ -2475,7 +2488,8 @@ var
                 FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
                 AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
                 try
-                  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+                  if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
+                    AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
                 except
                   on E: Exception do
                     if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
@@ -2487,7 +2501,8 @@ var
                 FnmForArchive := TempFilesToSend.Strings[j];
                 AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
                 try
-                  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+                  if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
+                    AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
                 except
                   on E: Exception do
                     if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
