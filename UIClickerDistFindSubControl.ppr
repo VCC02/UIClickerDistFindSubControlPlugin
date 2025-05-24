@@ -161,7 +161,7 @@ var
 
   AddToLogCallback: TOnActionPlugin_AddToLog;
   ActionPlugin_InMemFSCallback: TOnActionPlugin_InMemFS;
-  ActionPlugin_ExecuteActionallback: TOnActionPlugin_ExecuteAction;
+  ActionPlugin_ExecuteActionCallback: TOnActionPlugin_ExecuteAction;
   GPluginReference: Pointer;
 
   FindSubControlActionPropertyValue: string;
@@ -1742,7 +1742,7 @@ begin
         AddToLog(FSMError);
       end
       else
-        if not ActionPlugin_ExecuteActionallback(GPluginReference, @UpdateCacheActionName[1]) then
+        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @UpdateCacheActionName[1]) then
           FSMError := 'Error updating plugin cache. The ' + UpdateCacheActionName + ' action failed.';
           //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
     end;
@@ -1756,7 +1756,7 @@ begin
         AddToLog(FSMError);
       end
       else
-        if not ActionPlugin_ExecuteActionallback(GPluginReference, @LoadCacheActionName[1]) then
+        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @LoadCacheActionName[1]) then
           FSMError := 'Error loading plugin cache. The ' + LoadCacheActionName + ' action failed.';
           //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
     end;
@@ -3286,7 +3286,7 @@ begin
       DefaultPluginReference := APluginReference;
       AddToLogCallback := AOnActionPlugin_AddToLog;
       ActionPlugin_InMemFSCallback := AOnActionPlugin_InMemFS;
-      ActionPlugin_ExecuteActionallback := AOnActionPlugin_ExecuteAction;
+      ActionPlugin_ExecuteActionCallback := AOnActionPlugin_ExecuteAction;
       GPluginReference := APluginReference;
 
       if FLatestMsg <> '' then

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="WorkerPoolManager.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="20"/>
+      </Unit>
+      <Unit>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmWorkerPoolManagerMain"/>
+        <ResourceBaseClass Value="Form"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="64"/>
+        <CursorPos X="53" Y="70"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="10">
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="16" Column="5" TopLine="13"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="46" Column="24" TopLine="19"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="48" Column="24" TopLine="22"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="49" Column="24" TopLine="23"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="51" Column="24" TopLine="25"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="44" Column="44" TopLine="34"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="46" Column="44" TopLine="35"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="75" Column="42" TopLine="52"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="77" Column="48" TopLine="58"/>
+      </Position>
+      <Position>
+        <Filename Value="WorkerPoolManagerMainForm.pas"/>
+        <Caret Line="50" Column="24" TopLine="35"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>

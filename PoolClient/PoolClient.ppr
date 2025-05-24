@@ -1,0 +1,371 @@
+{
+    Copyright (C) 2025 VCC
+    creation date: 22 May 2025
+    initial release date: 24 May 2025
+
+    author: VCC
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+    OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+}
+
+
+library PoolClient;
+
+{$H+}
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
+uses
+  Interfaces, Classes, SysUtils, Graphics, ImgList, Forms,
+  IdGlobal, IdHTTP,
+  ClickerUtils, ClickerActionPlugins, DllUtils,
+  ClickerFileProviderUtils, InMemFileSystem,
+  ClickerIniFiles, ClickerPluginInMemFileSystem,
+  PoolClientDM, PoolClientPluginProperties, WorkerPoolCommonConsts;
+
+
+type
+  //TDbgPoint = function(APointName, ALogMsg: string): Boolean;
+
+  TPluginHandlers = class(TComponent)
+  private
+    procedure HandleClientOnConnected(Sender: TObject);
+    procedure HandleClientOnDisconnected(Sender: TObject);
+  public
+    constructor Create(AOwner: TComponent); override;
+  end;
+
+  TExHandler = class
+    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
+  end;
+
+
+var
+  IdHTTPClient1: TIdHTTP;
+  //DebugPoint: TDbgPoint;
+
+  AddToLogCallback: TOnActionPlugin_AddToLog;
+  //GPluginReference: Pointer;
+
+  PoolManagerAddress: string;
+  PoolManagerPort: Word;
+
+  FExHandler: TExHandler;
+
+
+procedure AddToLog(AMsg: string);  //thread safe
+begin
+  if @AddToLogCallback <> nil then
+    AddToLogCallback(DefaultPluginReference, @AMsg[1]);
+end;
+
+
+//see https://wiki.freepascal.org/Logging_exceptions
+procedure TExHandler.CustomExceptionHandler(Sender: TObject; E: Exception);
+var
+  ClName, EMsg: string;
+begin
+  try
+    ClName := Sender.ClassName;
+  except
+    ClName := '';
+  end;
+
+  try
+    EMsg := E.Message;
+  except
+    EMsg := '';
+  end;
+
+  try
+    AddToLog('Custom exception in plugin: "' + EMsg + '"   Class: "' + ClName + '"."');
+  except
+    on EE: Exception do
+      //MessageBox(0, PChar('Ex on custom exception: ' + EE.Message), 'Plugin', MB_ICONERROR);
+  end;
+end;
+
+
+//see https://wiki.freepascal.org/Logging_exceptions
+procedure CatchUnhandledException(Obj: TObject; Addr: Pointer; FrameCount: LongInt; Frames: PPointer);
+var
+  Msg: string;
+  i: Integer;
+begin
+  try //use another try..excempt, just in case parsing the stack would raise more exceptions
+    Msg := 'Unhandled exception at adddr $' + SysBacktraceStr(Addr) + ':' + #13#10;
+
+    if Obj is Exception then
+      Msg := Msg + Exception(Obj).ClassName + ' : ' + Exception(Obj).Message
+    else
+      Msg := Msg + 'Exception object '  + Exception(Obj).ClassName + ' is not class Exception.';
+
+    Msg := Msg + #13#10;
+    Msg := Msg + BacktraceStrFunc(Addr) + #13#10;
+
+    for i := 0 to FrameCount - 1 do
+      Msg := Msg + BacktraceStrFunc(Frames[i]) + #13#10;
+
+    AddToLog('Custom exception in plugin: "' + Msg + '".');
+  except
+  end;
+end;
+
+
+function GetAPIVersion: DWord; cdecl;
+begin
+  Result := CActionPlugin_APIVersion;
+end;
+
+
+procedure GetListOfProperties(APluginReference: Pointer;                 //UIClicker passes the plugin reference to the plugin, then the plugin calls some callbacks with that reference
+                              AListOfProperties: Pointer;
+                              AListOfPropertiesLen: PDWord;
+                              AOnActionPlugin_UpdatePropertyIcons: TOnActionPlugin_UpdatePropertyIcons); cdecl;
+var
+  Properties: string;
+  i: Integer;
+  TempMemStream: TMemoryStream;
+  Bmp: TBitmap;
+begin
+  Properties := FillInPropertyDetails;
+  AListOfPropertiesLen^ := SetPointedContentFromString(Properties, AListOfProperties);
+
+  dmProperties := TdmProperties.Create(nil);
+  try
+    for i := 0 to CPropertiesCount - 1 do
+    begin
+      TempMemStream := TMemoryStream.Create;
+      Bmp := TBitmap.Create;
+      try
+        Bmp.PixelFormat := pf24bit;
+        Bmp.Width := dmProperties.imglstProperties.Width;
+        Bmp.Height := dmProperties.imglstProperties.Height;
+        Bmp.Canvas.Pen.Color := clWhite;
+        Bmp.Canvas.Brush.Color := clWhite;
+        Bmp.Canvas.Rectangle(0, 0, Bmp.Width, Bmp.Height);
+
+        dmProperties.imglstProperties.Draw(Bmp.Canvas, 0, 0, i, dsNormal, itImage);
+        Bmp.SaveToStream(TempMemStream);
+
+        AOnActionPlugin_UpdatePropertyIcons(APluginReference, TempMemStream.Memory, TempMemStream.Size);
+      finally
+        TempMemStream.Free;
+        Bmp.Free;
+      end;
+    end;
+  finally
+    dmProperties.Free;
+  end;
+end;
+
+
+
+constructor TPluginHandlers.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+end;
+
+
+procedure TPluginHandlers.HandleClientOnConnected(Sender: TObject);
+begin
+  AddToLog('Connected to pool manager...');
+end;
+
+
+procedure TPluginHandlers.HandleClientOnDisconnected(Sender: TObject);
+begin
+  AddToLog('Disconnected from pool manager...');
+end;
+
+
+
+function ExecutePlugin(APluginReference: Pointer;
+                       AListOfPluginSettings: Pointer;
+                       AListOfPluginSettingsLen: PDWord;
+
+                       AOnActionPlugin_GetActionCount: TOnActionPlugin_GetActionCount;
+                       AOnActionPlugin_GetActionInfoByIndex: TOnActionPlugin_GetActionInfoByIndex;
+                       AOnActionPlugin_GetActionContentByIndex: TOnActionPlugin_GetActionContentByIndex;
+                       AOnActionPlugin_ExecuteAction: TOnActionPlugin_ExecuteAction;
+                       AOnActionPlugin_GetAllTemplateVars: TOnActionPlugin_GetAllTemplateVars;
+                       AOnActionPlugin_SetTemplateVar: TOnActionPlugin_SetTemplateVar;
+                       AOnActionPlugin_DebugPoint: TOnActionPlugin_DebugPoint;
+                       AOnActionPlugin_AddToLog: TOnActionPlugin_AddToLog;
+                       AOnActionPlugin_SetResultImg: TOnActionPlugin_SetResultImg;
+                       AOnActionPlugin_LoadBitmap: TOnActionPlugin_LoadBitmap;
+                       AOnActionPlugin_GetAllowedFilesInfo: TOnActionPlugin_GetAllowedFilesInfo;
+                       AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
+                       AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
+                       AOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
+                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS
+                       ): Boolean; cdecl;
+
+  procedure SetTemplateVar(AVarName, AVarValue: string);
+  begin
+    AOnActionPlugin_SetTemplateVar(APluginReference, @AVarName[1], @AVarValue[1]);
+  end;
+
+  procedure GetAllTemplateVars(out AAllTemplateVars: string);  //AAllTemplateVars are encoded as CRLF separated key=value strings, ready to be used on a TStringlist
+  var
+    Buffer: string;
+    AllTemplateVarsPtr: Pointer;
+    NameLengthDWord: DWord;
+  begin
+    SetLength(Buffer, CMaxSharedStringLength + 1);
+    AllTemplateVarsPtr := @Buffer[1];
+    NameLengthDWord := 0;
+    AAllTemplateVars := '';
+
+    AOnActionPlugin_GetAllTemplateVars(APluginReference, AllTemplateVarsPtr, @NameLengthDWord);  //decode action execution results
+
+    SetPointedContentToString(AllTemplateVarsPtr, AAllTemplateVars);
+    SetLength(AAllTemplateVars, NameLengthDWord);
+  end;
+
+  function GetPluginSettings: string;
+  begin
+    SetLength(Result, CMaxSharedStringLength);
+    SetPointedContentToString(AListOfPluginSettings, Result);
+    SetLength(Result, AListOfPluginSettingsLen^);
+  end;
+
+var
+  ListOfAllVars: TStringList;
+  PluginSettings: TStringList;
+  AllVarsStr: string;
+  TempPluginHandlers: TPluginHandlers;
+  Response: string;
+  ServerInfo: TStringList;
+
+  OutputFnm: string;
+  OutputBrokerAddressVarName: string;
+  OutputBrokerPortVarName: string;
+  PluginFS: TPluginInMemFileSystem;
+  CredentialsFileContent: string;
+  PoolUserName: string;
+begin
+  try
+    Result := False;
+    //DebugPoint := @DbgPoint;
+    SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
+
+    IdHTTPClient1 := TIdHTTP.Create;
+    ListOfAllVars := TStringList.Create;
+    PluginSettings := TStringList.Create;
+    PluginFS := TPluginInMemFileSystem.Create;
+    try
+      ListOfAllVars.LineBreak := #13#10;
+      DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
+      DefaultPluginReference := APluginReference;
+      AddToLogCallback := AOnActionPlugin_AddToLog;
+      //GPluginReference := APluginReference;
+      PluginFS.PluginReference := APluginReference;
+
+      PluginSettings.LineBreak := #13#10;
+      PluginSettings.Text := GetPluginSettings;
+
+      if PluginSettings.Count <> CPropertiesCount then
+      begin
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Cannot get the list of plugin properties.');
+        Exit;
+      end;
+
+      IdHTTPClient1.OnConnected := TempPluginHandlers.HandleClientOnConnected;
+      IdHTTPClient1.OnDisconnected := TempPluginHandlers.HandleClientOnDisconnected;
+
+      if not DbgPoint('Entering ExecutePlugin', '') then     //see ClkDbgSym.ppr for expected statement formats
+        Exit;
+
+      GetAllTemplateVars(AllVarsStr);
+      ListOfAllVars.Text := AllVarsStr;
+
+      PoolManagerAddress := PluginSettings.ValueFromIndex[CPoolManagerAddressPropertyIndex];
+      PoolManagerPort := StrToIntDef(PluginSettings.ValueFromIndex[CPoolManagerPortPropertyIndex], 11883);
+      OutputFnm := PluginSettings.ValueFromIndex[COutputCredentialsFileNamePropertyIndex];
+      OutputBrokerAddressVarName := PluginSettings.ValueFromIndex[CBrokerAddressOutputVarNamePropertyIndex];
+      OutputBrokerPortVarName := PluginSettings.ValueFromIndex[CBrokerPortOutputVarNamePropertyIndex];
+
+      Application.Initialize;
+      FExHandler := TExHandler.Create;
+      ExceptProc := @CatchUnhandledException;
+      Application.OnException := FExHandler.CustomExceptionHandler;
+
+      try
+        AddToLog('Sending request to pool manager...');
+
+
+        //This should be received when the machine is allocated    It should be read (together with a password) from In-Mem FS.
+        SetLength(PoolUserName, PluginFS.GetFileSize(AOnActionPlugin_InMemFS, 'Mem:\PoolCredentials.txt'));
+        if PoolUserName > '' then                                                                           //This should be replaced by a formatted file.
+          PluginFS.LoadFileFromMem(AOnActionPlugin_InMemFS, 'Mem:\PoolCredentials.txt', @PoolUserName[1]);
+
+
+        Response := IdHTTPClient1.Get('http://' + PoolManagerAddress + ':' + IntToStr(PoolManagerPort) + '/' + CGetConfigCmd + '?' + CIncludeCredentialsParam + '=' + IntToStr(Ord(OutputFnm <> '')) + '&' + CPoolClientUserName + '=' + PoolUserName);
+
+        ServerInfo := TStringList.Create;
+        try
+          ServerInfo.LineBreak := #13#10;
+          ServerInfo.Text := Response;
+
+          SetTemplateVar(OutputBrokerAddressVarName, ServerInfo.Values[CBrokerAddressKeyName]);
+          SetTemplateVar(OutputBrokerPortVarName, ServerInfo.Values[CBrokerPortKeyName]);
+
+          if OutputFnm <> '' then
+          begin
+            CredentialsFileContent := FastReplace_45ToReturn(ServerInfo.Values[CCredentialsFileKeyName]);
+            try
+              PluginFS.SaveFileToMem(AOnActionPlugin_InMemFS, OutputFnm, @CredentialsFileContent[1], Length(CredentialsFileContent));
+            finally
+              FillChar(CredentialsFileContent[1], Length(CredentialsFileContent), 0);
+            end;
+
+            AddToLog('Credentials file saved..');
+          end;
+        finally
+          ServerInfo.Free;
+        end;
+
+        Result := True;
+      except
+        on E: Exception do
+          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Connection error: "' + E.Message + '".');
+      end;
+
+      AddToLog('Done');
+    finally
+      FreeAndNil(ListOfAllVars);
+      FreeAndNil(PluginSettings);
+      FreeAndNil(IdHTTPClient1);
+      FreeAndNil(PluginFS);
+    end;
+  except
+    on E: Exception do
+      SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Plugin exception: "' + E.Message + '".');
+  end;
+end;
+
+
+exports
+  GetAPIVersion,
+  GetListOfProperties,
+  ExecutePlugin;
+
+begin
+
+end.
+
