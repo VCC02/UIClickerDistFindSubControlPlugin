@@ -45,6 +45,8 @@ const
   CIncludeCredentialsParam = 'IncludeCredentials'; //When set to 1, the Pool manager returs an additional content, which is the "Credentials File" for connecting to broker.
                                                    //This file is returned as a ini file with #4#5 line breaks.
   CPoolClientUserNameParam = 'PoolClientUserName';
+  CPoolClientPassWordParam = 'PoolClientPassWord';
+  CPoolCredentialsFileName = 'Mem:\PoolCredentials.txt';
 
   //broker/worker params
   CMachineOSParam = 'MachineOS';

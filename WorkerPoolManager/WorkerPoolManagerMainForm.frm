@@ -144,6 +144,15 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     TabOrder = 5
     WordWrap = False
   end
+  object btnSendPoolCredentialsToLocal: TButton
+    Left = 544
+    Height = 25
+    Top = 328
+    Width = 192
+    Caption = 'Send Pool credentials to local'
+    TabOrder = 6
+    OnClick = btnSendPoolCredentialsToLocalClick
+  end
   object IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool
     MaxThreads = 30
     PoolSize = 10

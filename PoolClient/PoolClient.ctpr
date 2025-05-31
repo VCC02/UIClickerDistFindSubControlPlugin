@@ -85,7 +85,7 @@
     <PathDelim Value="\"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils\;..\..\UIClicker\ClickerClient\;..\..\MiscUtils\"/>
+      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils\;..\..\UIClicker\ClickerClient\;..\..\MiscUtils\;..\WorkerPoolManager"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>

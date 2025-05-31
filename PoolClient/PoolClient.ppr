@@ -244,6 +244,40 @@ function ExecutePlugin(APluginReference: Pointer;
     SetLength(Result, AListOfPluginSettingsLen^);
   end;
 
+  function GetPoolCredentialsFromInMemFile(APluginFS: TPluginInMemFileSystem; out APoolUserName, APoolPassWord: string): Boolean; //returns False if file not found
+  var
+    MemStream: TMemoryStream;
+    Ini: TClkIniReadonlyFile;
+    TempFileSize: Int64;
+  begin
+    Result := False;
+
+    if not APluginFS.FileExistsInMem(AOnActionPlugin_InMemFS, CPoolCredentialsFileName) then
+      Exit;
+
+    TempFileSize := APluginFS.GetFileSize(AOnActionPlugin_InMemFS, CPoolCredentialsFileName);
+    if TempFileSize = -1 then
+      Exit;
+
+    MemStream := TMemoryStream.Create;
+    try
+      MemStream.SetSize(TempFileSize);
+      APluginFS.LoadFileFromMem(AOnActionPlugin_InMemFS, CPoolCredentialsFileName, MemStream.Memory);
+
+      Ini := TClkIniReadonlyFile.Create(MemStream);
+      try
+        APoolUserName := Ini.ReadString('PoolCredentials', 'PoolUserName', 'NotSet');
+        APoolPassWord := Ini.ReadString('PoolCredentials', 'PoolPassWord', 'NotSet');
+      finally
+        Ini.Free;
+      end;
+    finally
+      MemStream.Free;
+    end;
+
+    Result := True;
+  end;
+
 var
   ListOfAllVars: TStringList;
   PluginSettings: TStringList;
@@ -257,7 +291,7 @@ var
   OutputBrokerPortVarName: string;
   PluginFS: TPluginInMemFileSystem;
   CredentialsFileContent: string;
-  PoolUserName: string;
+  PoolUserName, PoolPassWord: string;
 begin
   try
     Result := False;
@@ -306,16 +340,14 @@ begin
       Application.OnException := FExHandler.CustomExceptionHandler;
 
       try
+        if not GetPoolCredentialsFromInMemFile(PluginFS, PoolUserName, PoolPassWord) then //This should be received when the machine is allocated.
+        begin
+          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Pool credentials file not found "' + CPoolCredentialsFileName + '". It should be received by UIClicker when a new machine is allocated.');
+          Exit;
+        end;
+
         AddToLog('Sending request to pool manager...');
-
-
-        //This should be received when the machine is allocated    It should be read (together with a password) from In-Mem FS.
-        SetLength(PoolUserName, PluginFS.GetFileSize(AOnActionPlugin_InMemFS, 'Mem:\PoolCredentials.txt'));
-        if PoolUserName > '' then                                                                           //This should be replaced by a formatted file.
-          PluginFS.LoadFileFromMem(AOnActionPlugin_InMemFS, 'Mem:\PoolCredentials.txt', @PoolUserName[1]);
-
-
-        Response := IdHTTPClient1.Get('http://' + PoolManagerAddress + ':' + IntToStr(PoolManagerPort) + '/' + CGetConfigCmd + '?' + CIncludeCredentialsParam + '=' + IntToStr(Ord(OutputFnm <> '')) + '&' + CPoolClientUserName + '=' + PoolUserName);
+        Response := IdHTTPClient1.Get('http://' + PoolManagerAddress + ':' + IntToStr(PoolManagerPort) + '/' + CGetConfigCmd + '?' + CIncludeCredentialsParam + '=' + IntToStr(Ord(OutputFnm <> '')) + '&' + CPoolClientUserNameParam + '=' + PoolUserName + '&' + CPoolClientPassWordParam + '=' + PoolPassWord);
 
         ServerInfo := TStringList.Create;
         try

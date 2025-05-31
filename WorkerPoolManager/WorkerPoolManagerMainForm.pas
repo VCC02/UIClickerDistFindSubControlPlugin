@@ -46,6 +46,7 @@ type
     MachineType: TMachineType;
     MachineOS: TMachineOS;
     PoolUserName: string; //This is allocated at the same time the machine is allocated. If multiple users are allowed / machine, then that's a different story.
+    PoolPassWord: string;
 
     BrokerUserName: string; //workers may use different user and password
     BrokerPassword: string;
@@ -53,10 +54,10 @@ type
 
     State: TFSM;
     NextState: TFSM;
-    TargetBrokerCountPerWinMachine: Integer;
-    TargetBrokerCountPerLinMachine: Integer;
-    TargetWorkerCountPerWinMachine: Integer;
-    TargetWorkerCountPerLinMachine: Integer;
+    TargetBrokerCountPerWinMachine: Integer;  //how many brokers should be running on this machine
+    TargetBrokerCountPerLinMachine: Integer;  //how many brokers should be running on this machine
+    TargetWorkerCountPerWinMachine: Integer;  //how many workers should be running on this machine
+    TargetWorkerCountPerLinMachine: Integer;  //how many workers should be running on this machine
     ListOfAppsWhichHaveToBeStarted: string; //ListOfStrings
   end;
 
@@ -78,6 +79,7 @@ type
   TfrmWorkerPoolManagerMain = class(TForm)
     btnAddMachine: TButton;
     btnStartTwoBrokers: TButton;
+    btnSendPoolCredentialsToLocal: TButton;
     grpSettings: TGroupBox;
     IdHTTPServerPlugins: TIdHTTPServer;
     IdHTTPServerResources: TIdHTTPServer;
@@ -93,6 +95,7 @@ type
     tmrStartup: TTimer;
     vstMachines: TVirtualStringTree;
     procedure btnAddMachineClick(Sender: TObject);
+    procedure btnSendPoolCredentialsToLocalClick(Sender: TObject);
     procedure btnStartTwoBrokersClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure IdHTTPServerPluginsCommandGet(AContext: TIdContext;
@@ -545,8 +548,15 @@ begin
   NodeData^.Address := '127.0.0.1';
   NodeData^.Port := '1883';
   NodeData^.MachineType := mtBrokerAndWorker;
+
+  Randomize;
+  Sleep(33);
   NodeData^.PoolUserName := 'First';
-  NodeData^.BrokerUserName := 'User_' + DateTimeToStr(Now);
+  NodeData^.PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+
+  Randomize;
+  Sleep(33);
+  NodeData^.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
   NodeData^.BrokerPassword := 'Unknown';
   NodeData^.PoolID := DateTimeToStr(Now);
 
@@ -556,6 +566,51 @@ begin
   NodeData^.TargetBrokerCountPerLinMachine := 0;
   NodeData^.TargetWorkerCountPerWinMachine := 0;
   NodeData^.TargetWorkerCountPerLinMachine := 0;
+end;
+
+
+function SendPoolCredentials(AMachineAdress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;  //This sends the pool credentials to the UIClicker which runs the plugin. This code doesn't have to be run from here.
+var
+  Link: string;
+  Content: string; //pool credentials file
+  MemStream: TMemoryStream;
+begin                                                              //CRECmd_SetMemPluginFile saves the file in the plugin's InMemFS.   CRECmd_SetRenderedFile and CRECmd_SendFileToServer can't be used here.
+  Link := 'http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/' + CRECmd_SetMemPluginFile + '?' + CREParam_FileName + '=' + CPoolCredentialsFileName;
+
+  Content := '';
+  Content := Content + '[PoolCredentials]' + #13#10;
+  Content := Content + 'PoolUserName=' + APoolUserName + #13#10;
+  Content := Content + 'PoolPassWord=' + APoolPassWord + #13#10;
+
+  MemStream := TMemoryStream.Create;
+  try
+    MemStream.Position := 0;
+    MemStream.Write(Content[1], Length(Content));
+    Result := SendFileToServer(Link, MemStream, False);
+  finally
+    MemStream.Free;
+  end;
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.btnSendPoolCredentialsToLocalClick(
+  Sender: TObject);
+var
+  Res: string;
+  Node: PVirtualNode;
+  NodeData: PMachineRec;
+begin
+  Node := vstMachines.GetFirst;
+  if Node = nil then
+  begin
+    AddToLog('Please add a machine first.');
+    Exit;
+  end;
+
+  NodeData := vstMachines.GetNodeData(Node);
+
+  Res := SendPoolCredentials('127.0.0.1', '5444', NodeData^.PoolUserName, NodeData^.PoolPassWord);
+  AddToLog('Sending pool credentials result: ' + Res);
 end;
 
 
@@ -748,6 +803,7 @@ begin
   FindSubControl_FindStatusConnected.MatchPrimitiveFiles := '';
   Response := ExecuteFindSubControlAction(GetMachineConnectionForUIClicker(AMachineAdress, ACmdUIClickerPort), FindSubControl_FindStatusConnected, 'Find status "Connected"', 10000, CREParam_FileLocation_ValueDisk);
 end;
+
 
 end.
 
