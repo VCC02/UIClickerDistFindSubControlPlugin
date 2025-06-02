@@ -36,9 +36,28 @@ uses
 
 type
   TMachineType = (mtBroker, mtWorker, mtBrokerAndWorker); //Not sure if it's a good idea of running both broker and worker on the same machine, but from the network's perspective, it should be better.
+  TAppType = (atBroker, atWorker, atUIClicker);
+  TAppRunning = (arJustStarted, arConnecting, arFullyRunning, arUnknown);
+                 //arJustStarted - the Pool manager just sent the running command.
+                 //arConnecting - might be used for workers, between arJustStarted and fully connected to UIClicker.
+                 //arFullyRunning - the app is running and it is fully connected.
+                 //arUnknown - the app is either not running or not connected (bad state).
+
+
   TMachineOS = (mosWin, mosLin, mosUnknown);
 
   TFSM = (SInit, SMonitorStatus, SStartRemoteApps, SWaitForRemoteApps);
+
+  TRunningApp = record
+    //Path: string;       //paths will be different between Win and Lin
+    Address: string; //Broker address (usually local address, but can be anothe address, if the worker is connected to a different machine).
+    Port: string; //Brokers (server mode) and workers (client mode) have to use the same port. UIClicker will have different ports (server mode).
+    AppType: TAppType;
+    StartedAt: QWord; //Timestamp used for waiting for the app to get into a responding/connected state.
+    State: TAppRunning;
+    StartCmdResponse: string;
+  end;
+  TRunningAppArr = array of TRunningApp;
 
   TMachineRec = record
     Address: string;
@@ -58,7 +77,8 @@ type
     TargetBrokerCountPerLinMachine: Integer;  //how many brokers should be running on this machine
     TargetWorkerCountPerWinMachine: Integer;  //how many workers should be running on this machine
     TargetWorkerCountPerLinMachine: Integer;  //how many workers should be running on this machine
-    ListOfAppsWhichHaveToBeStarted: string; //ListOfStrings
+
+    AppsToBeRunning: TRunningAppArr; //This is the target. For example, on a machine, there should be one broker, four workers and four UIClickers.
   end;
 
   PMachineRec = ^TMachineRec;
@@ -118,10 +138,11 @@ type
 
     function StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort: string): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; ABrokerPort: Word): string; //returns exec result
-    function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption: string; ABrokerPort: Word): string; //returns exec result
+    function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort: Word): string; //returns exec result
 
     function GetMQTTAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
-    function GetListOfAppsWhichHaveToBeStarted(var AMachineRec: TMachineRec): string;  //returns list of paths
+    function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
+    procedure StartApps(var AMachineRec: TMachineRec);
     function FindWorkerStatusConnected(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): Boolean;
 
     procedure RunFSM(var AMachineRec: TMachineRec);
@@ -261,6 +282,7 @@ var
   Node: PVirtualNode;
   NodeData: PMachineRec;
   ToBeAdded: Boolean;
+  i, AppIdx: Integer;
 begin
   Node := GetMachineByIP(APeerIP);
   ToBeAdded := Node = nil;
@@ -278,6 +300,7 @@ begin
     begin
       NodeData^.TargetBrokerCountPerWinMachine := spnedtBrokerCountPerMachine.Value;
       NodeData^.TargetWorkerCountPerWinMachine := spnedtBrokerCountPerMachine.Value * 4;
+      SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine + NodeData^.TargetWorkerCountPerWinMachine shl 1); //shl 1, because there should also be UIClickers
     end;
   end
   else
@@ -288,6 +311,7 @@ begin
       begin
         NodeData^.TargetBrokerCountPerLinMachine := 0;
         NodeData^.TargetWorkerCountPerLinMachine := spnedtBrokerCountPerMachine.Value * 2;
+        SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine + NodeData^.TargetWorkerCountPerWinMachine shl 1); //shl 1, because there should also be UIClickers
       end;
     end
     else
@@ -300,6 +324,39 @@ begin
   begin
     NodeData^.State := SInit;
     NodeData^.NextState := SInit;
+
+    AppIdx := 0;
+    for i := 0 to NodeData^.TargetBrokerCountPerWinMachine - 1 do
+    begin
+      NodeData^.AppsToBeRunning[i].Port := IntToStr(spnedtMinBrokerPort.Value {+ 1183} + i); //base port + app index
+      NodeData^.AppsToBeRunning[i].AppType := atBroker;
+      NodeData^.AppsToBeRunning[i].Address := '127.0.0.1';
+    end;
+    Inc(AppIdx, NodeData^.TargetBrokerCountPerWinMachine);
+
+    for i := 0 to NodeData^.TargetWorkerCountPerWinMachine - 1 do
+    begin
+      NodeData^.AppsToBeRunning[i + AppIdx].Port := NodeData^.AppsToBeRunning[i div spnedtBrokerCountPerMachine.Value].Port; //0000, 1111 etc
+      NodeData^.AppsToBeRunning[i + AppIdx].AppType := atWorker;
+      NodeData^.AppsToBeRunning[i].Address := '127.0.0.1';  //can be different, if this is a machine with Lin workers, connected to a Win broker
+    end;
+    Inc(AppIdx, NodeData^.TargetWorkerCountPerWinMachine);
+
+    for i := 0 to NodeData^.TargetWorkerCountPerWinMachine - 1 do
+    begin
+      NodeData^.AppsToBeRunning[i + AppIdx].Port := NodeData^.AppsToBeRunning[i + AppIdx - NodeData^.TargetWorkerCountPerWinMachine].Port;
+      NodeData^.AppsToBeRunning[i + AppIdx].AppType := atUIClicker;
+      NodeData^.AppsToBeRunning[i].Address := '127.0.0.1';
+    end;
+
+    //for example, on a machine with one broker, 4 workers and 4 UIClickers, the array will look like:
+    //Broker, Worker, Worker, Worker, Worker, UIClicker, UIClicker, UIClicker, UIClicker.
+
+    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+    begin
+      NodeData^.AppsToBeRunning[i].State := arUnknown;
+      NodeData^.AppsToBeRunning[i].StartedAt := 0;
+    end;
   end;
 
   vstMachines.InvalidateNode(Node);
@@ -376,57 +433,85 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetListOfAppsWhichHaveToBeStarted(var AMachineRec: TMachineRec): string;  //returns list of processes
+function TfrmWorkerPoolManagerMain.GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
 var
-  CurrentProcesses: TStringList;
-  i, BrokerCount, WorkerCount: Integer;
-  TargetBrokerCount, TargetWorkerCount: Integer;
+  i: Integer;
+  //CurrentProcesses: TStringList;
+  //BrokerCount, WorkerCount: Integer;
+  //TargetBrokerCount, TargetWorkerCount: Integer;
 begin
-  CurrentProcesses := TStringList.Create;
-  try
-    CurrentProcesses.LineBreak := #13#10;
-    CurrentProcesses.Text := GetMQTTAppsOnRemoteMachine(AMachineRec.Address, '5444', CMachineOSStr[AMachineRec.MachineOS]);
-    //in addition to this list, UIClicker from the target machine should also be used to get the "connected" status, displayed on every worker window
-    //Also, from starting a worker, to getting the "connected" status, there are about 8s. The FSM has to take this into account.
+  Result := 0;
+  for i := 0 to Length(AMachineRec.AppsToBeRunning) - 1 do
+    if AMachineRec.AppsToBeRunning[i].State = arUnknown then
+      Inc(Result);
 
-    BrokerCount := 0;
-    for i := 0 to CurrentProcesses.Count - 1 do
-      if Pos(CBrokerProcessName, CurrentProcesses.Strings[i]) > 0 then // a better filtering is required here  - after implementing "ProcessName"="ProcessID"
-        Inc(BrokerCount);
+  //CurrentProcesses := TStringList.Create;
+  //try
+  //  CurrentProcesses.LineBreak := #13#10;
+  //  CurrentProcesses.Text := GetMQTTAppsOnRemoteMachine(AMachineRec.Address, '5444', CMachineOSStr[AMachineRec.MachineOS]);
+  //  //in addition to this list, UIClicker from the target machine should also be used to get the "connected" status, displayed on every worker window
+  //  //Also, from starting a worker, to getting the "connected" status, there are about 8s. The FSM has to take this into account.
+  //
+  //  BrokerCount := 0;
+  //  for i := 0 to CurrentProcesses.Count - 1 do
+  //    if Pos(CBrokerProcessName, CurrentProcesses.Strings[i]) > 0 then // a better filtering is required here  - after implementing "ProcessName"="ProcessID"
+  //      Inc(BrokerCount);
+  //
+  //  WorkerCount := 0;
+  //  for i := 0 to CurrentProcesses.Count - 1 do
+  //    if Pos(CWorkerProcessName, CurrentProcesses.Strings[i]) > 0 then // a better filtering is required here  - after implementing "ProcessName"="ProcessID"
+  //      Inc(WorkerCount);
+  //
+  //  case AMachineRec.MachineOS of
+  //    mosWin:
+  //    begin
+  //      TargetBrokerCount := AMachineRec.TargetBrokerCountPerWinMachine;
+  //      TargetWorkerCount := AMachineRec.TargetWorkerCountPerWinMachine;
+  //    end;
+  //
+  //    mosLin:
+  //    begin
+  //      TargetBrokerCount := AMachineRec.TargetBrokerCountPerLinMachine;
+  //      TargetWorkerCount := AMachineRec.TargetWorkerCountPerLinMachine;
+  //    end;
+  //
+  //    else  //mosUnknown
+  //    begin
+  //      TargetBrokerCount := 0;
+  //      TargetWorkerCount := 0;
+  //    end;
+  //  end;
+  //
+  //  Result := '';
+  //  for i := 1 to TargetBrokerCount - BrokerCount do
+  //    Result := Result + CBrokerProcessName + #13#10;
+  //
+  //  for i := 1 to TargetWorkerCount - WorkerCount do
+  //    Result := Result + CWorkerProcessName + #13#10;
+  //finally
+  //  CurrentProcesses.Free;
+  //end;
+end;
 
-    WorkerCount := 0;
-    for i := 0 to CurrentProcesses.Count - 1 do
-      if Pos(CWorkerProcessName, CurrentProcesses.Strings[i]) > 0 then // a better filtering is required here  - after implementing "ProcessName"="ProcessID"
-        Inc(WorkerCount);
 
-    case AMachineRec.MachineOS of
-      mosWin:
-      begin
-        TargetBrokerCount := AMachineRec.TargetBrokerCountPerWinMachine;
-        TargetWorkerCount := AMachineRec.TargetWorkerCountPerWinMachine;
-      end;
+procedure TfrmWorkerPoolManagerMain.StartApps(var AMachineRec: TMachineRec);
+var
+  i: Integer;
+begin
+  for i := 0 to Length(AMachineRec.AppsToBeRunning) - 1 do
+  begin
+    AMachineRec.AppsToBeRunning[i].StartedAt := GetTickCount64;
 
-      mosLin:
-      begin
-        TargetBrokerCount := AMachineRec.TargetBrokerCountPerLinMachine;
-        TargetWorkerCount := AMachineRec.TargetWorkerCountPerLinMachine;
-      end;
+    case AMachineRec.AppsToBeRunning[i].AppType of
+      atBroker:
+        AMachineRec.AppsToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.AppsToBeRunning[i].Port);
 
-      else  //mosUnknown
-      begin
-        TargetBrokerCount := 0;
-        TargetWorkerCount := 0;
-      end;
+      atWorker:
+        AMachineRec.AppsToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.AppsToBeRunning[i].Address, StrToIntDef(AMachineRec.AppsToBeRunning[i].Port, 1183) + i);
+
+      atUIClicker:
+        AMachineRec.AppsToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.AppsToBeRunning[i].Port, 1183) + i); //UIClicker will listen on BrokerPort+20000
     end;
-
-    Result := '';
-    for i := 1 to TargetBrokerCount - BrokerCount do
-      Result := Result + CBrokerProcessName + #13#10;
-
-    for i := 1 to TargetWorkerCount - WorkerCount do
-      Result := Result + CWorkerProcessName + #13#10;
-  finally
-    CurrentProcesses.Free;
   end;
 end;
 
@@ -441,12 +526,12 @@ begin
 
     SMonitorStatus:
     begin
-      AMachineRec.ListOfAppsWhichHaveToBeStarted := GetListOfAppsWhichHaveToBeStarted(AMachineRec);
+
     end;
 
     SStartRemoteApps:
     begin
-      //based on AMachineRec.ListOfAppsWhichHaveToBeStarted, run all the apps
+      StartApps(AMachineRec);
     end;
 
     SWaitForRemoteApps:
@@ -457,10 +542,10 @@ begin
 
   case AMachineRec.State of
     SInit:
-      AMachineRec.NextState := SStartRemoteApps;
+      AMachineRec.NextState := SMonitorStatus;
 
     SMonitorStatus:
-      if AMachineRec.ListOfAppsWhichHaveToBeStarted > '' then
+      if GetAppsWhichHaveToBeStartedCount(AMachineRec) > 0 then
         AMachineRec.NextState := SStartRemoteApps
       else
         AMachineRec.NextState := SMonitorStatus; //another state is required here, to wait (e.g. 10s) before the next call to GetListOfAppsWhichHaveToBeStarted
@@ -654,12 +739,12 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption: string; ABrokerPort: Word): string; //returns exec result
+function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort: Word): string; //returns exec result
 var
   ExecAppOptions: TClkExecAppOptions;
 begin                                                                                          //ToDo: '--SetBrokerCredFile'
   ExecAppOptions.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\FindSubControlWorker.exe';
-  ExecAppOptions.ListOfParams := '--ExtraCaption ' + IntToStr(ABrokerPort) + ' --SetBrokerAddress 127.0.0.1 --SetBrokerPort' + IntToStr(ABrokerPort) + ' --SetUIClickerPort' + IntToStr(ABrokerPort + 20000) + ' --SetWorkerExtraCaption ' + AWorkerExtraCaption + ' --SkipSavingIni Yes';
+  ExecAppOptions.ListOfParams := '--SetBrokerAddress ABrokerAddress --SetBrokerPort' + IntToStr(ABrokerPort) + ' --SetUIClickerPort' + IntToStr(ABrokerPort + 20000) + ' --SetWorkerExtraCaption ' + AWorkerExtraCaption + ' --SkipSavingIni Yes';
   ExecAppOptions.WaitForApp := False;
   ExecAppOptions.AppStdIn := '';
   ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);
@@ -680,7 +765,6 @@ function TfrmWorkerPoolManagerMain.GetMQTTAppsOnRemoteMachine(AMachineAdress, AC
 var
   ExecAppOptions: TClkExecAppOptions;
   ListOfVars: TStringList;
-  i: Integer;
 begin
   if AMachineOS = CWinParam then
   begin

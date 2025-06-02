@@ -1944,6 +1944,7 @@ begin
       FWorkerExtraCaption := ParamStr(i + 1);
       AddToLog(ParamStr(i) + ' ' + FWorkerExtraCaption);
       Caption := Caption + ' - ' + FWorkerExtraCaption;
+      Application.Title := Caption;
       Inc(i);
     end;
 
