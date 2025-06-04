@@ -50,9 +50,8 @@ type
 
   TRunningApp = record
     //Path: string;       //paths will be different between Win and Lin
-    Address: string; //Broker address (usually local address, but can be anothe address, if the worker is connected to a different machine).
+    Address: string; //Broker address (usually local address, but can be another address, if the worker is connected to a different machine).
     Port: string; //Brokers (server mode) and workers (client mode) have to use the same port. UIClicker will have different ports (server mode).
-    AppType: TAppType;
     StartedAt: QWord; //Timestamp used for waiting for the app to get into a responding/connected state.
     State: TAppRunning;
     StartCmdResponse: string;
@@ -66,6 +65,7 @@ type
     MachineOS: TMachineOS;
     PoolUserName: string; //This is allocated at the same time the machine is allocated. If multiple users are allowed / machine, then that's a different story.
     PoolPassWord: string;
+    ListOfLinWorkersAllocated: string;  //Used when this is a broker machine and another machine with Lin workers point to this one.
 
     BrokerUserName: string; //workers may use different user and password
     BrokerPassword: string;
@@ -78,7 +78,10 @@ type
     TargetWorkerCountPerWinMachine: Integer;  //how many workers should be running on this machine
     TargetWorkerCountPerLinMachine: Integer;  //how many workers should be running on this machine
 
-    AppsToBeRunning: TRunningAppArr; //This is the target. For example, on a machine, there should be one broker, four workers and four UIClickers.
+    //For example, on a machine, there should be one broker, four workers and four UIClickers.
+    BrokersToBeRunning: TRunningAppArr; //This is the target brokers to be running.
+    WorkersToBeRunning: TRunningAppArr; //This is the target workers to be running.
+    UIClickersToBeRunning: TRunningAppArr; //This is the target UIClickers to be running.
   end;
 
   PMachineRec = ^TMachineRec;
@@ -144,6 +147,7 @@ type
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
     procedure StartApps(var AMachineRec: TMachineRec);
     function FindWorkerStatusConnected(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): Boolean;
+    function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
     procedure RunFSM(var AMachineRec: TMachineRec);
   public
@@ -277,10 +281,36 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.SetMachineOnline(APeerIP, AMachineOS: string): string;
+function TfrmWorkerPoolManagerMain.GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
+begin
+  Result := nil;
+  Node := vstMachines.GetFirst;
+  if Node = nil then
+    Exit;
+
+  repeat
+    NodeData := vstMachines.GetNodeData(Node);
+    if NodeData <> nil then
+      if NodeData^.Address <> AExcludeMachineAddress then
+        if NodeData^.MachineType in [mtBroker, mtBrokerAndWorker] then
+          if (NodeData^.ListOfLinWorkersAllocated = '') or AGetAnyValidMachine then //Available. Maybe a complex logic can be added here, to allow multiple Lin machines to connect to this one.
+          begin
+            Result := NodeData;
+            Break;
+          end;
+
+    Node := Node^.NextSibling;
+  until Node = nil;
+end;
+
+
+function TfrmWorkerPoolManagerMain.SetMachineOnline(APeerIP, AMachineOS: string): string;
+var
+  Node: PVirtualNode;
+  NodeData, BrokerToConnectToNodeData: PMachineRec;
   ToBeAdded: Boolean;
   i, AppIdx: Integer;
 begin
@@ -300,7 +330,10 @@ begin
     begin
       NodeData^.TargetBrokerCountPerWinMachine := spnedtBrokerCountPerMachine.Value;
       NodeData^.TargetWorkerCountPerWinMachine := spnedtBrokerCountPerMachine.Value * 4;
-      SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine + NodeData^.TargetWorkerCountPerWinMachine shl 1); //shl 1, because there should also be UIClickers
+
+      SetLength(NodeData^.BrokersToBeRunning, NodeData^.TargetBrokerCountPerWinMachine);
+      SetLength(NodeData^.WorkersToBeRunning, NodeData^.TargetWorkerCountPerWinMachine);
+      SetLength(NodeData^.UIClickersToBeRunning, NodeData^.TargetWorkerCountPerWinMachine);
     end;
   end
   else
@@ -311,7 +344,10 @@ begin
       begin
         NodeData^.TargetBrokerCountPerLinMachine := 0;
         NodeData^.TargetWorkerCountPerLinMachine := spnedtBrokerCountPerMachine.Value * 2;
-        SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine + NodeData^.TargetWorkerCountPerWinMachine shl 1); //shl 1, because there should also be UIClickers
+
+        SetLength(NodeData^.BrokersToBeRunning, NodeData^.TargetBrokerCountPerLinMachine);
+        SetLength(NodeData^.WorkersToBeRunning, NodeData^.TargetWorkerCountPerLinMachine);
+        SetLength(NodeData^.UIClickersToBeRunning, NodeData^.TargetWorkerCountPerLinMachine);
       end;
     end
     else
@@ -326,38 +362,58 @@ begin
     NodeData^.NextState := SInit;
 
     AppIdx := 0;
-    for i := 0 to NodeData^.TargetBrokerCountPerWinMachine - 1 do
+    for i := 0 to Length(NodeData^.BrokersToBeRunning) - 1 do     //broker(s)
     begin
-      NodeData^.AppsToBeRunning[i].Port := IntToStr(spnedtMinBrokerPort.Value {+ 1183} + i); //base port + app index
-      NodeData^.AppsToBeRunning[i].AppType := atBroker;
-      NodeData^.AppsToBeRunning[i].Address := '127.0.0.1';
+      NodeData^.BrokersToBeRunning[i].Port := IntToStr(spnedtMinBrokerPort.Value {+ 1183} + i); //base port + app index
+      NodeData^.BrokersToBeRunning[i].Address := '127.0.0.1';
+      NodeData^.BrokersToBeRunning[i].State := arUnknown;
+      NodeData^.BrokersToBeRunning[i].StartedAt := 0;
     end;
     Inc(AppIdx, NodeData^.TargetBrokerCountPerWinMachine);
 
-    for i := 0 to NodeData^.TargetWorkerCountPerWinMachine - 1 do
+    for i := 0 to Length(NodeData^.WorkersToBeRunning) - 1 do     //workers
     begin
-      NodeData^.AppsToBeRunning[i + AppIdx].Port := NodeData^.AppsToBeRunning[i div spnedtBrokerCountPerMachine.Value].Port; //0000, 1111 etc
-      NodeData^.AppsToBeRunning[i + AppIdx].AppType := atWorker;
-      NodeData^.AppsToBeRunning[i].Address := '127.0.0.1';  //can be different, if this is a machine with Lin workers, connected to a Win broker
+      if spnedtBrokerCountPerMachine.Value > 0 then
+        NodeData^.WorkersToBeRunning[i].Port := NodeData^.BrokersToBeRunning[i div spnedtBrokerCountPerMachine.Value].Port //0000, 1111 etc
+      else
+        NodeData^.WorkersToBeRunning[i].Port := '0'; //not sure if these workers should be left unconnected, instead of being connected to a default, which might not be desired
+
+      if NodeData^.MachineOS = mosWin then
+        NodeData^.WorkersToBeRunning[i].Address := '127.0.0.1' //just connect to the same machine
+      else
+      begin  //mosLin - find an available machine with broker
+        BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(NodeData^.Address, False);
+        if BrokerToConnectToNodeData <> nil then
+        begin
+          NodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
+          BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + NodeData^.WorkersToBeRunning[i].Address + #13#10;
+        end
+        else
+        begin
+          BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(NodeData^.Address, True); //now get any valid broker, just get one!
+          if BrokerToConnectToNodeData <> nil then
+          begin
+            NodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
+            BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + NodeData^.WorkersToBeRunning[i].Address + #13#10;
+          end
+          else   //No broker available for this machine. Ideally, these Lin machines, if they get started before any broker, then they should be connected later.
+            NodeData^.WorkersToBeRunning[i].Address := ''; //this will have to be set later
+        end;
+      end;  //mosLin
+
+      NodeData^.WorkersToBeRunning[i].State := arUnknown;
+      NodeData^.WorkersToBeRunning[i].StartedAt := 0;
     end;
     Inc(AppIdx, NodeData^.TargetWorkerCountPerWinMachine);
 
-    for i := 0 to NodeData^.TargetWorkerCountPerWinMachine - 1 do
+    for i := 0 to Length(NodeData^.UIClickersToBeRunning) - 1 do     //UIClickers
     begin
-      NodeData^.AppsToBeRunning[i + AppIdx].Port := NodeData^.AppsToBeRunning[i + AppIdx - NodeData^.TargetWorkerCountPerWinMachine].Port;
-      NodeData^.AppsToBeRunning[i + AppIdx].AppType := atUIClicker;
-      NodeData^.AppsToBeRunning[i].Address := '127.0.0.1';
+      NodeData^.UIClickersToBeRunning[i].Port := NodeData^.WorkersToBeRunning[i].Port;
+      NodeData^.UIClickersToBeRunning[i].Address := '127.0.0.1';
+      NodeData^.UIClickersToBeRunning[i].State := arUnknown;
+      NodeData^.UIClickersToBeRunning[i].StartedAt := 0;
     end;
-
-    //for example, on a machine with one broker, 4 workers and 4 UIClickers, the array will look like:
-    //Broker, Worker, Worker, Worker, Worker, UIClicker, UIClicker, UIClicker, UIClicker.
-
-    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
-    begin
-      NodeData^.AppsToBeRunning[i].State := arUnknown;
-      NodeData^.AppsToBeRunning[i].StartedAt := 0;
-    end;
-  end;
+  end; //ToBeAdded
 
   vstMachines.InvalidateNode(Node);
   Result := CMachineSet;
@@ -441,8 +497,16 @@ var
   //TargetBrokerCount, TargetWorkerCount: Integer;
 begin
   Result := 0;
-  for i := 0 to Length(AMachineRec.AppsToBeRunning) - 1 do
-    if AMachineRec.AppsToBeRunning[i].State = arUnknown then
+  for i := 0 to Length(AMachineRec.BrokersToBeRunning) - 1 do
+    if AMachineRec.BrokersToBeRunning[i].State = arUnknown then
+      Inc(Result);
+
+  for i := 0 to Length(AMachineRec.WorkersToBeRunning) - 1 do
+    if AMachineRec.WorkersToBeRunning[i].State = arUnknown then
+      Inc(Result);
+
+  for i := 0 to Length(AMachineRec.UIClickersToBeRunning) - 1 do
+    if AMachineRec.UIClickersToBeRunning[i].State = arUnknown then
       Inc(Result);
 
   //CurrentProcesses := TStringList.Create;
@@ -498,20 +562,30 @@ procedure TfrmWorkerPoolManagerMain.StartApps(var AMachineRec: TMachineRec);
 var
   i: Integer;
 begin
-  for i := 0 to Length(AMachineRec.AppsToBeRunning) - 1 do
+  for i := 0 to Length(AMachineRec.BrokersToBeRunning) - 1 do
   begin
-    AMachineRec.AppsToBeRunning[i].StartedAt := GetTickCount64;
+    AMachineRec.BrokersToBeRunning[i].StartedAt := GetTickCount64;
+    AMachineRec.BrokersToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.BrokersToBeRunning[i].Port);
+    AMachineRec.BrokersToBeRunning[i].State := arJustStarted;
+  end;
 
-    case AMachineRec.AppsToBeRunning[i].AppType of
-      atBroker:
-        AMachineRec.AppsToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.AppsToBeRunning[i].Port);
-
-      atWorker:
-        AMachineRec.AppsToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.AppsToBeRunning[i].Address, StrToIntDef(AMachineRec.AppsToBeRunning[i].Port, 1183) + i);
-
-      atUIClicker:
-        AMachineRec.AppsToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.AppsToBeRunning[i].Port, 1183) + i); //UIClicker will listen on BrokerPort+20000
+  for i := 0 to Length(AMachineRec.WorkersToBeRunning) - 1 do
+  begin
+    if AMachineRec.WorkersToBeRunning[i].Address <> '' then
+    begin
+      AMachineRec.WorkersToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.WorkersToBeRunning[i].Address, StrToIntDef(AMachineRec.WorkersToBeRunning[i].Port, 1183) + i);
+      AMachineRec.WorkersToBeRunning[i].State := arJustStarted;
+    end
+    else
+    begin
+      //this is a Lin machine with workers, which should wait for another machine with broker(s)
     end;
+  end;
+
+  for i := 0 to Length(AMachineRec.UIClickersToBeRunning) - 1 do
+  begin
+    AMachineRec.UIClickersToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 1183) + i); //UIClicker will listen on BrokerPort+20000
+    AMachineRec.UIClickersToBeRunning[i].State := arJustStarted;
   end;
 end;
 
