@@ -492,9 +492,6 @@ end;
 function TfrmWorkerPoolManagerMain.GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
 var
   i: Integer;
-  //CurrentProcesses: TStringList;
-  //BrokerCount, WorkerCount: Integer;
-  //TargetBrokerCount, TargetWorkerCount: Integer;
 begin
   Result := 0;
   for i := 0 to Length(AMachineRec.BrokersToBeRunning) - 1 do
@@ -508,53 +505,6 @@ begin
   for i := 0 to Length(AMachineRec.UIClickersToBeRunning) - 1 do
     if AMachineRec.UIClickersToBeRunning[i].State = arUnknown then
       Inc(Result);
-
-  //CurrentProcesses := TStringList.Create;
-  //try
-  //  CurrentProcesses.LineBreak := #13#10;
-  //  CurrentProcesses.Text := GetMQTTAppsOnRemoteMachine(AMachineRec.Address, '5444', CMachineOSStr[AMachineRec.MachineOS]);
-  //  //in addition to this list, UIClicker from the target machine should also be used to get the "connected" status, displayed on every worker window
-  //  //Also, from starting a worker, to getting the "connected" status, there are about 8s. The FSM has to take this into account.
-  //
-  //  BrokerCount := 0;
-  //  for i := 0 to CurrentProcesses.Count - 1 do
-  //    if Pos(CBrokerProcessName, CurrentProcesses.Strings[i]) > 0 then // a better filtering is required here  - after implementing "ProcessName"="ProcessID"
-  //      Inc(BrokerCount);
-  //
-  //  WorkerCount := 0;
-  //  for i := 0 to CurrentProcesses.Count - 1 do
-  //    if Pos(CWorkerProcessName, CurrentProcesses.Strings[i]) > 0 then // a better filtering is required here  - after implementing "ProcessName"="ProcessID"
-  //      Inc(WorkerCount);
-  //
-  //  case AMachineRec.MachineOS of
-  //    mosWin:
-  //    begin
-  //      TargetBrokerCount := AMachineRec.TargetBrokerCountPerWinMachine;
-  //      TargetWorkerCount := AMachineRec.TargetWorkerCountPerWinMachine;
-  //    end;
-  //
-  //    mosLin:
-  //    begin
-  //      TargetBrokerCount := AMachineRec.TargetBrokerCountPerLinMachine;
-  //      TargetWorkerCount := AMachineRec.TargetWorkerCountPerLinMachine;
-  //    end;
-  //
-  //    else  //mosUnknown
-  //    begin
-  //      TargetBrokerCount := 0;
-  //      TargetWorkerCount := 0;
-  //    end;
-  //  end;
-  //
-  //  Result := '';
-  //  for i := 1 to TargetBrokerCount - BrokerCount do
-  //    Result := Result + CBrokerProcessName + #13#10;
-  //
-  //  for i := 1 to TargetWorkerCount - WorkerCount do
-  //    Result := Result + CWorkerProcessName + #13#10;
-  //finally
-  //  CurrentProcesses.Free;
-  //end;
 end;
 
 
