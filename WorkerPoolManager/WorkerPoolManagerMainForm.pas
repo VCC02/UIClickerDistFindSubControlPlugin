@@ -373,19 +373,22 @@ begin
 
     for i := 0 to Length(NodeData^.WorkersToBeRunning) - 1 do     //workers
     begin
-      if spnedtBrokerCountPerMachine.Value > 0 then
-        NodeData^.WorkersToBeRunning[i].Port := NodeData^.BrokersToBeRunning[i div spnedtBrokerCountPerMachine.Value].Port //0000, 1111 etc
-      else
-        NodeData^.WorkersToBeRunning[i].Port := '0'; //not sure if these workers should be left unconnected, instead of being connected to a default, which might not be desired
-
       if NodeData^.MachineOS = mosWin then
-        NodeData^.WorkersToBeRunning[i].Address := '127.0.0.1' //just connect to the same machine
+      begin
+        NodeData^.WorkersToBeRunning[i].Address := '127.0.0.1'; //just connect to the same machine
+
+        if spnedtBrokerCountPerMachine.Value > 0 then
+          NodeData^.WorkersToBeRunning[i].Port := NodeData^.BrokersToBeRunning[i div spnedtBrokerCountPerMachine.Value].Port //0000, 1111 etc
+        else
+          NodeData^.WorkersToBeRunning[i].Port := '0'; //not sure if these workers should be left unconnected, instead of being connected to a default, which might not be desired
+      end
       else
       begin  //mosLin - find an available machine with broker
         BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(NodeData^.Address, False);
         if BrokerToConnectToNodeData <> nil then
         begin
           NodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
+          NodeData^.WorkersToBeRunning[i].Port := BrokerToConnectToNodeData^.Port;
           BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + NodeData^.WorkersToBeRunning[i].Address + #13#10;
         end
         else
@@ -394,10 +397,14 @@ begin
           if BrokerToConnectToNodeData <> nil then
           begin
             NodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
+            NodeData^.WorkersToBeRunning[i].Port := BrokerToConnectToNodeData^.Port;
             BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + NodeData^.WorkersToBeRunning[i].Address + #13#10;
           end
           else   //No broker available for this machine. Ideally, these Lin machines, if they get started before any broker, then they should be connected later.
+          begin
             NodeData^.WorkersToBeRunning[i].Address := ''; //this will have to be set later
+            NodeData^.WorkersToBeRunning[i].Port := '';
+          end;
         end;
       end;  //mosLin
 
