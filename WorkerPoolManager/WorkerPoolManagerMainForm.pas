@@ -149,6 +149,10 @@ type
     function FindWorkerStatusConnected(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): Boolean;
     function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
+    procedure InitBrokersToBeRunning(AMachineNodeData: PMachineRec);
+    procedure InitWorkersToBeRunning(AMachineNodeData: PMachineRec);
+    procedure InitUIClickersToBeRunning(AMachineNodeData: PMachineRec);
+
     procedure RunFSM(var AMachineRec: TMachineRec);
   public
     function GetBrokerInfoForClient(APoolClientUserName: string; AIncludeCredentials: Boolean): string;
@@ -162,6 +166,7 @@ type
 const
   CMachineTypeStr: array[TMachineType] of string = ('Broker', 'Worker', 'BrokerAndWorker');
   CMachineOSStr: array[TMachineOS] of string = (CWinParam, CLinParam, '???');
+  CFSMStr: array[TFSM] of string = ('Init', 'MonitorStatus', 'StartRemoteApps', 'WaitForRemoteApps');
 
 var
   frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain;
@@ -307,12 +312,89 @@ begin
 end;
 
 
+procedure TfrmWorkerPoolManagerMain.InitBrokersToBeRunning(AMachineNodeData: PMachineRec);
+var
+  i: Integer;
+begin
+  for i := 0 to Length(AMachineNodeData^.BrokersToBeRunning) - 1 do     //broker(s)
+  begin
+    AMachineNodeData^.BrokersToBeRunning[i].Port := IntToStr(spnedtMinBrokerPort.Value {+ 1183} + i); //base port + app index
+    AMachineNodeData^.BrokersToBeRunning[i].Address := '127.0.0.1';
+    AMachineNodeData^.BrokersToBeRunning[i].State := arUnknown;
+    AMachineNodeData^.BrokersToBeRunning[i].StartedAt := 0;
+  end;
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.InitWorkersToBeRunning(AMachineNodeData: PMachineRec);
+var
+  i, WorkerCountPerBroker: Integer;
+  BrokerToConnectToNodeData: PMachineRec;
+begin
+  BrokerToConnectToNodeData := nil;
+  if AMachineNodeData^.MachineOS = mosLin then
+  begin
+    BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(AMachineNodeData^.Address, False);  //get an available machine (no workers connected to it)
+    if BrokerToConnectToNodeData = nil then
+      BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(AMachineNodeData^.Address, True); //now get any valid broker, just get one!
+  end;
+
+  if spnedtBrokerCountPerMachine.Value > 0 then
+    WorkerCountPerBroker := Length(AMachineNodeData^.WorkersToBeRunning) div spnedtBrokerCountPerMachine.Value
+  else
+    WorkerCountPerBroker := Length(AMachineNodeData^.WorkersToBeRunning);
+
+  for i := 0 to Length(AMachineNodeData^.WorkersToBeRunning) - 1 do     //workers
+  begin
+    if AMachineNodeData^.MachineOS = mosWin then
+    begin
+      AMachineNodeData^.WorkersToBeRunning[i].Address := '127.0.0.1'; //just connect to the same machine
+
+      if spnedtBrokerCountPerMachine.Value > 0 then
+        AMachineNodeData^.WorkersToBeRunning[i].Port := AMachineNodeData^.BrokersToBeRunning[i div WorkerCountPerBroker].Port //0000, 1111 etc
+      else
+        AMachineNodeData^.WorkersToBeRunning[i].Port := '0'; //not sure if these workers should be left unconnected, instead of being connected to a default, which might not be desired
+    end
+    else
+    begin  //mosLin - find an available machine with broker
+      if BrokerToConnectToNodeData <> nil then
+      begin
+        AMachineNodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
+        AMachineNodeData^.WorkersToBeRunning[i].Port := BrokerToConnectToNodeData^.Port;
+        BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + AMachineNodeData^.WorkersToBeRunning[i].Address + #13#10;
+      end
+      else   //No broker available for this machine. Ideally, these Lin machines, if they start before any broker, then they should be connected later.
+      begin
+        AMachineNodeData^.WorkersToBeRunning[i].Address := ''; //this will have to be set later
+        AMachineNodeData^.WorkersToBeRunning[i].Port := '';
+      end;
+    end;  //mosLin
+
+    AMachineNodeData^.WorkersToBeRunning[i].State := arUnknown;
+    AMachineNodeData^.WorkersToBeRunning[i].StartedAt := 0;
+  end;
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.InitUIClickersToBeRunning(AMachineNodeData: PMachineRec);
+var
+  i: Integer;
+begin
+  for i := 0 to Length(AMachineNodeData^.UIClickersToBeRunning) - 1 do     //UIClickers
+  begin
+    AMachineNodeData^.UIClickersToBeRunning[i].Port := AMachineNodeData^.WorkersToBeRunning[i].Port;
+    AMachineNodeData^.UIClickersToBeRunning[i].Address := '127.0.0.1';
+    AMachineNodeData^.UIClickersToBeRunning[i].State := arUnknown;
+    AMachineNodeData^.UIClickersToBeRunning[i].StartedAt := 0;
+  end;
+end;
+
+
 function TfrmWorkerPoolManagerMain.SetMachineOnline(APeerIP, AMachineOS: string): string;
 var
   Node: PVirtualNode;
-  NodeData, BrokerToConnectToNodeData: PMachineRec;
+  NodeData: PMachineRec;
   ToBeAdded: Boolean;
-  i, AppIdx: Integer;
 begin
   Node := GetMachineByIP(APeerIP);
   ToBeAdded := Node = nil;
@@ -322,6 +404,21 @@ begin
 
   NodeData := vstMachines.GetNodeData(Node);
   NodeData^.Address := APeerIP;
+
+  if ToBeAdded then
+    if NodeData^.MachineType in [mtBroker, mtBrokerAndWorker] then
+    begin
+      Randomize;
+      Sleep(33);
+      NodeData^.PoolUserName := 'First';
+      NodeData^.PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+
+      Randomize;
+      Sleep(33);
+      NodeData^.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+      NodeData^.BrokerPassword := 'Unknown';
+      NodeData^.PoolID := DateTimeToStr(Now);
+    end;
 
   if AMachineOS = CWinParam then
   begin
@@ -361,65 +458,9 @@ begin
     NodeData^.State := SInit;
     NodeData^.NextState := SInit;
 
-    AppIdx := 0;
-    for i := 0 to Length(NodeData^.BrokersToBeRunning) - 1 do     //broker(s)
-    begin
-      NodeData^.BrokersToBeRunning[i].Port := IntToStr(spnedtMinBrokerPort.Value {+ 1183} + i); //base port + app index
-      NodeData^.BrokersToBeRunning[i].Address := '127.0.0.1';
-      NodeData^.BrokersToBeRunning[i].State := arUnknown;
-      NodeData^.BrokersToBeRunning[i].StartedAt := 0;
-    end;
-    Inc(AppIdx, NodeData^.TargetBrokerCountPerWinMachine);
-
-    for i := 0 to Length(NodeData^.WorkersToBeRunning) - 1 do     //workers
-    begin
-      if NodeData^.MachineOS = mosWin then
-      begin
-        NodeData^.WorkersToBeRunning[i].Address := '127.0.0.1'; //just connect to the same machine
-
-        if spnedtBrokerCountPerMachine.Value > 0 then
-          NodeData^.WorkersToBeRunning[i].Port := NodeData^.BrokersToBeRunning[i div spnedtBrokerCountPerMachine.Value].Port //0000, 1111 etc
-        else
-          NodeData^.WorkersToBeRunning[i].Port := '0'; //not sure if these workers should be left unconnected, instead of being connected to a default, which might not be desired
-      end
-      else
-      begin  //mosLin - find an available machine with broker
-        BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(NodeData^.Address, False);
-        if BrokerToConnectToNodeData <> nil then
-        begin
-          NodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
-          NodeData^.WorkersToBeRunning[i].Port := BrokerToConnectToNodeData^.Port;
-          BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + NodeData^.WorkersToBeRunning[i].Address + #13#10;
-        end
-        else
-        begin
-          BrokerToConnectToNodeData := GetAMachineWithBrokerWhichRequiresLinWorkers(NodeData^.Address, True); //now get any valid broker, just get one!
-          if BrokerToConnectToNodeData <> nil then
-          begin
-            NodeData^.WorkersToBeRunning[i].Address := BrokerToConnectToNodeData^.Address; //can be different, if this is a machine with Lin workers, connected to a Win broker
-            NodeData^.WorkersToBeRunning[i].Port := BrokerToConnectToNodeData^.Port;
-            BrokerToConnectToNodeData^.ListOfLinWorkersAllocated := BrokerToConnectToNodeData^.ListOfLinWorkersAllocated + NodeData^.WorkersToBeRunning[i].Address + #13#10;
-          end
-          else   //No broker available for this machine. Ideally, these Lin machines, if they get started before any broker, then they should be connected later.
-          begin
-            NodeData^.WorkersToBeRunning[i].Address := ''; //this will have to be set later
-            NodeData^.WorkersToBeRunning[i].Port := '';
-          end;
-        end;
-      end;  //mosLin
-
-      NodeData^.WorkersToBeRunning[i].State := arUnknown;
-      NodeData^.WorkersToBeRunning[i].StartedAt := 0;
-    end;
-    Inc(AppIdx, NodeData^.TargetWorkerCountPerWinMachine);
-
-    for i := 0 to Length(NodeData^.UIClickersToBeRunning) - 1 do     //UIClickers
-    begin
-      NodeData^.UIClickersToBeRunning[i].Port := NodeData^.WorkersToBeRunning[i].Port;
-      NodeData^.UIClickersToBeRunning[i].Address := '127.0.0.1';
-      NodeData^.UIClickersToBeRunning[i].State := arUnknown;
-      NodeData^.UIClickersToBeRunning[i].StartedAt := 0;
-    end;
+    InitBrokersToBeRunning(NodeData);
+    InitWorkersToBeRunning(NodeData);
+    InitUIClickersToBeRunning(NodeData);
   end; //ToBeAdded
 
   vstMachines.InvalidateNode(Node);
@@ -536,6 +577,7 @@ begin
     else
     begin
       //this is a Lin machine with workers, which should wait for another machine with broker(s)
+      InitWorkersToBeRunning(@AMachineRec);
     end;
   end;
 
@@ -607,6 +649,8 @@ begin
 
     Node := Node^.NextSibling;
   until Node = nil;
+
+  vstMachines.Repaint;
 end;
 
 
@@ -646,6 +690,7 @@ begin
       1: CellText := NodeData^.Address;
       2: CellText := CMachineTypeStr[NodeData^.MachineType];
       3: CellText := CMachineOSStr[NodeData^.MachineOS];
+      4: CellText := CFSMStr[NodeData^.State];
     end;
   except
     CellText := '?';
@@ -654,34 +699,35 @@ end;
 
 
 procedure TfrmWorkerPoolManagerMain.btnAddMachineClick(Sender: TObject);
-var
-  Node: PVirtualNode;
-  NodeData: PMachineRec;
+//var
+  //Node: PVirtualNode;
+  //NodeData: PMachineRec;
 begin
   //manual adding (as an example)
-  Node := vstMachines.AddChild(vstMachines.RootNode);
-  NodeData := vstMachines.GetNodeData(Node);
-  NodeData^.Address := '127.0.0.1';
-  NodeData^.Port := '1883';
-  NodeData^.MachineType := mtBrokerAndWorker;
+  //Node := vstMachines.AddChild(vstMachines.RootNode);
+  //NodeData := vstMachines.GetNodeData(Node);
+  //NodeData^.Address := '127.0.0.1';
+  //NodeData^.Port := '1883';
+  //NodeData^.MachineType := mtBrokerAndWorker;
+  //
+  //Randomize;
+  //Sleep(33);
+  //NodeData^.PoolUserName := 'First';
+  //NodeData^.PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+  //
+  //Randomize;
+  //Sleep(33);
+  //NodeData^.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+  //NodeData^.BrokerPassword := 'Unknown';
+  //NodeData^.PoolID := DateTimeToStr(Now);
 
-  Randomize;
-  Sleep(33);
-  NodeData^.PoolUserName := 'First';
-  NodeData^.PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
-
-  Randomize;
-  Sleep(33);
-  NodeData^.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
-  NodeData^.BrokerPassword := 'Unknown';
-  NodeData^.PoolID := DateTimeToStr(Now);
-
-  NodeData^.State := SInit;
-  NodeData^.NextState := SInit;
-  NodeData^.TargetBrokerCountPerWinMachine := 0;
-  NodeData^.TargetBrokerCountPerLinMachine := 0;
-  NodeData^.TargetWorkerCountPerWinMachine := 0;
-  NodeData^.TargetWorkerCountPerLinMachine := 0;
+  //NodeData^.State := SInit;
+  //NodeData^.NextState := SInit;
+  //NodeData^.TargetBrokerCountPerWinMachine := 0;
+  //NodeData^.TargetBrokerCountPerLinMachine := 0;
+  //NodeData^.TargetWorkerCountPerWinMachine := 0;
+  //NodeData^.TargetWorkerCountPerLinMachine := 0;
+  SetMachineOnline('127.0.0.1', CWinParam);
 end;
 
 
@@ -743,7 +789,8 @@ var
   ExecAppOptions: TClkExecAppOptions;
 begin
   ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto.exe';
-  ExecAppOptions.ListOfParams := '-c' + #4#5 + '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf';
+  ExecAppOptions.ListOfParams := '-c' + #4#5 +
+                                 '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf';
   ExecAppOptions.WaitForApp := False;
   ExecAppOptions.AppStdIn := '';
   ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);
@@ -759,7 +806,14 @@ var
   ExecAppOptions: TClkExecAppOptions;
 begin
   ExecAppOptions.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecAppOptions.ListOfParams := '--ExtraCaption ' + IntToStr(ABrokerPort) + ' --ServerPort ' + IntToStr(ABrokerPort + 20000) + ' --SetExecMode Server --SkipSavingSettings Yes';
+  ExecAppOptions.ListOfParams := '--ExtraCaption' + #4#5 +
+                                 IntToStr(ABrokerPort + 20000) + #4#5 +
+                                 '--ServerPort' + #4#5 +
+                                 IntToStr(ABrokerPort + 20000) + #4#5 +
+                                 '--SetExecMode' + #4#5 +
+                                 'Server' + #4#5 +
+                                 '--SkipSavingSettings' + #4#5 +
+                                 'Yes';
   ExecAppOptions.WaitForApp := False;
   ExecAppOptions.AppStdIn := '';
   ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);
@@ -775,7 +829,16 @@ var
   ExecAppOptions: TClkExecAppOptions;
 begin                                                                                          //ToDo: '--SetBrokerCredFile'
   ExecAppOptions.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\FindSubControlWorker.exe';
-  ExecAppOptions.ListOfParams := '--SetBrokerAddress ABrokerAddress --SetBrokerPort' + IntToStr(ABrokerPort) + ' --SetUIClickerPort' + IntToStr(ABrokerPort + 20000) + ' --SetWorkerExtraCaption ' + AWorkerExtraCaption + ' --SkipSavingIni Yes';
+  ExecAppOptions.ListOfParams := '--SetBrokerAddress' + #4#5 +
+                                 'ABrokerAddress' + #4#5 +
+                                 '--SetBrokerPort' + #4#5 +
+                                 IntToStr(ABrokerPort) + #4#5 +
+                                 '--SetUIClickerPort' + #4#5 +
+                                 IntToStr(ABrokerPort + 20000) + #4#5 +
+                                 '--SetWorkerExtraCaption' + #4#5 +
+                                 AWorkerExtraCaption + #4#5 +
+                                 '--SkipSavingIni' + #4#5 +
+                                 'Yes';
   ExecAppOptions.WaitForApp := False;
   ExecAppOptions.AppStdIn := '';
   ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);

@@ -55,6 +55,12 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
         Position = 3
         Text = 'OS'
         Width = 100
+      end    
+      item
+        MinWidth = 100
+        Position = 4
+        Text = 'State'
+        Width = 100
       end>
     Header.Height = 23
     Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
@@ -201,7 +207,6 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     Top = 355
   end
   object tmrFSM: TTimer
-    Enabled = False
     OnTimer = tmrFSMTimer
     Left = 420
     Top = 304
