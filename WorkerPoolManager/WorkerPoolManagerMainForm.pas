@@ -140,8 +140,8 @@ type
     function ProcessCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
     function StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort: string): string; //returns exec result
-    function StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; ABrokerPort: Word): string; //returns exec result
-    function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort: Word): string; //returns exec result
+    function StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
+    function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word): string; //returns exec result
 
     function GetMQTTAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
@@ -167,6 +167,9 @@ const
   CMachineTypeStr: array[TMachineType] of string = ('Broker', 'Worker', 'BrokerAndWorker');
   CMachineOSStr: array[TMachineOS] of string = (CWinParam, CLinParam, '???');
   CFSMStr: array[TFSM] of string = ('Init', 'MonitorStatus', 'StartRemoteApps', 'WaitForRemoteApps');
+
+  CUIClickerPortOffset = 20000; //This value is added to a worker port, to get the port UIClicker is listening on.
+                                //For example, if a worker listens on 12345, its UIClicker listens on 32345.
 
 var
   frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain;
@@ -382,7 +385,7 @@ var
 begin
   for i := 0 to Length(AMachineNodeData^.UIClickersToBeRunning) - 1 do     //UIClickers
   begin
-    AMachineNodeData^.UIClickersToBeRunning[i].Port := AMachineNodeData^.WorkersToBeRunning[i].Port;
+    AMachineNodeData^.UIClickersToBeRunning[i].Port := IntToStr(StrToIntDef(AMachineNodeData^.WorkersToBeRunning[i].Port, 0) + CUIClickerPortOffset + i);
     AMachineNodeData^.UIClickersToBeRunning[i].Address := '127.0.0.1';
     AMachineNodeData^.UIClickersToBeRunning[i].State := arUnknown;
     AMachineNodeData^.UIClickersToBeRunning[i].StartedAt := 0;
@@ -565,26 +568,44 @@ begin
     AMachineRec.BrokersToBeRunning[i].StartedAt := GetTickCount64;
     AMachineRec.BrokersToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.BrokersToBeRunning[i].Port);
     AMachineRec.BrokersToBeRunning[i].State := arJustStarted;
+
+    if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.BrokersToBeRunning[i].StartCmdResponse) = 1 then
+      AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + AMachineRec.BrokersToBeRunning[i].Address + ':' + AMachineRec.BrokersToBeRunning[i].Port + '.')
+    else
+      AddToLog('Error starting broker at ' + AMachineRec.BrokersToBeRunning[i].Address + ':' + AMachineRec.BrokersToBeRunning[i].Port + '. ' + AMachineRec.BrokersToBeRunning[i].StartCmdResponse);
   end;
 
   for i := 0 to Length(AMachineRec.WorkersToBeRunning) - 1 do
   begin
     if AMachineRec.WorkersToBeRunning[i].Address <> '' then
     begin
-      AMachineRec.WorkersToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.WorkersToBeRunning[i].Address, StrToIntDef(AMachineRec.WorkersToBeRunning[i].Port, 1183) + i);
+      AMachineRec.WorkersToBeRunning[i].StartedAt := GetTickCount64;
+      AMachineRec.WorkersToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.WorkersToBeRunning[i].Address, StrToIntDef(AMachineRec.WorkersToBeRunning[i].Port, 1183), StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 0));
       AMachineRec.WorkersToBeRunning[i].State := arJustStarted;
+
+      if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.WorkersToBeRunning[i].StartCmdResponse) = 1 then
+        AddToLog('Successfully started worker[' + IntToStr(i) + '] at ' + AMachineRec.WorkersToBeRunning[i].Address + ':' + AMachineRec.WorkersToBeRunning[i].Port + '.')
+      else
+        AddToLog('Error starting worker at ' + AMachineRec.WorkersToBeRunning[i].Address + ':' + AMachineRec.WorkersToBeRunning[i].Port + '. ' + AMachineRec.WorkersToBeRunning[i].StartCmdResponse);
     end
     else
     begin
       //this is a Lin machine with workers, which should wait for another machine with broker(s)
-      InitWorkersToBeRunning(@AMachineRec);
+      InitWorkersToBeRunning(@AMachineRec); //this should be enough to be called once (outside the for loop)
+      AddToLog('Workers from ' + AMachineRec.Address + ' do not have a broker to connect to.');
     end;
   end;
 
   for i := 0 to Length(AMachineRec.UIClickersToBeRunning) - 1 do
   begin
-    AMachineRec.UIClickersToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 1183) + i); //UIClicker will listen on BrokerPort+20000
+    AMachineRec.UIClickersToBeRunning[i].StartedAt := GetTickCount64;
+    AMachineRec.UIClickersToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 1183)); //UIClicker will listen on BrokerPort+20000
     AMachineRec.UIClickersToBeRunning[i].State := arJustStarted;
+
+    if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.UIClickersToBeRunning[i].StartCmdResponse) = 1 then
+      AddToLog('Successfully started UIClicker[' + IntToStr(i) + '] at ' + AMachineRec.UIClickersToBeRunning[i].Address + ':' + AMachineRec.UIClickersToBeRunning[i].Port + '.')
+    else
+      AddToLog('Error starting UIClicker at ' + AMachineRec.UIClickersToBeRunning[i].Address + ':' + AMachineRec.UIClickersToBeRunning[i].Port + '. ' + AMachineRec.UIClickersToBeRunning[i].StartCmdResponse);
   end;
 end;
 
@@ -660,7 +681,7 @@ begin
 
   try
     IdHTTPServerPlugins.Active := True;
-    AddToLog('Listening on port ' + IntToStr(IdHTTPServerPlugins.DefaultPort));
+    AddToLog('WorkerPoolManager is listening on port ' + IntToStr(IdHTTPServerPlugins.DefaultPort));
   except
     on E: Exception do
       AddToLog('Can''t listening on port ' + IntToStr(IdHTTPServerPlugins.DefaultPort) + '  ' + E.Message);
@@ -668,7 +689,7 @@ begin
 
   try
     IdHTTPServerResources.Active := True;
-    AddToLog('Listening on port ' + IntToStr(IdHTTPServerResources.DefaultPort));
+    AddToLog('WorkerPoolManager is listening on port ' + IntToStr(IdHTTPServerResources.DefaultPort));
   except
     on E: Exception do
       AddToLog('Can''t listening on port ' + IntToStr(IdHTTPServerResources.DefaultPort) + '  ' + E.Message);
@@ -788,6 +809,7 @@ function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAdress
 var
   ExecAppOptions: TClkExecAppOptions;
 begin
+  Result := '';
   ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto.exe';
   ExecAppOptions.ListOfParams := '-c' + #4#5 +
                                  '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf';
@@ -797,19 +819,25 @@ begin
   ExecAppOptions.UseInheritHandles := uihNo;
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
-  Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+  try
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+  except
+    on E: Exception do
+      AddToLog('Ex on starting broker: ' + E.Message);
+  end;
 end;
 
 
-function TfrmWorkerPoolManagerMain.StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; ABrokerPort: Word): string; //returns exec result
+function TfrmWorkerPoolManagerMain.StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
 var
   ExecAppOptions: TClkExecAppOptions;
 begin
+  Result := '';
   ExecAppOptions.PathToApp := '$AppDir$\UIClicker.exe';
   ExecAppOptions.ListOfParams := '--ExtraCaption' + #4#5 +
-                                 IntToStr(ABrokerPort + 20000) + #4#5 +
+                                 IntToStr(AUIClickerPort) + #4#5 +
                                  '--ServerPort' + #4#5 +
-                                 IntToStr(ABrokerPort + 20000) + #4#5 +
+                                 IntToStr(AUIClickerPort) + #4#5 +
                                  '--SetExecMode' + #4#5 +
                                  'Server' + #4#5 +
                                  '--SkipSavingSettings' + #4#5 +
@@ -820,21 +848,27 @@ begin
   ExecAppOptions.UseInheritHandles := uihNo;
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
-  Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+  try
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+  except
+    on E: Exception do
+      AddToLog('Ex on starting broker: ' + E.Message);
+  end;
 end;
 
 
-function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort: Word): string; //returns exec result
+function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word): string; //returns exec result
 var
   ExecAppOptions: TClkExecAppOptions;
 begin                                                                                          //ToDo: '--SetBrokerCredFile'
+  Result := '';
   ExecAppOptions.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\FindSubControlWorker.exe';
   ExecAppOptions.ListOfParams := '--SetBrokerAddress' + #4#5 +
                                  'ABrokerAddress' + #4#5 +
                                  '--SetBrokerPort' + #4#5 +
                                  IntToStr(ABrokerPort) + #4#5 +
                                  '--SetUIClickerPort' + #4#5 +
-                                 IntToStr(ABrokerPort + 20000) + #4#5 +
+                                 IntToStr(AUIClickerPort) + #4#5 +
                                  '--SetWorkerExtraCaption' + #4#5 +
                                  AWorkerExtraCaption + #4#5 +
                                  '--SkipSavingIni' + #4#5 +
@@ -845,7 +879,12 @@ begin                                                                           
   ExecAppOptions.UseInheritHandles := uihNo;
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
-  Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+  try
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+  except
+    on E: Exception do
+      AddToLog('Ex on starting broker: ' + E.Message);
+  end;
 end;
 
 
