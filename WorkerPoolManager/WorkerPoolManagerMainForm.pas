@@ -67,7 +67,7 @@ type
     PoolPassWord: string;
     ListOfLinWorkersAllocated: string;  //Used when this is a broker machine and another machine with Lin workers point to this one.
 
-    BrokerUserName: string; //workers may use different user and password
+    BrokerUserName: string; //workers may use different user and password     //These credentials will have to be moved to the TRunningApp structure.
     BrokerPassword: string;
     PoolID: string; //Reserved for now. May be implemented later, if required.
 
@@ -139,7 +139,7 @@ type
     function GetCredentialsFile(ANodeData: PMachineRec): string;
     function ProcessCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
-    function StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort: string): string; //returns exec result
+    function StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
     function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word): string; //returns exec result
 
@@ -566,7 +566,7 @@ begin
   for i := 0 to Length(AMachineRec.BrokersToBeRunning) - 1 do
   begin
     AMachineRec.BrokersToBeRunning[i].StartedAt := GetTickCount64;
-    AMachineRec.BrokersToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.BrokersToBeRunning[i].Port);
+    AMachineRec.BrokersToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.BrokersToBeRunning[i].Port, AMachineRec.BrokerUserName, AMachineRec.BrokerPassword);
     AMachineRec.BrokersToBeRunning[i].State := arJustStarted;
 
     if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.BrokersToBeRunning[i].StartCmdResponse) = 1 then
@@ -799,17 +799,43 @@ end;
 
 procedure TfrmWorkerPoolManagerMain.btnStartTwoBrokersClick(Sender: TObject);
 begin
-  memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21883'));
-  memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21884'));
+  memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21883', 'Username', 'Password'));
+  memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21884', 'Username', 'Password'));
   memLog.Lines.Add(GetMQTTAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
 end;
 
 
-function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort: string): string; //returns exec result
+function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string): string; //returns exec result
 var
+  SetVarOptions: TClkSetVarOptions;
   ExecAppOptions: TClkExecAppOptions;
+  PluginOptions: TClkPluginOptions;
 begin
   Result := '';
+
+  //set some vars for plugin
+  SetVarOptions.ListOfVarNames := '$BrokerPortNumber$' + #13#10 + '$PasswordFile$' + #13#10 + '$ConfFile$' + #13#10 + '$BrokerUsername$' + #13#10 + '$BrokerPassword$' + #13#10;   //these will not be evaluated by SetVar
+  SetVarOptions.ListOfVarValues := ABrokerPort +         #13#10 + '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\pp_' + ABrokerPort + '.txt' + #13#10 + '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf' + #13#10 + ABrokerUsername + #13#10 + ABrokerPassword + #13#10;
+  SetVarOptions.ListOfVarEvalBefore := '0' +             #13#10 + '1'              + #13#10 + '1'              + #13#10 + '0' +             #13#10 + '0' +             #13#10;
+  SetVarOptions.FailOnException := False;
+  try
+    Result := ExecuteSetVarAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', SetVarOptions);
+  except
+    on E: Exception do
+      AddToLog('Ex on setting broker params before starting broker: ' + E.Message);
+  end;
+
+  //update pp_' + ABrokerPort + '.txt'
+  PluginOptions.FileName := '$AppDir$\..\UIClickerDistFindSubControlPlugin\BrokerParams\lib\$AppBitness$-$OSBitness$\BrokerParams.dll';
+  PluginOptions.ListOfPropertiesAndValues := ''; //to be set
+  PluginOptions.ListOfPropertiesAndTypes := '';
+  try
+    Result := ExecutePluginAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', PluginOptions);
+  except
+    on E: Exception do
+      AddToLog('Ex on running plugin for setting broker params before starting broker: ' + E.Message);
+  end;
+
   ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto.exe';
   ExecAppOptions.ListOfParams := '-c' + #4#5 +
                                  '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf';

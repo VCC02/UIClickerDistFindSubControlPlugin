@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="BrokerParams.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="297"/>
+        <CursorPos X="71" Y="308"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerActionPlugins.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="20"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerUtils.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="27"/>
+        <CursorPos X="45" Y="40"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="BrokerParamsPluginProperties.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="10"/>
+        <CursorPos X="34" Y="25"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="BrokerParamsDM.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <HasResources Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="20"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerClient\DllUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="20"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="24">
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="66" Column="21" TopLine="50"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="8" Column="30"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="6" Column="20"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="9" Column="44"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="6" Column="31"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="23" Column="29"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="31" Column="53" TopLine="19"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="132" Column="37" TopLine="121"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="31" Column="79" TopLine="15"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="30" Column="41" TopLine="17"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="221" Column="39" TopLine="207"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="30" Column="60" TopLine="28"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="223" Column="58" TopLine="214"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="32" Column="47" TopLine="16"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="227" Column="51" TopLine="214"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="27" Column="28" TopLine="13"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="40" Column="18" TopLine="35"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="49" Column="12" TopLine="35"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="57" Column="23" TopLine="47"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="58" Column="21" TopLine="47"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="218" Column="54" TopLine="207"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="33" Column="73" TopLine="24"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="273" Column="101" TopLine="253"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="297" Column="16" TopLine="291"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="298" Column="25" TopLine="291"/>
+      </Position>
+      <Position>
+        <Filename Value="BrokerParams.ppr"/>
+        <Caret Line="242" Column="33" TopLine="229"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+  <Debugging>
+    <BreakPoints>
+      <Item>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="BrokerParams.ppr"/>
+        <Line Value="290"/>
+      </Item>
+    </BreakPoints>
+  </Debugging>
+</CONFIG>

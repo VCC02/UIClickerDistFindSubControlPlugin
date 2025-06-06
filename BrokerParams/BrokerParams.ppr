@@ -1,0 +1,363 @@
+{
+    Copyright (C) 2025 VCC
+    creation date: 06 Jun 2025
+    initial release date: 06 Jun 2025
+
+    author: VCC
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+    OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+}
+
+
+library BrokerParams;
+
+{$H+}
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
+uses
+  Interfaces, Classes, SysUtils, Graphics, ImgList, Forms, ClickerUtils,
+  ClickerActionPlugins, BrokerParamsPluginProperties, DllUtils, BrokerParamsDM
+  { you can add units after this };
+
+type
+  //TDbgPoint = function(APointName, ALogMsg: string): Boolean;
+
+
+  TExHandler = class
+    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
+  end;
+
+
+var
+  //DebugPoint: TDbgPoint;
+
+  AddToLogCallback: TOnActionPlugin_AddToLog;
+  //GPluginReference: Pointer;
+
+  FExHandler: TExHandler;
+
+
+procedure AddToLog(AMsg: string);  //thread safe
+begin
+  if @AddToLogCallback <> nil then
+    AddToLogCallback(DefaultPluginReference, @AMsg[1]);
+end;
+
+
+//see https://wiki.freepascal.org/Logging_exceptions
+procedure TExHandler.CustomExceptionHandler(Sender: TObject; E: Exception);
+var
+  ClName, EMsg: string;
+begin
+  try
+    ClName := Sender.ClassName;
+  except
+    ClName := '';
+  end;
+
+  try
+    EMsg := E.Message;
+  except
+    EMsg := '';
+  end;
+
+  try
+    AddToLog('Custom exception in plugin: "' + EMsg + '"   Class: "' + ClName + '"."');
+  except
+    on EE: Exception do
+      //MessageBox(0, PChar('Ex on custom exception: ' + EE.Message), 'Plugin', MB_ICONERROR);
+  end;
+end;
+
+
+//see https://wiki.freepascal.org/Logging_exceptions
+procedure CatchUnhandledException(Obj: TObject; Addr: Pointer; FrameCount: LongInt; Frames: PPointer);
+var
+  Msg: string;
+  i: Integer;
+begin
+  try //use another try..excempt, just in case parsing the stack would raise more exceptions
+    Msg := 'Unhandled exception at adddr $' + SysBacktraceStr(Addr) + ':' + #13#10;
+
+    if Obj is Exception then
+      Msg := Msg + Exception(Obj).ClassName + ' : ' + Exception(Obj).Message
+    else
+      Msg := Msg + 'Exception object '  + Exception(Obj).ClassName + ' is not class Exception.';
+
+    Msg := Msg + #13#10;
+    Msg := Msg + BacktraceStrFunc(Addr) + #13#10;
+
+    for i := 0 to FrameCount - 1 do
+      Msg := Msg + BacktraceStrFunc(Frames[i]) + #13#10;
+
+    AddToLog('Custom exception in plugin: "' + Msg + '".');
+  except
+  end;
+end;
+
+
+function GetAPIVersion: DWord; cdecl;
+begin
+  Result := CActionPlugin_APIVersion;
+end;
+
+procedure GetListOfProperties(APluginReference: Pointer;                 //UIClicker passes the plugin reference to the plugin, then the plugin calls some callbacks with that reference
+                              AListOfProperties: Pointer;
+                              AListOfPropertiesLen: PDWord;
+                              AOnActionPlugin_UpdatePropertyIcons: TOnActionPlugin_UpdatePropertyIcons); cdecl;
+var
+  Properties: string;
+  i: Integer;
+  TempMemStream: TMemoryStream;
+  Bmp: TBitmap;
+begin
+  Properties := FillInPropertyDetails;
+  AListOfPropertiesLen^ := SetPointedContentFromString(Properties, AListOfProperties);
+
+  dmProperties := TdmProperties.Create(nil);
+  try
+    for i := 0 to CPropertiesCount - 1 do
+    begin
+      TempMemStream := TMemoryStream.Create;
+      Bmp := TBitmap.Create;
+      try
+        Bmp.PixelFormat := pf24bit;
+        Bmp.Width := dmProperties.imglstProperties.Width;
+        Bmp.Height := dmProperties.imglstProperties.Height;
+        Bmp.Canvas.Pen.Color := clWhite;
+        Bmp.Canvas.Brush.Color := clWhite;
+        Bmp.Canvas.Rectangle(0, 0, Bmp.Width, Bmp.Height);
+
+        dmProperties.imglstProperties.Draw(Bmp.Canvas, 0, 0, i, dsNormal, itImage);
+        Bmp.SaveToStream(TempMemStream);
+
+        AOnActionPlugin_UpdatePropertyIcons(APluginReference, TempMemStream.Memory, TempMemStream.Size);
+      finally
+        TempMemStream.Free;
+        Bmp.Free;
+      end;
+    end;
+  finally
+    dmProperties.Free;
+  end;
+end;
+
+function ExecutePlugin(APluginReference: Pointer;
+                       AListOfPluginSettings: Pointer;
+                       AListOfPluginSettingsLen: PDWord;
+
+                       AOnActionPlugin_GetActionCount: TOnActionPlugin_GetActionCount;
+                       AOnActionPlugin_GetActionInfoByIndex: TOnActionPlugin_GetActionInfoByIndex;
+                       AOnActionPlugin_GetActionContentByIndex: TOnActionPlugin_GetActionContentByIndex;
+                       AOnActionPlugin_ExecuteAction: TOnActionPlugin_ExecuteAction;
+                       AOnActionPlugin_GetAllTemplateVars: TOnActionPlugin_GetAllTemplateVars;
+                       AOnActionPlugin_SetTemplateVar: TOnActionPlugin_SetTemplateVar;
+                       AOnActionPlugin_DebugPoint: TOnActionPlugin_DebugPoint;
+                       AOnActionPlugin_AddToLog: TOnActionPlugin_AddToLog;
+                       AOnActionPlugin_SetResultImg: TOnActionPlugin_SetResultImg;
+                       AOnActionPlugin_LoadBitmap: TOnActionPlugin_LoadBitmap;
+                       AOnActionPlugin_GetAllowedFilesInfo: TOnActionPlugin_GetAllowedFilesInfo;
+                       AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
+                       AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
+                       AOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
+                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS
+                       ): Boolean; cdecl;
+
+  procedure SetTemplateVar(AVarName, AVarValue: string);
+  begin
+    AOnActionPlugin_SetTemplateVar(APluginReference, @AVarName[1], @AVarValue[1]);
+  end;
+
+  procedure GetAllTemplateVars(out AAllTemplateVars: string);  //AAllTemplateVars are encoded as CRLF separated key=value strings, ready to be used on a TStringlist
+  var
+    Buffer: string;
+    AllTemplateVarsPtr: Pointer;
+    NameLengthDWord: DWord;
+  begin
+    SetLength(Buffer, CMaxSharedStringLength + 1);
+    AllTemplateVarsPtr := @Buffer[1];
+    NameLengthDWord := 0;
+    AAllTemplateVars := '';
+
+    AOnActionPlugin_GetAllTemplateVars(APluginReference, AllTemplateVarsPtr, @NameLengthDWord);  //decode action execution results
+
+    SetPointedContentToString(AllTemplateVarsPtr, AAllTemplateVars);
+    SetLength(AAllTemplateVars, NameLengthDWord);
+  end;
+
+
+  function GetIndexOfKeyInFile(AConfFileContent: TStringList; AKeyName: string; out AIsCommented: Boolean): Integer;
+  var
+    i: Integer;
+  begin
+    Result := -1; //not found
+    AIsCommented := False;
+
+    for i := 0 to AConfFileContent.Count - 1 do
+      if Pos(AKeyName, AConfFileContent.Strings[i]) = 1 then
+      begin
+        Result := i;
+        Exit;
+      end
+      else
+        if Pos('#' + AKeyName, AConfFileContent.Strings[i]) = 1 then  //found commented
+        begin
+          AIsCommented := True;
+          Result := i;
+          Exit;
+        end;
+  end;
+
+
+  function GetIndexOf_listener(AConfFileContent: TStringList; out AIsCommented: Boolean): Integer;
+  begin
+    Result := GetIndexOfKeyInFile(AConfFileContent, 'listener', AIsCommented);
+  end;
+
+
+  function GetIndexOf_password_file(AConfFileContent: TStringList; out AIsCommented: Boolean): Integer;
+  begin
+    Result := GetIndexOfKeyInFile(AConfFileContent, 'password_file', AIsCommented);
+  end;
+
+var
+  ListOfAllVars: TStringList;
+  ConfFileContent: TStringList;
+  ConfFnm, PasswordFnm: string;
+  BrokerUsername, BrokerPassword: string;
+  BrokerPort: string;
+  AllVarsStr: string;
+  i, IndexOf_listener, IndexOf_password_file: Integer;
+  ListenerKeyIsCommented, PasswordFileKeyIsCommented: Boolean;
+begin
+  try
+    Result := False;
+    //DebugPoint := @DbgPoint;
+    SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
+
+    ListOfAllVars := TStringList.Create;
+    ConfFileContent := TStringList.Create;
+    try
+      ListOfAllVars.LineBreak := #13#10;
+      ConfFileContent.LineBreak := #10;
+
+      DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
+      DefaultPluginReference := APluginReference;
+      AddToLogCallback := AOnActionPlugin_AddToLog;
+      //GPluginReference := APluginReference;
+      //PluginFS.PluginReference := APluginReference;    //use this to access the InMem FS
+
+      if not DbgPoint('Entering ExecutePlugin', '') then     //see ClkDbgSym.ppr for expected statement formats
+        Exit;
+
+      GetAllTemplateVars(AllVarsStr);
+      ListOfAllVars.Text := AllVarsStr;
+
+      Application.Initialize;
+      FExHandler := TExHandler.Create;
+      ExceptProc := @CatchUnhandledException;
+      Application.OnException := FExHandler.CustomExceptionHandler;
+
+      ConfFnm := EvaluateAllReplacements(ListOfAllVars, '$ConfFile$');
+      if not FileExists(ConfFnm) then
+      begin
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Conf file not found: "' + ConfFnm + '".');
+        Exit;
+      end;
+
+      PasswordFnm := EvaluateAllReplacements(ListOfAllVars, '$PasswordFile$');
+      if not FileExists(PasswordFnm) then
+      begin
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Password file not found: "' + PasswordFnm + '".');
+        Exit;
+      end;
+
+      BrokerPort := EvaluateAllReplacements(ListOfAllVars, '$BrokerPortNumber$');
+      if (BrokerPort = '') or (BrokerPort = '$BrokerPortNumber$') then
+      begin
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerPortNumber not set.');
+        Exit;
+      end;
+
+      BrokerUsername := EvaluateAllReplacements(ListOfAllVars, '$BrokerUsername$');
+      if (BrokerUsername = '') or (BrokerUsername = '$BrokerUsername$') then
+      begin
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerUsername not set.');
+        Exit;
+      end;
+
+      BrokerPassword := EvaluateAllReplacements(ListOfAllVars, '$BrokerPassword$');
+      if (BrokerPassword = '') or (BrokerPort = '$BrokerPassword$') then
+      begin
+        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerPassword not set.');
+        Exit;
+      end;
+
+      // Before updating the conf file, this plugin should execute
+      // 'C:\Program Files\....\mosquitto_passwd.exe ' + PasswordFnm + ' ' + BrokerUsername
+      // This will ask for password through StdIn. ToDo:  implement running mosquitto_passwd.exe.
+      // Pass BrokerPassword through StdIn.
+      // Every client (worker) will have its own username and password.
+
+      //update conf file
+      ConfFileContent.LoadFromFile(ConfFnm);
+      try
+        IndexOf_listener := GetIndexOf_listener(ConfFileContent, ListenerKeyIsCommented);
+        if IndexOf_listener = -1 then
+          ConfFileContent.Add('listener ' + BrokerPort)
+        else
+          if not ListenerKeyIsCommented then
+            ConfFileContent.Strings[IndexOf_listener] := 'listener ' + BrokerPort
+          else
+            ConfFileContent.Insert(IndexOf_listener + 1, 'listener ' + BrokerPort);
+
+        IndexOf_password_file := GetIndexOf_password_file(ConfFileContent, PasswordFileKeyIsCommented);
+        if IndexOf_password_file = -1 then
+          ConfFileContent.Add('password_file ' + PasswordFnm)
+        else
+          if not PasswordFileKeyIsCommented then
+            ConfFileContent.Strings[IndexOf_password_file] := 'password_file ' + PasswordFnm
+          else
+            ConfFileContent.Insert(IndexOf_password_file + 1, 'password_file ' + PasswordFnm);
+
+      finally
+        ConfFileContent.SaveToFile(ConfFnm);
+      end;
+
+      Result := True;
+      AddToLog('Done');
+    finally
+      ListOfAllVars.Free;
+      ConfFileContent.Free;
+    end;
+  except
+    on E: Exception do
+      SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Plugin exception: "' + E.Message + '".');
+  end;
+end;
+
+
+exports
+  GetAPIVersion,
+  GetListOfProperties,
+  ExecutePlugin;
+
+begin
+
+end.
+
