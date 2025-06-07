@@ -55,6 +55,7 @@ type
     StartedAt: QWord; //Timestamp used for waiting for the app to get into a responding/connected state.
     State: TAppRunning;
     StartCmdResponse: string;
+    StartedCount: Integer;
   end;
   TRunningAppArr = array of TRunningApp;
 
@@ -325,6 +326,7 @@ begin
     AMachineNodeData^.BrokersToBeRunning[i].Address := '127.0.0.1';
     AMachineNodeData^.BrokersToBeRunning[i].State := arUnknown;
     AMachineNodeData^.BrokersToBeRunning[i].StartedAt := 0;
+    AMachineNodeData^.BrokersToBeRunning[i].StartedCount := 0;
   end;
 end;
 
@@ -375,6 +377,7 @@ begin
 
     AMachineNodeData^.WorkersToBeRunning[i].State := arUnknown;
     AMachineNodeData^.WorkersToBeRunning[i].StartedAt := 0;
+    AMachineNodeData^.WorkersToBeRunning[i].StartedCount := 0;
   end;
 end;
 
@@ -389,6 +392,7 @@ begin
     AMachineNodeData^.UIClickersToBeRunning[i].Address := '127.0.0.1';
     AMachineNodeData^.UIClickersToBeRunning[i].State := arUnknown;
     AMachineNodeData^.UIClickersToBeRunning[i].StartedAt := 0;
+    AMachineNodeData^.UIClickersToBeRunning[i].StartedCount := 0;
   end;
 end;
 
@@ -547,15 +551,18 @@ begin
   Result := 0;
   for i := 0 to Length(AMachineRec.BrokersToBeRunning) - 1 do
     if AMachineRec.BrokersToBeRunning[i].State = arUnknown then
-      Inc(Result);
+      if AMachineRec.BrokersToBeRunning[i].StartedCount < 3 then
+        Inc(Result);
 
   for i := 0 to Length(AMachineRec.WorkersToBeRunning) - 1 do
     if AMachineRec.WorkersToBeRunning[i].State = arUnknown then
-      Inc(Result);
+      if AMachineRec.WorkersToBeRunning[i].StartedCount < 3 then
+        Inc(Result);
 
   for i := 0 to Length(AMachineRec.UIClickersToBeRunning) - 1 do
     if AMachineRec.UIClickersToBeRunning[i].State = arUnknown then
-      Inc(Result);
+      if AMachineRec.UIClickersToBeRunning[i].StartedCount < 3 then
+        Inc(Result);
 end;
 
 
@@ -564,49 +571,55 @@ var
   i: Integer;
 begin
   for i := 0 to Length(AMachineRec.BrokersToBeRunning) - 1 do
-  begin
-    AMachineRec.BrokersToBeRunning[i].StartedAt := GetTickCount64;
-    AMachineRec.BrokersToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.BrokersToBeRunning[i].Port, AMachineRec.BrokerUserName, AMachineRec.BrokerPassword);
-    AMachineRec.BrokersToBeRunning[i].State := arJustStarted;
+    if (AMachineRec.BrokersToBeRunning[i].StartedCount < 3) and (AMachineRec.BrokersToBeRunning[i].State = arUnknown) then
+    begin
+      Inc(AMachineRec.BrokersToBeRunning[i].StartedCount);
+      AMachineRec.BrokersToBeRunning[i].StartedAt := GetTickCount64;
+      AMachineRec.BrokersToBeRunning[i].StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.BrokersToBeRunning[i].Port, AMachineRec.BrokerUserName, AMachineRec.BrokerPassword);
+      AMachineRec.BrokersToBeRunning[i].State := arJustStarted;
 
-    if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.BrokersToBeRunning[i].StartCmdResponse) = 1 then
-      AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + AMachineRec.BrokersToBeRunning[i].Address + ':' + AMachineRec.BrokersToBeRunning[i].Port + '.')
-    else
-      AddToLog('Error starting broker at ' + AMachineRec.BrokersToBeRunning[i].Address + ':' + AMachineRec.BrokersToBeRunning[i].Port + '. ' + AMachineRec.BrokersToBeRunning[i].StartCmdResponse);
-  end;
+      if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.BrokersToBeRunning[i].StartCmdResponse) = 1 then
+        AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + AMachineRec.BrokersToBeRunning[i].Address + ':' + AMachineRec.BrokersToBeRunning[i].Port + '.  StartedCount = ' + IntToStr(AMachineRec.BrokersToBeRunning[i].StartedCount))
+      else
+        AddToLog('Error starting broker at ' + AMachineRec.BrokersToBeRunning[i].Address + ':' + AMachineRec.BrokersToBeRunning[i].Port + '. ' + AMachineRec.BrokersToBeRunning[i].StartCmdResponse);
+    end;
 
   for i := 0 to Length(AMachineRec.WorkersToBeRunning) - 1 do
-  begin
-    if AMachineRec.WorkersToBeRunning[i].Address <> '' then
+    if (AMachineRec.WorkersToBeRunning[i].StartedCount < 3) and (AMachineRec.WorkersToBeRunning[i].State = arUnknown) then
     begin
-      AMachineRec.WorkersToBeRunning[i].StartedAt := GetTickCount64;
-      AMachineRec.WorkersToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.WorkersToBeRunning[i].Address, StrToIntDef(AMachineRec.WorkersToBeRunning[i].Port, 1183), StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 0));
-      AMachineRec.WorkersToBeRunning[i].State := arJustStarted;
+      if AMachineRec.WorkersToBeRunning[i].Address <> '' then
+      begin
+        Inc(AMachineRec.WorkersToBeRunning[i].StartedCount);
+        AMachineRec.WorkersToBeRunning[i].StartedAt := GetTickCount64;
+        AMachineRec.WorkersToBeRunning[i].StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i), AMachineRec.WorkersToBeRunning[i].Address, StrToIntDef(AMachineRec.WorkersToBeRunning[i].Port, 1183), StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 0));
+        AMachineRec.WorkersToBeRunning[i].State := arJustStarted;
 
-      if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.WorkersToBeRunning[i].StartCmdResponse) = 1 then
-        AddToLog('Successfully started worker[' + IntToStr(i) + '] at ' + AMachineRec.WorkersToBeRunning[i].Address + ':' + AMachineRec.WorkersToBeRunning[i].Port + '.')
+        if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.WorkersToBeRunning[i].StartCmdResponse) = 1 then
+          AddToLog('Successfully started worker[' + IntToStr(i) + '] at ' + AMachineRec.WorkersToBeRunning[i].Address + ':' + AMachineRec.WorkersToBeRunning[i].Port + '.  StartedCount = ' + IntToStr(AMachineRec.WorkersToBeRunning[i].StartedCount))
+        else
+          AddToLog('Error starting worker at ' + AMachineRec.WorkersToBeRunning[i].Address + ':' + AMachineRec.WorkersToBeRunning[i].Port + '. ' + AMachineRec.WorkersToBeRunning[i].StartCmdResponse);
+      end
       else
-        AddToLog('Error starting worker at ' + AMachineRec.WorkersToBeRunning[i].Address + ':' + AMachineRec.WorkersToBeRunning[i].Port + '. ' + AMachineRec.WorkersToBeRunning[i].StartCmdResponse);
-    end
-    else
-    begin
-      //this is a Lin machine with workers, which should wait for another machine with broker(s)
-      InitWorkersToBeRunning(@AMachineRec); //this should be enough to be called once (outside the for loop)
-      AddToLog('Workers from ' + AMachineRec.Address + ' do not have a broker to connect to.');
+      begin
+        //this is a Lin machine with workers, which should wait for another machine with broker(s)
+        InitWorkersToBeRunning(@AMachineRec); //this should be enough to be called once (outside the for loop)
+        AddToLog('Workers from ' + AMachineRec.Address + ' do not have a broker to connect to.');
+      end;
     end;
-  end;
 
   for i := 0 to Length(AMachineRec.UIClickersToBeRunning) - 1 do
-  begin
-    AMachineRec.UIClickersToBeRunning[i].StartedAt := GetTickCount64;
-    AMachineRec.UIClickersToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 1183)); //UIClicker will listen on BrokerPort+20000
-    AMachineRec.UIClickersToBeRunning[i].State := arJustStarted;
+    if (AMachineRec.UIClickersToBeRunning[i].StartedCount < 3) and (AMachineRec.UIClickersToBeRunning[i].State = arUnknown) then
+    begin
+      Inc(AMachineRec.UIClickersToBeRunning[i].StartedCount);
+      AMachineRec.UIClickersToBeRunning[i].StartedAt := GetTickCount64;
+      AMachineRec.UIClickersToBeRunning[i].StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.UIClickersToBeRunning[i].Port, 1183)); //UIClicker will listen on BrokerPort+20000
+      AMachineRec.UIClickersToBeRunning[i].State := arJustStarted;
 
-    if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.UIClickersToBeRunning[i].StartCmdResponse) = 1 then
-      AddToLog('Successfully started UIClicker[' + IntToStr(i) + '] at ' + AMachineRec.UIClickersToBeRunning[i].Address + ':' + AMachineRec.UIClickersToBeRunning[i].Port + '.')
-    else
-      AddToLog('Error starting UIClicker at ' + AMachineRec.UIClickersToBeRunning[i].Address + ':' + AMachineRec.UIClickersToBeRunning[i].Port + '. ' + AMachineRec.UIClickersToBeRunning[i].StartCmdResponse);
-  end;
+      if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.UIClickersToBeRunning[i].StartCmdResponse) = 1 then
+        AddToLog('Successfully started UIClicker[' + IntToStr(i) + '] at ' + AMachineRec.UIClickersToBeRunning[i].Address + ':' + AMachineRec.UIClickersToBeRunning[i].Port + '.  StartedCount = ' + IntToStr(AMachineRec.UIClickersToBeRunning[i].StartedCount))
+      else
+        AddToLog('Error starting UIClicker at ' + AMachineRec.UIClickersToBeRunning[i].Address + ':' + AMachineRec.UIClickersToBeRunning[i].Port + '. ' + AMachineRec.UIClickersToBeRunning[i].StartCmdResponse);
+    end;
 end;
 
 
@@ -786,7 +799,11 @@ begin
   Node := vstMachines.GetFirst;
   if Node = nil then
   begin
-    AddToLog('Please add a machine first.');
+    AddToLog('Please add a machine first, in order to send proper content.');
+
+    Res := SendPoolCredentials('127.0.0.1', '5444', 'Dummy_UserName', 'Dummy_Password');
+    AddToLog('Sending dummy pool credentials result: ' + Res);
+
     Exit;
   end;
 
