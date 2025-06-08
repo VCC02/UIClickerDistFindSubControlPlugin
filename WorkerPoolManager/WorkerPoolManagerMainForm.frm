@@ -87,7 +87,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
       MaxValue = 40
       MinValue = 1
       TabOrder = 0
-      Value = 2
+      Value = 1
     end
     object lblBrokerCountPerMachine: TLabel
       Left = 8
