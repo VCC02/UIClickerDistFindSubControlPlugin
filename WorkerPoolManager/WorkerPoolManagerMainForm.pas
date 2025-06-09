@@ -373,7 +373,7 @@ begin
         AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address := '127.0.0.1'; //just connect to the same machine
 
         if spnedtBrokerCountPerMachine.Value > 0 then
-          AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port := AMachineNodeData^.AppsToBeRunning[i div WorkerCountPerBroker].Broker.Port //0000, 1111 etc
+          AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port := AMachineNodeData^.AppsToBeRunning[i].Broker.Port //0000, 1111 etc
         else
           AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port := '0'; //not sure if these workers should be left unconnected, instead of being connected to a default, which might not be desired
       end
@@ -407,7 +407,7 @@ begin
   for i := 0 to Length(AMachineNodeData^.AppsToBeRunning) - 1 do  //pools
     for j := 0 to Length(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do //UIClickers
     begin
-      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port := IntToStr(StrToIntDef(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 0) + CUIClickerPortOffset + i * Length(AMachineNodeData^.AppsToBeRunning) + j);
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port := IntToStr(StrToIntDef(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 0) + CUIClickerPortOffset + i * Length(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs) + j);
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address := '127.0.0.1';
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.State := arUnknown;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedAt := 0;
@@ -438,7 +438,7 @@ begin
     if ToBeAdded then
     begin
       NodeData^.TargetBrokerCountPerWinMachine := spnedtBrokerCountPerMachine.Value;
-      NodeData^.TargetWorkerCountPerWinMachine := spnedtBrokerCountPerMachine.Value * 4;
+      NodeData^.TargetWorkerCountPerWinMachine := 4;
 
       SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine);   //Win
 
@@ -456,7 +456,7 @@ begin
       if ToBeAdded then
       begin
         NodeData^.TargetBrokerCountPerLinMachine := 0;
-        NodeData^.TargetWorkerCountPerLinMachine := spnedtBrokerCountPerMachine.Value * 2;
+        NodeData^.TargetWorkerCountPerLinMachine := 2;
 
         SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine);   //still Win     - a new logic is required here (with UI settings), to decide exactly what apps are running on Lin
         for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do  //pools
@@ -611,13 +611,15 @@ begin
     begin
       Inc(AMachineRec.AppsToBeRunning[i].Broker.StartedCount);
       AMachineRec.AppsToBeRunning[i].Broker.StartedAt := GetTickCount64;
-      AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.AppsToBeRunning[i].Broker.Port, AMachineRec.AppsToBeRunning[i].Broker.BrokerUserName, AMachineRec.AppsToBeRunning[i].Broker.BrokerPassword);
       AMachineRec.AppsToBeRunning[i].Broker.State := arJustStarted;
+      AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.AppsToBeRunning[i].Broker.Port, AMachineRec.AppsToBeRunning[i].Broker.BrokerUserName, AMachineRec.AppsToBeRunning[i].Broker.BrokerPassword);
 
       if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse) = 1 then
         AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + AMachineRec.AppsToBeRunning[i].Broker.Address + ':' + AMachineRec.AppsToBeRunning[i].Broker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].Broker.StartedCount))
       else
-        AddToLog('Error starting broker at ' + AMachineRec.AppsToBeRunning[i].Broker.Address + ':' + AMachineRec.AppsToBeRunning[i].Broker.Port + '. ' + AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse);
+        AddToLog('Error starting broker[' + IntToStr(i) + '] at ' + AMachineRec.AppsToBeRunning[i].Broker.Address + ':' + AMachineRec.AppsToBeRunning[i].Broker.Port + '. ' + AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse);
+
+      Sleep(250);
     end;
 
   for i := 0 to Length(AMachineRec.AppsToBeRunning) - 1 do
@@ -628,13 +630,15 @@ begin
         begin
           Inc(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount);
           AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedAt := GetTickCount64;
-          AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i * Length(AMachineRec.AppsToBeRunning) + j), AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address, StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 1183), StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0));
           AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.State := arJustStarted;
+          AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i * Length(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs) + j), AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address, StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 1183), StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0));
 
           if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse) = 1 then
-            AddToLog('Successfully started worker[' + IntToStr(i * Length(AMachineRec.AppsToBeRunning) + j) + '] at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount))
+            AddToLog('Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + IntToStr(i * Length(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs) + j) + '] at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount))
           else
             AddToLog('Error starting worker at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port + '. ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse);
+
+          Sleep(250);
         end
         else
         begin
@@ -650,18 +654,22 @@ begin
       begin
         Inc(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount);
         AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedAt := GetTickCount64;
-        AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 1183)); //UIClicker will listen on BrokerPort+20000
         AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.State := arJustStarted;
+        AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineRec.Address, '5444', StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 1183)); //UIClicker will listen on BrokerPort+20000
 
         if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartCmdResponse) = 1 then
-          AddToLog('Successfully started UIClicker[' + IntToStr(i * Length(AMachineRec.AppsToBeRunning) + j) + '] at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount))
+          AddToLog('Successfully started UIClicker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + IntToStr(i * Length(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs) + j) + '] at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount))
         else
           AddToLog('Error starting UIClicker at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port + '. ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartCmdResponse);
+
+        Sleep(250);
       end;
 end;
 
 
 procedure TfrmWorkerPoolManagerMain.RunFSM(var AMachineRec: TMachineRec);
+var
+  i, j: Integer;
 begin
   case AMachineRec.State of
     SInit:
@@ -879,7 +887,7 @@ begin
   SetVarOptions.ListOfVarEvalBefore := '0' +             #13#10 + '1'              + #13#10 + '1'              + #13#10 + '0' +             #13#10 + '0' +             #13#10;
   SetVarOptions.FailOnException := False;
   try
-    Result := ExecuteSetVarAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', SetVarOptions);
+    Result := ExecuteSetVarAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', SetVarOptions, False);
   except
     on E: Exception do
       AddToLog('Ex on setting broker params before starting broker: ' + E.Message);
@@ -890,7 +898,7 @@ begin
   PluginOptions.ListOfPropertiesAndValues := ''; //to be set
   PluginOptions.ListOfPropertiesAndTypes := '';
   try
-    Result := ExecutePluginAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', PluginOptions);
+    Result := ExecutePluginAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', PluginOptions, False);
   except
     on E: Exception do
       AddToLog('Ex on running plugin for setting broker params before starting broker: ' + E.Message);
@@ -906,7 +914,7 @@ begin
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
   try
-    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
   except
     on E: Exception do
       AddToLog('Ex on starting broker: ' + E.Message);
@@ -935,7 +943,7 @@ begin
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
   try
-    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
   except
     on E: Exception do
       AddToLog('Ex on starting broker: ' + E.Message);
@@ -966,7 +974,7 @@ begin                                                                           
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
   try
-    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000);
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
   except
     on E: Exception do
       AddToLog('Ex on starting broker: ' + E.Message);
