@@ -244,8 +244,8 @@ end;
 function TfrmWorkerPoolManagerMain.GetCredentialsFile(var AAppPool: TAppPool): string;
 begin
   Result := '[Credentials]' + #4#5 +
-            'Username=' + AAppPool.Broker.BrokerUserName + #4#5 +
-            'Password=' + AAppPool.Broker.BrokerPassword + #4#5 +
+            'Username=' + AAppPool.Broker.BrokerUserName + #4#5 +   //It's ok to return these credentials to the client.
+            'Password=' + AAppPool.Broker.BrokerPassword + #4#5 +   //Workers will have their own credentials.
             'PoolID=' + AAppPool.PoolID + #4#5;
 end;
 
@@ -421,7 +421,7 @@ var
   Node: PVirtualNode;
   NodeData: PMachineRec;
   ToBeAdded: Boolean;
-  i: Integer;
+  i, j: Integer;
 begin
   Node := GetMachineByIP(APeerIP);
   ToBeAdded := Node = nil;
@@ -485,13 +485,23 @@ begin
 
         Randomize;
         Sleep(33);
-        NodeData^.AppsToBeRunning[i].Broker.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+        NodeData^.AppsToBeRunning[i].Broker.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));  //used by clients
         Randomize;
         Sleep(33);
         NodeData^.AppsToBeRunning[i].Broker.BrokerPassword := 'UnknownPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
         Randomize;
         Sleep(33);
         NodeData^.AppsToBeRunning[i].PoolID := DateTimeToStr(Now) + '_' + IntToStr(Random(MaxInt));
+
+        for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+        begin
+          Sleep(33);
+          Randomize;
+          NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerUserName := 'WorkerUser_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt)) + IntToStr(Random(MaxInt));
+          Sleep(33);
+          Randomize;
+          NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerUserName := 'CustomPassword_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt)) + IntToStr(Random(MaxInt));
+        end;
       end;
 
   if ToBeAdded then
@@ -872,7 +882,7 @@ begin
   memLog.Lines.Add(GetMQTTAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
 end;
 
-
+                                                          //this function will have to accept more data, through a structure, which allows passing both user and worker credentials
 function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string): string; //returns exec result
 var
   SetVarOptions: TClkSetVarOptions;
