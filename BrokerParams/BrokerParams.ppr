@@ -239,10 +239,9 @@ var
   ListOfAllVars: TStringList;
   ConfFileContent: TStringList;
   ConfFnm, PasswordFnm: string;
-  BrokerUsername, BrokerPassword: string;
   BrokerPort: string;
   AllVarsStr: string;
-  i, IndexOf_listener, IndexOf_password_file: Integer;
+  IndexOf_listener, IndexOf_password_file: Integer;
   ListenerKeyIsCommented, PasswordFileKeyIsCommented: Boolean;
 begin
   try
@@ -293,20 +292,6 @@ begin
         SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerPortNumber not set.');
         Exit;
       end;
-
-      //BrokerUsername := EvaluateAllReplacements(ListOfAllVars, '$BrokerUsername$');
-      //if (BrokerUsername = '') or (BrokerUsername = '$BrokerUsername$') then
-      //begin
-      //  SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerUsername not set.');
-      //  Exit;
-      //end;
-      //
-      //BrokerPassword := EvaluateAllReplacements(ListOfAllVars, '$BrokerPassword$');
-      //if (BrokerPassword = '') or (BrokerPort = '$BrokerPassword$') then
-      //begin
-      //  SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerPassword not set.');
-      //  Exit;
-      //end;
 
       // Before updating the conf file, WorkerPoolManagerMain should execute
       // 'C:\Program Files\....\mosquitto_passwd.exe ' + PasswordFnm + ' ' + BrokerUsername

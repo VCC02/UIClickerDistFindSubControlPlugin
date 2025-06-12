@@ -33,86 +33,46 @@ uses
 
 
 const
-  CPropertiesCount = 5;                  //ToDo: Update file. So far, no properties are needed.
+  CPropertiesCount = 1;                  //ToDo: Update file. So far, no properties are needed.
 
-  CPoolManagerAddressPropertyIndex = 0;
-  CPoolManagerPortPropertyIndex = 1;
-  COutputCredentialsFileNamePropertyIndex = 2;
-  CBrokerAddressOutputVarNamePropertyIndex = 3;
-  CBrokerPortOutputVarNamePropertyIndex = 4;
+  CReservedPropertyIndex = 0;
+  CReserved2PropertyIndex = 1;
 
-  CPoolManagerAddressPropertyName = 'PoolManagerAddress';
-  CPoolManagerPortPropertyName = 'PoolManagerPort';
-  COutputCredentialsFileNamePropertyName = 'OutputCredentialsFileName';
-  CBrokerAddressOutputVarNamePropertyName = 'BrokerAddressOutputVarName';
-  CBrokerPortOutputVarNamePropertyName = 'BrokerPortOutputVarName';
-
+  CReservedPropertyName = 'Reserved';
 
   CRequiredPropertyNames: array[0..CPropertiesCount - 1] of string = (  //these are the expected property names, configured in plugin properties
-    CPoolManagerAddressPropertyName,
-    CPoolManagerPortPropertyName,
-    COutputCredentialsFileNamePropertyName,
-    CBrokerAddressOutputVarNamePropertyName,
-    CBrokerPortOutputVarNamePropertyName
+    CReservedPropertyName
   );
 
   //property details: (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
 
   //See TOIEditorType datatype from ObjectInspectorFrame.pas, for valid values
   CRequiredPropertyTypes: array[0..CPropertiesCount - 1] of string = (
-    'TextWithArrow', //PoolManagerAddress
-    'TextWithArrow', //PoolManagerPort
-    'TextWithArrow', //OutputCredentialsFileName
-    'TextWithArrow', //BrokerAddressOutputVarName
-    'TextWithArrow'  //BrokerPortOutputVarName
+    'TextWithArrow'  //Reserved
   );
 
   CRequiredPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
-    CDTString, //PoolManagerAddress
-    CDTString, //PoolManagerPort
-    CDTString, //OutputCredentialsFileName
-    CDTString, //BrokerAddressOutputVarName
-    CDTString  //BrokerPortOutputVarName
+    CDTString  //Reserved
   );
 
   CPluginEnumCounts: array[0..CPropertiesCount - 1] of Integer = (
-    0, //PoolManagerAddress
-    0, //PoolManagerPort
-    0, //OutputCredentialsFileName
-    0, //BrokerAddressOutputVarName
-    0  //BrokerPortOutputVarName
+    0  //Reserved
   );
 
   CPluginEnumStrings: array[0..CPropertiesCount - 1] of string = (
-    '', //PoolManagerAddress
-    '', //PoolManagerPort
-    '', //OutputCredentialsFileName
-    '', //BrokerAddressOutputVarName
-    ''  //BrokerPortOutputVarName
+    ''  //PoolManagerAddress
   );
 
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
-    'Address of the machine, where WorkerPoolManager is running.', //PoolManagerAddress
-    'WorkerPoolManager port number. This is usually 11883.', //PoolManagerPort
-    'Name of the filename, which will be used as "Credentials File" by a UIClickerDistFindSubControl plugin.' + #4#5 + 'If the path starts with "Mem:\", the file is save in the In-Mem file system.' + #4#5 + 'Otherwise, this has to be a valid path on disk.' + #4#5 + 'If this value is not set (i.e. empty string), the credentials file is not requested from server and no file is saved by the plugin.', //OutputCredentialsFileName
-    'Name of a variable, which will be updated by this plugin, with the address of the MQTT broker, which can be used by a UIClickerDistFindSubControl plugin.', //BrokerAddressOutputVarName
-    'Name of a variable, which will be updated by this plugin, with the port number of the MQTT broker, which can be used by a UIClickerDistFindSubControl plugin.'  //BrokerPortOutputVarName
+    'Address of the machine, where WorkerPoolManager is running.' //Reserved
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
-    '', //PoolManagerAddress                        // If empty string, the property is unconditionally enabled. For available operators, see CComp constans in ClickerUtils.pas.
-    '', //PoolManagerPort
-    '', //OutputCredentialsFileName
-    '', //BrokerAddressOutputVarName
-    ''  //BrokerPortOutputVarName
+    ''  //Reserved                        // If empty string, the property is unconditionally enabled. For available operators, see CComp constans in ClickerUtils.pas.
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
-    '127.0.0.1', //PoolManagerAddress
-    '11883', //PoolManagerPort
-    'Mem:\CredentialsFileName.txt', //OutputCredentialsFileName
-    '$MQTTBrokerAdress$', //BrokerAddressOutputVarName
-    '$MQTTBrokerPort$'  //BrokerPortOutputVarName
+    'Empty'  //Reserved
   );
 
 
