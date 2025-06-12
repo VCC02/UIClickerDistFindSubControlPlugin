@@ -294,25 +294,22 @@ begin
         Exit;
       end;
 
-      BrokerUsername := EvaluateAllReplacements(ListOfAllVars, '$BrokerUsername$');
-      if (BrokerUsername = '') or (BrokerUsername = '$BrokerUsername$') then
-      begin
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerUsername not set.');
-        Exit;
-      end;
+      //BrokerUsername := EvaluateAllReplacements(ListOfAllVars, '$BrokerUsername$');
+      //if (BrokerUsername = '') or (BrokerUsername = '$BrokerUsername$') then
+      //begin
+      //  SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerUsername not set.');
+      //  Exit;
+      //end;
+      //
+      //BrokerPassword := EvaluateAllReplacements(ListOfAllVars, '$BrokerPassword$');
+      //if (BrokerPassword = '') or (BrokerPort = '$BrokerPassword$') then
+      //begin
+      //  SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerPassword not set.');
+      //  Exit;
+      //end;
 
-      BrokerPassword := EvaluateAllReplacements(ListOfAllVars, '$BrokerPassword$');
-      if (BrokerPassword = '') or (BrokerPort = '$BrokerPassword$') then
-      begin
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'BrokerPassword not set.');
-        Exit;
-      end;
-
-      // Before updating the conf file, this plugin should execute
+      // Before updating the conf file, WorkerPoolManagerMain should execute
       // 'C:\Program Files\....\mosquitto_passwd.exe ' + PasswordFnm + ' ' + BrokerUsername
-      // This will ask for password through StdIn. ToDo:  implement running mosquitto_passwd.exe.
-      // Pass BrokerPassword through StdIn.
-      // Every client (worker) will have its own username and password.
 
       //update conf file
       ConfFileContent.LoadFromFile(ConfFnm);
@@ -334,10 +331,10 @@ begin
             ConfFileContent.Strings[IndexOf_password_file] := 'password_file ' + PasswordFnm
           else
             ConfFileContent.Insert(IndexOf_password_file + 1, 'password_file ' + PasswordFnm);
-
       finally
         ConfFileContent.SaveToFile(ConfFnm);
       end;
+      AddToLog('Conf file saved: ' + ConfFnm);
 
       Result := True;
       AddToLog('Done');

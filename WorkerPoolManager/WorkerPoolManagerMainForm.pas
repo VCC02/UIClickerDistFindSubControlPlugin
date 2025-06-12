@@ -156,9 +156,9 @@ type
     function GetCredentialsFile(var AAppPool: TAppPool): string;
     function ProcessCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
-    function StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string): string; //returns exec result
+    function StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
-    function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word): string; //returns exec result
+    function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
 
     function GetMQTTAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
@@ -421,7 +421,7 @@ var
   Node: PVirtualNode;
   NodeData: PMachineRec;
   ToBeAdded: Boolean;
-  i, j: Integer;
+  i, j, k: Integer;
 begin
   Node := GetMachineByIP(APeerIP);
   ToBeAdded := Node = nil;
@@ -478,29 +478,50 @@ begin
       begin
         Randomize;              //More complex names and password will have to be generated here
         Sleep(33);
-        NodeData^.AppsToBeRunning[i].PoolUserName := 'RandomlyGeneratedUser_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+        NodeData^.AppsToBeRunning[i].PoolUserName := 'RandomlyGeneratedUser_' + IntToStr(GetTickCount64) + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt));
         Randomize;
         Sleep(33);
-        NodeData^.AppsToBeRunning[i].PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+        NodeData^.AppsToBeRunning[i].PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt));
+
+        for k := 1 to 7 + Random(3) do
+        begin
+          Sleep(33);
+          Randomize;
+          NodeData^.AppsToBeRunning[i].PoolPassWord := NodeData^.AppsToBeRunning[i].Broker.BrokerPassword + IntToHex(Random(MaxInt)) + IntToStr(Random(MaxInt));
+        end;
 
         Randomize;
         Sleep(33);
-        NodeData^.AppsToBeRunning[i].Broker.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));  //used by clients
+        NodeData^.AppsToBeRunning[i].Broker.BrokerUserName := 'User_' + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt));  //used by clients
         Randomize;
         Sleep(33);
-        NodeData^.AppsToBeRunning[i].Broker.BrokerPassword := 'UnknownPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
+        NodeData^.AppsToBeRunning[i].Broker.BrokerPassword := 'UnknownPassword_' + IntToStr(GetTickCount64) + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt));
         Randomize;
         Sleep(33);
-        NodeData^.AppsToBeRunning[i].PoolID := DateTimeToStr(Now) + '_' + IntToStr(Random(MaxInt));
+        NodeData^.AppsToBeRunning[i].PoolID := StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + '_' + IntToStr(Random(MaxInt));
+
+        for k := 1 to 7 + Random(3) do
+        begin
+          Sleep(33);
+          Randomize;
+          NodeData^.AppsToBeRunning[i].Broker.BrokerPassword := NodeData^.AppsToBeRunning[i].Broker.BrokerPassword + IntToHex(Random(MaxInt)) + IntToStr(Random(MaxInt));
+        end;
 
         for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
         begin
           Sleep(33);
           Randomize;
-          NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerUserName := 'WorkerUser_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt)) + IntToStr(Random(MaxInt));
+          NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerUserName := 'WorkerUser_' + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt)) + IntToStr(Random(MaxInt));
           Sleep(33);
           Randomize;
-          NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerUserName := 'CustomPassword_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt)) + IntToStr(Random(MaxInt));
+          NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerPassword := 'CustomPassword_' + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt)) + IntToStr(Random(MaxInt));
+
+          for k := 1 to 7 + Random(3) do
+          begin
+            Sleep(33);
+            Randomize;
+            NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerPassword := NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerPassword + IntToHex(Random(MaxInt)) + IntToStr(Random(MaxInt));
+          end;
         end;
       end;
 
@@ -622,7 +643,7 @@ begin
       Inc(AMachineRec.AppsToBeRunning[i].Broker.StartedCount);
       AMachineRec.AppsToBeRunning[i].Broker.StartedAt := GetTickCount64;
       AMachineRec.AppsToBeRunning[i].Broker.State := arJustStarted;
-      AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.AppsToBeRunning[i].Broker.Port, AMachineRec.AppsToBeRunning[i].Broker.BrokerUserName, AMachineRec.AppsToBeRunning[i].Broker.BrokerPassword);
+      AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineRec.Address, '5444', AMachineRec.AppsToBeRunning[i].Broker.Port, AMachineRec.AppsToBeRunning[i].Broker.BrokerUserName, AMachineRec.AppsToBeRunning[i].Broker.BrokerPassword, AMachineRec.AppsToBeRunning[i].WorkerClickerPairs);
 
       if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.AppsToBeRunning[i].Broker.StartCmdResponse) = 1 then
         AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + AMachineRec.AppsToBeRunning[i].Broker.Address + ':' + AMachineRec.AppsToBeRunning[i].Broker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].Broker.StartedCount))
@@ -641,7 +662,14 @@ begin
           Inc(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount);
           AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedAt := GetTickCount64;
           AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.State := arJustStarted;
-          AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address, '5444', IntToStr(i * Length(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs) + j), AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address, StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 1183), StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0));
+          AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineRec.Address,
+                                                                                                                     '5444',
+                                                                                                                     IntToStr(i * Length(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs) + j),
+                                                                                                                     AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address,
+                                                                                                                     StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 1183),
+                                                                                                                     StrToIntDef(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0),
+                                                                                                                     AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerUserName,
+                                                                                                                     AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerPassword);
 
           if Pos(CREResp_RemoteExecResponseVar + '=1', AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse) = 1 then
             AddToLog('Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + IntToStr(i * Length(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs) + j) + '] at ' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address + ':' + AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port + '.  StartedCount = ' + IntToStr(AMachineRec.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount))
@@ -678,8 +706,8 @@ end;
 
 
 procedure TfrmWorkerPoolManagerMain.RunFSM(var AMachineRec: TMachineRec);
-var
-  i, j: Integer;
+//var
+//  i, j: Integer;
 begin
   case AMachineRec.State of
     SInit:
@@ -877,24 +905,55 @@ end;
 
 procedure TfrmWorkerPoolManagerMain.btnStartTwoBrokersClick(Sender: TObject);
 begin
-  memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21883', 'Username', 'Password'));
-  memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21884', 'Username', 'Password'));
-  memLog.Lines.Add(GetMQTTAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
+  //memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21883', 'Username', 'Password'));
+  //memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21884', 'Username', 'Password'));
+  //memLog.Lines.Add(GetMQTTAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
 end;
 
-                                                          //this function will have to accept more data, through a structure, which allows passing both user and worker credentials
-function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string): string; //returns exec result
+
+function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
 var
   SetVarOptions: TClkSetVarOptions;
   ExecAppOptions: TClkExecAppOptions;
   PluginOptions: TClkPluginOptions;
+  j: Integer;
 begin
   Result := '';
 
   //set some vars for plugin
-  SetVarOptions.ListOfVarNames := '$BrokerPortNumber$' + #13#10 + '$PasswordFile$' + #13#10 + '$ConfFile$' + #13#10 + '$BrokerUsername$' + #13#10 + '$BrokerPassword$' + #13#10;   //these will not be evaluated by SetVar
-  SetVarOptions.ListOfVarValues := ABrokerPort +         #13#10 + '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\pp_' + ABrokerPort + '.txt' + #13#10 + '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf' + #13#10 + ABrokerUsername + #13#10 + ABrokerPassword + #13#10;
-  SetVarOptions.ListOfVarEvalBefore := '0' +             #13#10 + '1'              + #13#10 + '1'              + #13#10 + '0' +             #13#10 + '0' +             #13#10;
+  SetVarOptions.ListOfVarNames := '$BrokerPortNumber$' + #13#10 +    //these will not be evaluated by SetVar
+                                  '$PasswordFile$' + #13#10 +
+                                  '$ConfFile$' + #13#10 +
+                                  //'$BrokerUsername$' + #13#10 +   //for debugging only
+                                  //'$BrokerPassword$' + #13#10 +   //for debugging only
+                                  '$WorkerCount$' + #13#10;
+
+  SetVarOptions.ListOfVarValues := ABrokerPort + #13#10 +
+                                   '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\pp_' + ABrokerPort + '.txt' + #13#10 +
+                                   '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf' + #13#10 +
+                                   //ABrokerUsername + #13#10 +   //for debugging only
+                                   //ABrokerPassword + #13#10 +   //for debugging only
+                                   IntToStr(Length(AWorkerClickerPairs)) + #13#10;
+
+  SetVarOptions.ListOfVarEvalBefore := '0' + #13#10 +
+                                       '1' + #13#10 +
+                                       '1' + #13#10 +
+                                       //'0' + #13#10 +  //for debugging only
+                                       //'0' + #13#10 +  //for debugging only
+                                       '0' + #13#10;
+
+  //for j := 0 to Length(AWorkerClickerPairs) - 1 do     //for debugging only
+  //begin
+  //  SetVarOptions.ListOfVarNames := SetVarOptions.ListOfVarNames + '$Worker[' + IntToStr(j) + '].Username$' + #13#10;
+  //  SetVarOptions.ListOfVarNames := SetVarOptions.ListOfVarNames + '$Worker[' + IntToStr(j) + '].Password$' + #13#10;
+  //
+  //  SetVarOptions.ListOfVarValues := SetVarOptions.ListOfVarValues + AWorkerClickerPairs[j].Worker.BrokerUserName + #13#10;
+  //  SetVarOptions.ListOfVarValues := SetVarOptions.ListOfVarValues + AWorkerClickerPairs[j].Worker.BrokerPassword + #13#10;
+  //
+  //  SetVarOptions.ListOfVarEvalBefore := SetVarOptions.ListOfVarEvalBefore + '0' + #13#10;
+  //  SetVarOptions.ListOfVarEvalBefore := SetVarOptions.ListOfVarEvalBefore + '0' + #13#10;
+  //end;
+
   SetVarOptions.FailOnException := False;
   try
     Result := ExecuteSetVarAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', SetVarOptions, False);
@@ -902,6 +961,45 @@ begin
     on E: Exception do
       AddToLog('Ex on setting broker params before starting broker: ' + E.Message);
   end;
+
+
+  //generate pp file
+  ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto_passwd.exe';
+  ExecAppOptions.ListOfParams := '-b' + #4#5 +
+                                 '-c' + #4#5 +  //this is needed only for the first call, to clear the file
+                                 '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\pp_' + ABrokerPort + '.txt' + #4#5 +
+                                 ABrokerUsername + #4#5 +
+                                 ABrokerPassword;
+  ExecAppOptions.WaitForApp := True;
+  ExecAppOptions.AppStdIn := '';
+  ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);
+  ExecAppOptions.UseInheritHandles := uihYes;
+  ExecAppOptions.NoConsole := True; //True means do not display a console
+
+  try
+    Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
+    //AddToLog('Creating pp file: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
+  except
+    on E: Exception do
+      AddToLog('Ex on creating pp file: ' + E.Message);
+  end;
+
+  //this for loop requires the above setting other fields from the ExecAppOptions structure
+  for j := 0 to Length(AWorkerClickerPairs) - 1 do
+  begin
+    ExecAppOptions.ListOfParams := '-b' + #4#5 +  //-b only
+                                 '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\pp_' + ABrokerPort + '.txt' + #4#5 +
+                                 AWorkerClickerPairs[j].Worker.BrokerUserName + #4#5 +
+                                 AWorkerClickerPairs[j].Worker.BrokerPassword;
+
+    try
+      Result := ExecuteExecAppAction('http://' + AMachineAdress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
+      AddToLog('Creating pp file: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
+    except
+      on E: Exception do
+        AddToLog('Ex on creating pp file: ' + E.Message);
+    end;
+  end; //for j
 
   //update pp_' + ABrokerPort + '.txt'
   PluginOptions.FileName := '$AppDir$\..\UIClickerDistFindSubControlPlugin\BrokerParams\lib\$AppBitness$-$OSBitness$\BrokerParams.dll';
@@ -961,14 +1059,14 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word): string; //returns exec result
+function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
 var
   ExecAppOptions: TClkExecAppOptions;
 begin                                                                                          //ToDo: '--SetBrokerCredFile'
   Result := '';
   ExecAppOptions.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\FindSubControlWorker.exe';
   ExecAppOptions.ListOfParams := '--SetBrokerAddress' + #4#5 +
-                                 'ABrokerAddress' + #4#5 +
+                                 ABrokerAddress + #4#5 +
                                  '--SetBrokerPort' + #4#5 +
                                  IntToStr(ABrokerPort) + #4#5 +
                                  '--SetUIClickerPort' + #4#5 +
@@ -976,7 +1074,14 @@ begin                                                                           
                                  '--SetWorkerExtraCaption' + #4#5 +
                                  AWorkerExtraCaption + #4#5 +
                                  '--SkipSavingIni' + #4#5 +
-                                 'Yes';
+                                 'Yes' + #4#5 +
+                                 '--SetBrokerCredFile' + #4#5 +
+                                 '_:\NonExistent.txt'  + #4#5 + //if setting a non-existent file, the worker can use the credentials passed from cmd line
+                                 '--SetBrokerUser' + #4#5 +
+                                 ABrokerUser + #4#5 +
+                                 '--SetBrokerPassword' + #4#5 +
+                                 ABrokerPassword
+                                 ;
   ExecAppOptions.WaitForApp := False;
   ExecAppOptions.AppStdIn := '';
   ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);

@@ -1932,6 +1932,20 @@ begin
       Inc(i);
     end;
 
+    if ParamStr(i) = '--SetBrokerUser' then
+    begin
+      FMQTTUsername := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + {FMQTTUsername} '[redacted]');
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--SetBrokerPassword' then
+    begin
+      FMQTTPassword := ParamStr(i + 1);
+      AddToLog(ParamStr(i) + ' ' + {FMQTTPassword} '[redacted]');
+      Inc(i);
+    end;
+
     if ParamStr(i) = '--SetWorkerExtraName' then
     begin
       FWorkerExtraName := ParamStr(i + 1);
@@ -1990,6 +2004,8 @@ begin
       AddToLog('To set the port the broker is listening on, use  --SetBrokerPort <Port>');
       AddToLog('To set the port UIClicker is listening on, use  --SetUIClickerPort <Port>');
       AddToLog('To set the full file name with the broker credentials, use  --SetBrokerCredFile <FullPathToFilename>. The file format is ini, with "Username" and "Password" keys under the "Credentials" section (no quotes). Default file is up.txt, near this exe.');
+      AddToLog('To set the broker username, instead of readinging it from credentials file, use   --SetBrokerUser <username>. This is used if the credentials file does not exist.');
+      AddToLog('To set the broker password, instead of readinging it from credentials file, use   --SetBrokerPassword <username>. This is used if the credentials file does not exist.');
       AddToLog('To skip saving current settings to ini, use  --SkipSavingIni Yes');
       AddToLog('To set the worker extra name, use  --SetWorkerExtraName <Name>. This name is reported in plugin and can be used to further identify the worker. By default, this name is a combination of multiple timestamp and random values.');
       AddToLog('To set the worker extra caption, use  --SetWorkerExtraCaption <Caption>. This caption is concatenated (with a dash) to the existing window caption. It is useful to identify the window, by a master UIClicker, when arranging the windows on desktop.');
@@ -2458,18 +2474,18 @@ begin
   tmrProcessLog.Enabled := True;
   tmrProcessRecData.Enabled := True;
 
-  Content := TClkIniReadonlyFile.Create(FCredentialsFile);
-  try
-    if FileExists(FCredentialsFile) then
-    begin
+  if FileExists(FCredentialsFile) then
+  begin
+    Content := TClkIniReadonlyFile.Create(FCredentialsFile);
+    try
       FMQTTUsername := Content.ReadString('Credentials', 'Username', 'Username');
       FMQTTPassword := Content.ReadString('Credentials', 'Password', '');
-    end
-    else
-      AddToLog('Password file not found. Using empty password..');
-  finally
-    Content.Free;
-  end;
+    finally
+      Content.Free;
+    end;
+  end
+  else
+    AddToLog('Password file not found. Using empty password, or expecting credentials from command line..');
 
   {$IFDEF UsingDynTFT}
     MM_Init;
