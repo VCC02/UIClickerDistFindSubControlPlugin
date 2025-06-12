@@ -118,8 +118,8 @@ type
 
   TfrmWorkerPoolManagerMain = class(TForm)
     btnAddMachine: TButton;
-    btnStartTwoBrokers: TButton;
     btnSendPoolCredentialsToLocal: TButton;
+    btnGetListeningProcesses: TButton;
     grpSettings: TGroupBox;
     IdHTTPServerPlugins: TIdHTTPServer;
     IdHTTPServerResources: TIdHTTPServer;
@@ -135,8 +135,8 @@ type
     tmrStartup: TTimer;
     vstMachines: TVirtualStringTree;
     procedure btnAddMachineClick(Sender: TObject);
+    procedure btnGetListeningProcessesClick(Sender: TObject);
     procedure btnSendPoolCredentialsToLocalClick(Sender: TObject);
-    procedure btnStartTwoBrokersClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure IdHTTPServerPluginsCommandGet(AContext: TIdContext;
       ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
@@ -160,7 +160,7 @@ type
     function StartUIClickerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
     function StartWorkerOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
 
-    function GetMQTTAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
+    function GetListOfListeningAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
     procedure StartApps(var AMachineRec: TMachineRec);
     function FindWorkerStatusConnected(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): Boolean;
@@ -817,35 +817,15 @@ end;
 
 
 procedure TfrmWorkerPoolManagerMain.btnAddMachineClick(Sender: TObject);
-//var
-  //Node: PVirtualNode;
-  //NodeData: PMachineRec;
 begin
-  //manual adding (as an example)
-  //Node := vstMachines.AddChild(vstMachines.RootNode);
-  //NodeData := vstMachines.GetNodeData(Node);
-  //NodeData^.Address := '127.0.0.1';
-  //NodeData^.Port := '1883';
-  //NodeData^.MachineType := mtBrokerAndWorker;
-  //
-  //Randomize;
-  //Sleep(33);
-  //NodeData^.PoolUserName := 'First';
-  //NodeData^.PoolPassWord := 'RandomlyGeneratedPassword_' + IntToStr(GetTickCount64) + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
-  //
-  //Randomize;
-  //Sleep(33);
-  //NodeData^.BrokerUserName := 'User_' + DateTimeToStr(Now) + IntToStr(Random(MaxInt));
-  //NodeData^.BrokerPassword := 'Unknown';
-  //NodeData^.PoolID := DateTimeToStr(Now);
-
-  //NodeData^.State := SInit;
-  //NodeData^.NextState := SInit;
-  //NodeData^.TargetBrokerCountPerWinMachine := 0;
-  //NodeData^.TargetBrokerCountPerLinMachine := 0;
-  //NodeData^.TargetWorkerCountPerWinMachine := 0;
-  //NodeData^.TargetWorkerCountPerLinMachine := 0;
   SetMachineOnline('127.0.0.1', CWinParam);
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.btnGetListeningProcessesClick(
+  Sender: TObject);
+begin
+  AddToLog(#13#10 + GetListOfListeningAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
 end;
 
 
@@ -900,14 +880,6 @@ begin
   end
   else
     AddToLog('No pools are allocated.');
-end;
-
-
-procedure TfrmWorkerPoolManagerMain.btnStartTwoBrokersClick(Sender: TObject);
-begin
-  //memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21883', 'Username', 'Password'));
-  //memLog.Lines.Add(StartMQTTBrokerOnRemoteMachine('127.0.0.1', '5444', '21884', 'Username', 'Password'));
-  //memLog.Lines.Add(GetMQTTAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
 end;
 
 
@@ -1103,17 +1075,25 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetMQTTAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
+function TfrmWorkerPoolManagerMain.GetListOfListeningAppsOnRemoteMachine(AMachineAdress, ACmdUIClickerPort, AMachineOS: string): string; //list of listening processes  Port=PID
 var
   ExecAppOptions: TClkExecAppOptions;
-  ListOfVars: TStringList;
+  ListOfVars, ListOfProcesses, FilteredListOfProcesses: TStringList;
+  i: Integer;
+  s, Port, PID: string;
 begin
   if AMachineOS = CWinParam then
   begin
-    ExecAppOptions.PathToApp := 'C:\Windows\system32\WindowsPowerShell\v1.0\powershell.exe';       //Windows only
-    ExecAppOptions.ListOfParams := 'ps' + #4#5 + '-Name' + #4#5 + CBrokerProcessName + ',' + CWorkerProcessName;  //'-Name' filters all the other processes
+    //ExecAppOptions.PathToApp := 'C:\Windows\system32\WindowsPowerShell\v1.0\powershell.exe';       //Windows only
+    //ExecAppOptions.ListOfParams := 'ps';// + #4#5 + '-Name' + #4#5 + CBrokerProcessName + ',' + CWorkerProcessName;  //'-Name' filters all the other processes   - ps displays an error if there is no item called CBrokerProcessName or CWorkerProcessName
     //By default, the columns are:  Handles, NPM(K), PM(K), WS(K), VM(M), CPU(s), Id, ProcessName    (useful columns: Id, ProcessName)
     //There is an extra line, like: -------  ------  -----  -----  -----  ------  --  -----------
+
+    //To kill a process:  taskkill /PID 2056 /F    (does not require admin)
+    //To get list of connections:  netstat -ao     (does not require admin)
+
+    ExecAppOptions.PathToApp := 'C:\Windows\system32\netstat.exe';
+    ExecAppOptions.ListOfParams := '-ao';
   end
   else
     if AMachineOS = CLinParam then
@@ -1122,6 +1102,8 @@ begin
       ExecAppOptions.ListOfParams := '-e'; // '-e' means all processes.
       //By default, the columns are: PID, TTY, TIME, CMD   (useful columns: PID, CMD)
       //It will require extra filtering
+
+      //To get list of connections:   ss -tlnp       //ToDo  find a way to display the PID
     end
     else
     begin
@@ -1146,7 +1128,37 @@ begin
     ListOfVars.Free;
   end;
 
-  //The ideal output would be a list of "ProcessName"="ProcessID", both for brokers and workers
+  //The ideal output would be a list of "ProcessName"="ProcessID", or "PortNumber"="ProcessID",, both for brokers and workers
+  ListOfProcesses := TStringList.Create;
+  FilteredListOfProcesses := TStringList.Create;
+  try
+    //ListOfProcesses.LineBreak:=; //do not set, in case WorkerPoolManager is running on Lin
+    ListOfProcesses.Text := Result;
+
+    if AMachineOS = CWinParam then
+    begin
+      for i := 0 to ListOfProcesses.Count - 1 do
+      begin
+        s := ListOfProcesses.Strings[i];
+        if (Pos('TCP    0.0.0.0:', s) > 0) and (Pos(' LISTENING ', s) > 0) then
+        begin
+          s := Copy(s, Pos(':', s) + 1, MaxInt);
+          Port := Copy(s, 1, Pos(' ', s) - 1);
+          PID := Copy(s, Pos('LISTENING', s) + Length('LISTENING') + 1, MaxInt);
+          PID := Trim(PID);
+          FilteredListOfProcesses.Add(Port + '=' + PID);
+        end;
+
+        Result := FilteredListOfProcesses.Text;
+      end;
+    end
+    else
+      if AMachineOS = CLinParam then
+        Result := 'Not implemented yet.';
+  finally
+    ListOfProcesses.Free;
+    FilteredListOfProcesses.Free;
+  end;
 end;
 
 

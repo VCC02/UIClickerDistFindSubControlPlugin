@@ -127,15 +127,6 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     TabOrder = 3
     OnClick = btnAddMachineClick
   end
-  object btnStartTwoBrokers: TButton
-    Left = 528
-    Height = 25
-    Top = 397
-    Width = 139
-    Caption = 'btnStartTwoBrokers'
-    TabOrder = 4
-    OnClick = btnStartTwoBrokersClick
-  end
   object memLog: TMemo
     Left = 0
     Height = 97
@@ -147,7 +138,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     ParentFont = False
     ReadOnly = True
     ScrollBars = ssBoth
-    TabOrder = 5
+    TabOrder = 4
     WordWrap = False
   end
   object btnSendPoolCredentialsToLocal: TButton
@@ -156,8 +147,17 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     Top = 328
     Width = 192
     Caption = 'Send Pool credentials to local'
-    TabOrder = 6
+    TabOrder = 5
     OnClick = btnSendPoolCredentialsToLocalClick
+  end
+  object btnGetListeningProcesses: TButton
+    Left = 556
+    Height = 25
+    Top = 399
+    Width = 148
+    Caption = 'Get listening processes'
+    TabOrder = 6
+    OnClick = btnGetListeningProcessesClick
   end
   object IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool
     MaxThreads = 30
