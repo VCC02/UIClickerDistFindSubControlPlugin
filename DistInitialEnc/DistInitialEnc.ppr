@@ -156,7 +156,6 @@ var
 begin
   FillChar(AResultedHash, 32, 0);  //init with 0, because MD5 returns only 16 bytes
 
-  //if FUseDefaultUIClickerHash then //MD5 is already used by UIClicker for file integrity (ClickerExtraUtils.pas)
   begin
     MD5 := TDCP_md5.Create(nil);
     try
