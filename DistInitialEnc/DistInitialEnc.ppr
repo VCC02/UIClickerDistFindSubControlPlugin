@@ -1,0 +1,420 @@
+{
+    Copyright (C) 2025 VCC
+    creation date: 13 Jun 2025
+    initial release date: 14 Jun 2025
+
+    author: VCC
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+    OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+}
+
+
+program DistInitialEnc;
+
+{$mode objfpc}{$H+}
+
+//ToDo:
+//- check if there is a way to automatically send both 32 and 64-bit dlls
+//-
+
+uses
+  Interfaces, Classes, SysUtils, MemArchive, DllUtils, ClickerClientIntf,
+  DCPrijndael, DCPmd5, DCPsha256;
+
+type
+  THandlers = class
+  private
+    FKey: TArr32OfByte;
+    FIV: TArr32OfByte;
+
+    procedure HandleOnInitEncryption(var AArcKey: TArr32OfByte);
+    procedure HandleOnGetKeyFromPassword(APassword: string; var ArcKey: TArr32OfByte);
+    procedure HandleOnEncryptArchive(AArchiveStream: TMemoryStream);
+    procedure HandleOnEncryptionCleanup;
+    procedure HandleOnCompress(APlainStream, AArchiveStream: TMemoryStream; ACompressionLevel: Integer);
+    procedure HandleOnComputeArchiveHash(AArchiveStream: Pointer; AArchiveStreamSize: Int64; var AResultedHash: TArr32OfByte; AAdditionalInfo: string = '');
+  end;
+
+
+procedure XorBlock(ABlock, AKey: Pointer; ALen: Integer);
+type
+  TEmptyArray = array[0..0] of Byte;
+var
+  i: Integer;
+  PBlock, PKey: ^TEmptyArray;
+begin
+  PBlock := ABlock;
+  PKey := AKey;
+
+  for i := 0 to ALen - 1 do
+    PBlock^[i] := PBlock^[i] xor PKey^[i];
+end;
+
+
+procedure THandlers.HandleOnInitEncryption(var AArcKey: TArr32OfByte);
+begin
+  //
+end;
+
+
+procedure THandlers.HandleOnGetKeyFromPassword(APassword: string; var ArcKey: TArr32OfByte);
+begin
+  //
+end;
+
+
+procedure THandlers.HandleOnEncryptArchive(AArchiveStream: TMemoryStream);
+var
+  AES: TDCP_rijndael;
+  SHA256: TDCP_sha256;
+  i: Integer;
+  InDataXorPrevBlock, HashOfBlock: TArr32OfByte;
+begin
+  AES := TDCP_rijndael.Create(nil);
+  try
+    AES.Init(FKey, Length(FKey) shl 3, nil);
+
+    SHA256 := TDCP_sha256.Create(nil);
+    try
+      SHA256.Init;
+      SHA256.Update(FIV[1], Length(FIV));
+      SHA256.Final(HashOfBlock);
+    finally
+      SHA256.Free;
+    end;
+
+    try
+      for i := 0 to AArchiveStream.Size shr 5 - 1 do
+      begin
+        AES.EncryptECB(Pointer(UInt64(AArchiveStream.Memory) + i shl 5)^, InDataXorPrevBlock[0]);
+        AES.EncryptECB(Pointer(UInt64(AArchiveStream.Memory) + i shl 5 + 16)^, InDataXorPrevBlock[16]);
+
+        XorBlock(@InDataXorPrevBlock, @HashOfBlock, 32);
+
+        SHA256 := TDCP_sha256.Create(nil);
+        try
+          SHA256.Init;
+          SHA256.Update(Pointer(UInt64(AArchiveStream.Memory) + i shl 5)^, 32);
+          SHA256.Final(HashOfBlock);
+        finally
+          SHA256.Free;
+        end;
+
+        Move(InDataXorPrevBlock, Pointer(UInt64(AArchiveStream.Memory) + i shl 5)^, 32);  //update back after computing hash
+      end;
+    finally
+      AES.Burn;
+    end;
+  finally
+    AES.Free;
+  end;
+end;
+
+
+procedure THandlers.HandleOnEncryptionCleanup;
+begin
+  //
+end;
+
+
+procedure THandlers.HandleOnCompress(APlainStream, AArchiveStream: TMemoryStream; ACompressionLevel: Integer);
+//var
+//  Options: TplLzmaOptions;
+begin
+  AArchiveStream.CopyFrom(APlainStream, APlainStream.Size);  // - for debugging - no compression used
+
+  //Options.Algorithm := 2;
+  //Options.DictionarySize := 1048576;
+  //Options.EOS := True;
+  //Options.MatchFinder := 1;
+  //Options.NumBenchMarkPasses := 10;
+  //Options.Fb := 273; // 5;
+  //Options.Lc := 3;
+  //Options.Lp := 0;
+  //Options.Pb := 0;
+  //CompressStreamLzma(APlainStream, AArchiveStream, Options);
+end;
+
+
+procedure THandlers.HandleOnComputeArchiveHash(AArchiveStream: Pointer; AArchiveStreamSize: Int64; var AResultedHash: TArr32OfByte; AAdditionalInfo: string = '');
+var
+  //SHA256: TDCP_sha256;
+  MD5: TDCP_md5;
+begin
+  FillChar(AResultedHash, 32, 0);  //init with 0, because MD5 returns only 16 bytes
+
+  //if FUseDefaultUIClickerHash then //MD5 is already used by UIClicker for file integrity (ClickerExtraUtils.pas)
+  begin
+    MD5 := TDCP_md5.Create(nil);
+    try
+      MD5.Init;
+      MD5.Update(AArchiveStream^, AArchiveStreamSize);
+      MD5.Final(AResultedHash);
+    finally
+      MD5.Free;
+    end;
+    Exit;
+  end;
+
+  //SHA256 := TDCP_sha256.Create(nil);   //This is implemented by the hashing plugin. (it could have been other algorithm)
+  //try
+  //  SHA256.Init;
+  //  SHA256.Update(AArchiveStream^, AArchiveStreamSize);
+  //  SHA256.Final(AResultedHash);
+  //finally
+  //  SHA256.Free;
+  //end;
+end;
+
+
+function ArchivePlugin(APluginFileName, APluginFileNameInsideArchive, AKey, AIV, ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName, AAdditionalInfo: string; AUseCompression, AIsDecDecHash: Boolean; AOutputStream: TMemoryStream): string;
+var
+  MemStream, ArchiveStream: TMemoryStream;
+  FileNameWS, DecryptionPluginNameWS, DecompressionPluginNameWS, HashingPluginNameWS, AdditionalInfoWS: WideString;
+  Response: string;
+  ResLen: Integer;
+  Archive: TMemArchive;
+  SHA256: TDCP_sha256;
+  ArchiveHandlers: THandlers;
+  i: Integer;
+  s: string;
+begin
+  Result := '';
+  if not FileExists(APluginFileName) then
+    Exit;
+
+  ArchiveHandlers := THandlers.Create;
+  try
+    MemStream := TMemoryStream.Create;
+    ArchiveStream := TMemoryStream.Create;
+    Archive := TMemArchive.Create;
+    try
+      SetLength(Response, CMaxSharedStringLength);
+      MemStream.LoadFromFile(APluginFileName);
+
+      if ADecryptionPluginName > '' then
+      begin
+        Archive.OnInitEncryption := @ArchiveHandlers.HandleOnInitEncryption;
+        Archive.OnGetKeyFromPassword := @ArchiveHandlers.HandleOnGetKeyFromPassword;
+        Archive.OnEncryptArchive := @ArchiveHandlers.HandleOnEncryptArchive;
+        Archive.OnEncryptionCleanup := @ArchiveHandlers.HandleOnEncryptionCleanup;
+        Archive.Password := 'dummy';  //setting the password to a value, different than '', is enough to call the encryption handlers
+                                      //however, in this example, this mechanism is not used. The key is hardcoded. (same as in the example plugin)
+        WriteLn('Using archive encryption..');
+      end;
+
+      SHA256 := TDCP_sha256.Create(nil);
+      try
+        SHA256.Init;
+        SHA256.UpdateStr(AKey);
+        SHA256.Final(ArchiveHandlers.FKey);
+      finally
+        SHA256.Free;
+      end;
+
+      SHA256 := TDCP_sha256.Create(nil);
+      try
+        SHA256.Init;
+        SHA256.UpdateStr(AIV);
+        SHA256.Final(ArchiveHandlers.FIV);
+      finally
+        SHA256.Free;
+      end;
+
+      //for debugging:
+      //s := '';
+      //for i := 0 to 31 do
+      //  s := s + IntToHex(ArchiveHandlers.FKey[i]);
+      //
+      //WriteLn('Key: ' + s);
+      //
+      //s := '';
+      //for i := 0 to 31 do
+      //  s := s + IntToHex(ArchiveHandlers.FIV[i]);
+      //
+      //WriteLn(' IV: ' + s);
+
+      if AUseCompression then
+        Archive.OnCompress := @ArchiveHandlers.HandleOnCompress;
+
+      Archive.CompressionLevel := 9 * Ord(AUseCompression);
+
+      Archive.OnComputeArchiveHash := @ArchiveHandlers.HandleOnComputeArchiveHash;
+      Archive.OpenArchive(ArchiveStream, True);
+      try
+        Archive.AddFromStream(APluginFileNameInsideArchive, MemStream);  //this should be .dll
+
+        MemStream.Clear;
+        MemStream.SetSize(32);
+        Move(ArchiveHandlers.FKey, MemStream.Memory^, MemStream.Size);
+        Archive.AddFromStream('Key.txt', MemStream);
+
+        MemStream.Clear;
+        MemStream.SetSize(32);
+        Move(ArchiveHandlers.FIV, MemStream.Memory^, MemStream.Size);
+        Archive.AddFromStream('IV.txt', MemStream);
+
+        MemStream.Clear;
+      finally
+        Archive.CloseArchive;
+      end;
+
+      APluginFileName := APluginFileName + 'arc'; //results .dllarc
+
+      FileNameWS := WideString(ExtractFileName(APluginFileName));
+      DecryptionPluginNameWS := WideString(ADecryptionPluginName);
+      DecompressionPluginNameWS := WideString(ADecompressionPluginName);
+      HashingPluginNameWS := WideString(AHashingPluginName);
+      AdditionalInfoWS := WideString(AAdditionalInfo); //for example a list of compression parameters
+
+      ResLen := SendMemPluginArchiveFileToServer(@FileNameWS[1],
+                                                 @DecryptionPluginNameWS[1],
+                                                 @DecompressionPluginNameWS[1],
+                                                 @HashingPluginNameWS[1],
+                                                 ArchiveStream.Memory,
+                                                 ArchiveStream.Size,
+                                                 Archive.CompressionLevel,
+                                                 @AdditionalInfoWS[1],
+                                                 AIsDecDecHash,
+                                                 @Response[1]);
+      SetLength(Response, ResLen);
+    finally
+      MemStream.Free;
+      ArchiveStream.Free;
+      Archive.Free;
+    end;
+  finally
+    ArchiveHandlers.Free;
+  end;
+
+  Result := Response;
+end;
+
+
+var
+  EncFile: TMemoryStream;
+  ClientFnm, PluginFnm, PluginFnmInsideArchive, UIClickerAddress, UIClickerPort, UIClickerLink, VerificationLink: string;
+  PortNum: Integer;
+  Key, IV, DecryptionPluginName: string;
+begin
+  if ParamCount = 0 then
+  begin
+    WriteLn('Usage: ' + ExtractFileName(ParamStr(0)) + ' <Full path to ClickerClient.dll> <Full path to PluginToBeSent[.dll]> <Destination name of the PluginToBeSent[.dll]> <UIClicker address> <UIClicker port number>');
+    WriteLn;
+    WriteLn('The plugin to be sent is the dll that will be archived and sent to UIClicker.');
+    WriteLn('The destination name is the name that will be given to this plugin (without path), inside the archive and it will be used by UIClicker.');
+    WriteLn('The UIClicker address can be an IP address and the port should be a valid port number, which is used by UIClicker to listen on.');
+    WriteLn('The archive key and the init vector are read from StdIn.');
+    WriteLn;
+  end;
+
+  ClientFnm := Copy(ParamStr(1), 1, 10000);
+  PluginFnm := Copy(ParamStr(2), 1, 10000);
+  PluginFnmInsideArchive := Copy(ParamStr(3), 1, 10000);
+  UIClickerAddress := Copy(ParamStr(4), 1, 100);
+  UIClickerPort := Copy(ParamStr(5), 1, 5);
+
+  if not FileExists(ClientFnm) then
+  begin
+    WriteLn('ClickerClient.dll not found.');
+    Exit;
+  end;
+
+  if not FileExists(PluginFnm) then
+  begin
+    WriteLn('The name of the plugin to be sent is not valid or file not found.');
+    Exit;
+  end;
+
+  if PluginFnmInsideArchive = '' then
+  begin
+    WriteLn('Invalid plugin destination file name.');
+    Exit;
+  end;
+
+  if Trim(UIClickerAddress) = '' then
+  begin
+    WriteLn('Invalid UIClicker address.');
+    Exit;
+  end;
+
+  PortNum := StrToIntDef(UIClickerPort, -1);
+  if (PortNum < 0) or (PortNum > 65534) then
+  begin
+    WriteLn('Invalid UIClicker port.');
+    Exit;
+  end;
+
+  Write('Key=');
+  ReadLn(Key);
+
+  if Key <> '' then
+  begin
+    Write('IV=');
+    ReadLn(IV);
+  end;
+
+  if ExtractFileName(PluginFnm) = 'DistInitialDec.dll' then
+  begin
+    DecryptionPluginName := '';        //The first decryption plugin will have to be sent unencrypted, either by this tool or another.
+    WriteLn('Sending unencrypted...'); //If you want to encrypt DistInitialDec.dll before sending, please mention here another decryption plugin,
+                                       //which will have to be sent (unencrypted) in advance, by another tool like this.
+                                       //The encryption key may even be hardcoded in tool and plugin, or made available by other means.
+  end
+  else
+    DecryptionPluginName := 'DistInitialDec.dll' + 'arc|Mem:\' + 'DistInitialDec.dll';
+
+  EncFile := TMemoryStream.Create;
+  try
+    try
+      if not LoadClickerClient(ClientFnm) then
+      begin
+        WriteLn('Can''t load ClickerClient.dll (expected as the first argument): ' + ParamStr(1));
+        Exit;
+      end;
+
+      try
+        InitClickerClient;
+        UIClickerLink := 'http://' + UIClickerAddress + ':' + UIClickerPort + '/';
+        SetServerAddress(@WideString(UIClickerLink)[1]);
+
+        SetLength(VerificationLink, CMaxSharedStringLength);
+        SetLength(VerificationLink, GetServerAddress(@VerificationLink[1]));
+
+        if VerificationLink <> UIClickerLink then
+        begin
+          WriteLn('Wrong UIClicker address configured in ClickerClient.dll: ' + VerificationLink);
+          Exit;
+        end;
+
+        WriteLn('Sending plugin to ' + UIClickerLink);
+        WriteLn('Response: ' + ArchivePlugin(PluginFnm, PluginFnmInsideArchive, Key, IV, DecryptionPluginName, '', '', '', False, True, EncFile));
+      finally
+        try
+          DoneClickerClient;
+        finally
+          UnLoadClickerClient;
+        end;
+      end;
+    except
+      on E: Exception do
+        WriteLn(E.Message);
+    end;
+  finally
+    EncFile.Free;
+  end;
+end.
+

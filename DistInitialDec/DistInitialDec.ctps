@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="DistInitialDec.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="225"/>
+        <CursorPos X="43" Y="239"/>
+        <UsageCount Value="23"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerActionPlugins.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="28"/>
+        <CursorPos X="3" Y="41"/>
+        <UsageCount Value="34"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="34"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerClient\DllUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="34"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="10"/>
+        <CursorPos Y="30"/>
+        <UsageCount Value="27"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="UIClickerDecryptionExample.ppr"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="176"/>
+        <CursorPos X="32" Y="183"/>
+        <UsageCount Value="31"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcprijndael.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="DCPrijndael"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="36"/>
+        <CursorPos X="3" Y="44"/>
+        <UsageCount Value="16"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpcrypt2.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="DCPcrypt2"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="400"/>
+        <CursorPos X="26" Y="403"/>
+        <UsageCount Value="16"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="DCPblockciphers"/>
+        <EditorIndex Value="5"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="12"/>
+        <CursorPos X="18" Y="35"/>
+        <UsageCount Value="16"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="28">
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcprijndael.pas"/>
+        <Caret Line="44" Column="3" TopLine="36"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="79" Column="68" TopLine="61"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="127" Column="83" TopLine="120"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="460" Column="15" TopLine="448"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="458" Column="22" TopLine="448"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="34" Column="68" TopLine="20"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="79" Column="68" TopLine="57"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="127" Column="83" TopLine="117"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="458" Column="84" TopLine="448"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="34" Column="68" TopLine="26"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="79" Column="68" TopLine="60"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="127" Column="83" TopLine="117"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="458" Column="43" TopLine="451"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="79" Column="68" TopLine="60"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="127" Column="83" TopLine="120"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="458" Column="84" TopLine="451"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <Caret Line="35" Column="18" TopLine="12"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpcrypt2.pas"/>
+        <Caret Line="129" Column="68" TopLine="114"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="157" Column="20" TopLine="123"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="145" Column="29" TopLine="129"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="149" Column="17" TopLine="132"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="33" Column="25" TopLine="22"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="145" Column="45" TopLine="138"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="130" Column="20" TopLine="122"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="103" Column="17" TopLine="84"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="107" Column="42" TopLine="85"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="100" Column="31" TopLine="85"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="183" Column="53" TopLine="178"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="244" Column="87" TopLine="227"/>
+      </Position>
+      <Position>
+        <Filename Value="DistInitialDec.ppr"/>
+        <Caret Line="217" Column="3" TopLine="203"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>
