@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="DistDec.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="187"/>
+        <CursorPos X="45" Y="201"/>
+        <UsageCount Value="40"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerActionPlugins.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="111"/>
+        <CursorPos X="3" Y="124"/>
+        <UsageCount Value="51"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="51"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerClient\DllUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="51"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="103"/>
+        <CursorPos X="59" Y="119"/>
+        <UsageCount Value="44"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="UIClickerDecryptionExample.ppr"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="176"/>
+        <CursorPos X="32" Y="183"/>
+        <UsageCount Value="30"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcprijndael.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="DCPrijndael"/>
+        <EditorIndex Value="5"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="36"/>
+        <CursorPos X="3" Y="44"/>
+        <UsageCount Value="24"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpcrypt2.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="DCPcrypt2"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="400"/>
+        <CursorPos X="4" Y="403"/>
+        <UsageCount Value="24"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_DCP\source\dcpblockciphers.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="DCPblockciphers"/>
+        <EditorIndex Value="6"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="12"/>
+        <CursorPos X="18" Y="35"/>
+        <UsageCount Value="24"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\DistEnc\DistEncDecCommon.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="41" Y="14"/>
+        <UsageCount Value="21"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="29">
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="145" Column="29" TopLine="129"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="149" Column="17" TopLine="132"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="33" Column="25" TopLine="22"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="145" Column="45" TopLine="138"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="130" Column="20" TopLine="122"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="103" Column="17" TopLine="84"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="107" Column="42" TopLine="85"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="100" Column="31" TopLine="85"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="183" Column="53" TopLine="178"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="244" Column="87" TopLine="227"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="215" Column="79" TopLine="202"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="259" Column="33" TopLine="240"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="237" Column="67" TopLine="230"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="252" Column="47" TopLine="247"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="236" Column="71" TopLine="224"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="276" Column="89" TopLine="266"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="237" Column="117" TopLine="230"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="238" Column="30" TopLine="218"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="236" Column="33" TopLine="231"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="239" Column="34" TopLine="231"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <Caret Line="50" Column="22" TopLine="41"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <Caret Line="60" Column="29" TopLine="41"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="239" Column="34" TopLine="231"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <Caret Line="50" Column="29" TopLine="38"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <Caret Line="60" Column="29" TopLine="39"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerPluginInMemFileSystem.pas"/>
+        <Caret Line="121" Column="65" TopLine="109"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="239" Column="72" TopLine="226"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="263" Column="16" TopLine="256"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="42" Column="13" TopLine="26"/>
+      </Position>
+      <Position>
+        <Filename Value="DistDec.ppr"/>
+        <Caret Line="277" Column="16" TopLine="265"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>

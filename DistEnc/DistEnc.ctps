@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="DistEnc.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="391"/>
+        <CursorPos X="113" Y="398"/>
+        <UsageCount Value="39"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="50"/>
+        <CursorPos X="21" Y="57"/>
+        <UsageCount Value="39"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerClient\DllUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="38"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerClient\ClickerClientIntf.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="257"/>
+        <CursorPos X="11" Y="270"/>
+        <UsageCount Value="38"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="38"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerClient\ClickerClientAPI.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="20"/>
+        <CursorPos X="10" Y="30"/>
+        <UsageCount Value="18"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\sysutils\sysstrh.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <UsageCount Value="10"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\win\sysutils.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="SysUtils"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="115"/>
+        <CursorPos X="10" Y="128"/>
+        <UsageCount Value="10"/>
+      </Unit>
+      <Unit>
+        <Filename Value="DistEncDecCommon.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="68" Y="15"/>
+        <UsageCount Value="22"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="29">
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="40" Column="24" TopLine="23"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="41" Column="8" TopLine="29"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="164" Column="33" TopLine="149"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="216" Column="30" TopLine="202"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="84" Column="29" TopLine="77"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="101" Column="27" TopLine="86"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="99" Column="31" TopLine="83"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="109" Column="52" TopLine="89"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="242" Column="30" TopLine="225"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="245" Column="28" TopLine="228"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="255" Column="68" TopLine="242"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="48" Column="41" TopLine="34"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="152" Column="47" TopLine="147"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="255" Column="82" TopLine="244"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="137" Column="85" TopLine="126"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="178" Column="24" TopLine="165"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="224" Column="45" TopLine="217"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="226" Column="36" TopLine="217"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="227" Column="26" TopLine="217"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="229" Column="49" TopLine="217"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="224" Column="32" TopLine="217"/>
+      </Position>
+      <Position>
+        <Filename Value="..\..\MiscUtils\MemArchive.pas"/>
+        <Caret Line="409" Column="25" TopLine="393"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="83" Column="31" TopLine="72"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="100" Column="56" TopLine="89"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="352" Column="40" TopLine="337"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="387" Column="52" TopLine="369"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="388" Column="69" TopLine="372"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="444" Column="45" TopLine="429"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="372" Column="25" TopLine="362"/>
+      </Position>
+      <Position>
+        <Filename Value="DistEnc.ppr"/>
+        <Caret Line="469" Column="39" TopLine="456"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>
