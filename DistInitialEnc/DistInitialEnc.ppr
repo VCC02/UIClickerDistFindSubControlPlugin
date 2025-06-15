@@ -179,7 +179,7 @@ begin
 end;
 
 
-function ArchivePlugin(APluginFileName, APluginFileNameInsideArchive, AKey, AIV, ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName, AAdditionalInfo: string; AUseCompression, AIsDecDecHash: Boolean; AOutputStream: TMemoryStream): string;
+function ArchivePlugin(APluginFileName, APluginFileNameInsideArchive, ATrasmissionKey, ATrasmissionIV, ASubsequentKey, ASubsequentIV, ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName, AAdditionalInfo: string; AUseCompression, AIsDecDecHash: Boolean; AOutputStream: TMemoryStream): string;
 var
   MemStream, ArchiveStream: TMemoryStream;
   FileNameWS, DecryptionPluginNameWS, DecompressionPluginNameWS, HashingPluginNameWS, AdditionalInfoWS: WideString;
@@ -190,6 +190,7 @@ var
   ArchiveHandlers: THandlers;
   i: Integer;
   s: string;
+  SubsequentKeyHash, SubsequentIVHash: TArr32OfByte;
 begin
   Result := '';
   if not FileExists(APluginFileName) then
@@ -218,7 +219,7 @@ begin
       SHA256 := TDCP_sha256.Create(nil);
       try
         SHA256.Init;
-        SHA256.UpdateStr(AKey);
+        SHA256.UpdateStr(ATrasmissionKey);
         SHA256.Final(ArchiveHandlers.FKey);
       finally
         SHA256.Free;
@@ -227,8 +228,26 @@ begin
       SHA256 := TDCP_sha256.Create(nil);
       try
         SHA256.Init;
-        SHA256.UpdateStr(AIV);
+        SHA256.UpdateStr(ATrasmissionIV);
         SHA256.Final(ArchiveHandlers.FIV);
+      finally
+        SHA256.Free;
+      end;
+
+      SHA256 := TDCP_sha256.Create(nil);
+      try
+        SHA256.Init;
+        SHA256.UpdateStr(ASubsequentKey);
+        SHA256.Final(SubsequentKeyHash);
+      finally
+        SHA256.Free;
+      end;
+
+      SHA256 := TDCP_sha256.Create(nil);
+      try
+        SHA256.Init;
+        SHA256.UpdateStr(ASubsequentIV);
+        SHA256.Final(SubsequentIVHash);
       finally
         SHA256.Free;
       end;
@@ -258,12 +277,12 @@ begin
 
         MemStream.Clear;
         MemStream.SetSize(32);
-        Move(ArchiveHandlers.FKey, MemStream.Memory^, MemStream.Size);
+        Move(SubsequentKeyHash, MemStream.Memory^, MemStream.Size);
         Archive.AddFromStream('Key.txt', MemStream);
 
         MemStream.Clear;
         MemStream.SetSize(32);
-        Move(ArchiveHandlers.FIV, MemStream.Memory^, MemStream.Size);
+        Move(SubsequentIVHash, MemStream.Memory^, MemStream.Size);
         Archive.AddFromStream('IV.txt', MemStream);
 
         MemStream.Clear;
@@ -348,7 +367,7 @@ var
   EncFile: TMemoryStream;
   ClientFnm, PluginFnm, PluginFnmInsideArchive, UIClickerAddress, UIClickerPort, UIClickerLink, VerificationLink: string;
   PortNum: Integer;
-  Key, IV, DecryptionPluginName: string;
+  TrasmissionKey, TrasmissionIV, SubsequentKey, SubsequentIV, DecryptionPluginName: string;
 begin
   if ParamCount = 0 then
   begin
@@ -357,7 +376,7 @@ begin
     WriteLn('The plugin to be sent is the dll that will be archived and sent to UIClicker.');
     WriteLn('The destination name is the name that will be given to this plugin (without path), inside the archive and it will be used by UIClicker.');
     WriteLn('The UIClicker address can be an IP address and the port should be a valid port number, which is used by UIClicker to listen on.');
-    WriteLn('The archive key and the init vector are read from StdIn.');
+    WriteLn('The "Trasmission" and "Subsequent" keys and the "Trasmission" and "Subsequent" init vector are read from StdIn.');
     WriteLn;
   end;
 
@@ -394,13 +413,22 @@ begin
     Exit;
   end;
 
-  Write('Key=');
-  ReadLn(Key);
+  Write('Trasmission Key=');
+  ReadLn(TrasmissionKey);
 
-  if Key <> '' then
+  if TrasmissionKey <> '' then
   begin
-    Write('IV=');
-    ReadLn(IV);
+    Write('Trasmission IV=');
+    ReadLn(TrasmissionIV);
+  end;
+
+  Write('Subsequent Key=');
+  ReadLn(SubsequentKey);
+
+  if TrasmissionKey <> '' then
+  begin
+    Write('Subsequent IV=');
+    ReadLn(SubsequentIV);
   end;
 
   if ExtractFileName(PluginFnm) = 'DistInitialDec.dll' then
@@ -437,7 +465,7 @@ begin
         end;
 
         WriteLn('Sending plugin to ' + UIClickerLink);
-        WriteLn('Response: ' + ArchivePlugin(PluginFnm, PluginFnmInsideArchive, Key, IV, DecryptionPluginName, '', '', '', False, True, EncFile));
+        WriteLn('Response: ' + ArchivePlugin(PluginFnm, PluginFnmInsideArchive, TrasmissionKey, TrasmissionIV, SubsequentKey, SubsequentIV, DecryptionPluginName, '', '', '', False, True, EncFile));
       finally
         try
           DoneClickerClient;
