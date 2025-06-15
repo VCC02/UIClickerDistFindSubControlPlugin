@@ -28,7 +28,7 @@ program DistInitialEnc;
 
 //ToDo:
 //- check if there is a way to automatically send both 32 and 64-bit dlls
-//-
+//
 
 uses
   Interfaces, Classes, SysUtils, MemArchive, DllUtils, ClickerClientIntf,
@@ -90,7 +90,7 @@ begin
     SHA256 := TDCP_sha256.Create(nil);
     try
       SHA256.Init;
-      SHA256.Update(FIV[1], Length(FIV));
+      SHA256.Update(FIV, Length(FIV));
       SHA256.Final(HashOfBlock);
     finally
       SHA256.Free;
@@ -303,6 +303,47 @@ begin
 end;
 
 
+procedure LoadSettingsFromCmd(out AClientFnm, APluginFnm, APluginFnmInsideArchive, AUIClickerAddress, AUIClickerPort: string);
+var
+  i: Integer;
+begin
+  i := 1;
+  repeat
+    if ParamStr(i) = '--ClickerClient' then   //set path to ClickerClient.dll
+    begin
+      AClientFnm := Copy(ParamStr(i + 1), 1, 10000);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--PluginToBeSent' then
+    begin
+      APluginFnm := Copy(ParamStr(i + 1), 1, 10000);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--PluginToBeSentDestName' then
+    begin
+      APluginFnmInsideArchive := Copy(ParamStr(i + 1), 1, 10000);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--UIClickerAddress' then
+    begin
+      AUIClickerAddress := Copy(ParamStr(i + 1), 1, 100);
+      Inc(i);
+    end;
+
+    if ParamStr(i) = '--UIClickerPort' then
+    begin
+      AUIClickerPort := IntToStr(StrToIntDef(Copy(ParamStr(i + 1), 1, 5), 5444));
+      Inc(i);
+    end;
+
+    Inc(i);
+  until i >= ParamCount;
+end;
+
+
 var
   EncFile: TMemoryStream;
   ClientFnm, PluginFnm, PluginFnmInsideArchive, UIClickerAddress, UIClickerPort, UIClickerLink, VerificationLink: string;
@@ -311,7 +352,7 @@ var
 begin
   if ParamCount = 0 then
   begin
-    WriteLn('Usage: ' + ExtractFileName(ParamStr(0)) + ' <Full path to ClickerClient.dll> <Full path to PluginToBeSent[.dll]> <Destination name of the PluginToBeSent[.dll]> <UIClicker address> <UIClicker port number>');
+    WriteLn('Usage: ' + ExtractFileName(ParamStr(0)) + ' --ClickerClient <Full path to ClickerClient.dll> --PluginToBeSent <Full path to PluginToBeSent[.dll]> --PluginToBeSentDestName <Destination name of the PluginToBeSent[.dll]> --UIClickerAddress <UIClicker address> --UIClickerPort <UIClicker port number>');
     WriteLn;
     WriteLn('The plugin to be sent is the dll that will be archived and sent to UIClicker.');
     WriteLn('The destination name is the name that will be given to this plugin (without path), inside the archive and it will be used by UIClicker.');
@@ -320,11 +361,7 @@ begin
     WriteLn;
   end;
 
-  ClientFnm := Copy(ParamStr(1), 1, 10000);
-  PluginFnm := Copy(ParamStr(2), 1, 10000);
-  PluginFnmInsideArchive := Copy(ParamStr(3), 1, 10000);
-  UIClickerAddress := Copy(ParamStr(4), 1, 100);
-  UIClickerPort := Copy(ParamStr(5), 1, 5);
+  LoadSettingsFromCmd(ClientFnm, PluginFnm, PluginFnmInsideArchive, UIClickerAddress, UIClickerPort);
 
   if not FileExists(ClientFnm) then
   begin
