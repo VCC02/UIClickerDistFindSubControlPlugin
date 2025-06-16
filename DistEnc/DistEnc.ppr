@@ -183,7 +183,7 @@ begin
 end;
 
 
-function ArchivePlugin(APluginFileName, APluginFileNameInsideArchive, ATrasmissionKey, ATrasmissionIV, ASubsequentKey, ASubsequentIV, ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName, AAdditionalInfo: string; AUseCompression, AIsDecDecHash: Boolean; AOutputStream: TMemoryStream): string;
+function ArchivePlugin(APluginFileName, APluginFileNameInsideArchive, ATrasmissionKey, ATrasmissionIV, ASubsequentKey, ASubsequentIV, ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName, AAdditionalInfo: string; AUseCompression, AIsDecDecHash: Boolean; AAdditionalFiles: TStringList; AOutputStream: TMemoryStream): string;
 var
   MemStream, ArchiveStream: TMemoryStream;
   FileNameWS, DecryptionPluginNameWS, DecompressionPluginNameWS, HashingPluginNameWS, AdditionalInfoWS: WideString;
@@ -289,6 +289,15 @@ begin
         Move(SubsequentIVHash, MemStream.Memory^, MemStream.Size);
         Archive.AddFromStream('IV.txt', MemStream);
 
+        for i := 0 to AAdditionalFiles.Count - 1 do
+        begin
+          MemStream.Clear;
+          MemStream.LoadFromFile(AAdditionalFiles.Strings[i]);
+          MemStream.Position := 0;
+          Archive.AddFromStream(ExtractFileName(AAdditionalFiles.Strings[i]), MemStream); //remove path
+          //Archive.AddFromStream(AAdditionalFiles.Strings[i], MemStream); //The file can be added full path. Then, only the drive letter is replaced by "Mem:".
+        end;
+
         MemStream.Clear;
       finally
         Archive.CloseArchive;
@@ -329,6 +338,7 @@ end;
 procedure LoadSettingsFromCmd(out AClientFnm, APluginFnm, APluginFnmInsideArchive,
                                   ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName,
                                   AUIClickerAddress, AUIClickerPort: string;
+                                  AAdditionalFiles: TStringList;
                               out AIsDecDecHash: Boolean);
 var
   i: Integer;
@@ -391,6 +401,12 @@ begin
       Inc(i);
     end;
 
+    if ParamStr(i) = '--AdditionalFile' then
+    begin
+      AAdditionalFiles.Add(Copy(ParamStr(i + 1), 1, 10000));
+      Inc(i);
+    end;
+
     Inc(i);
   until i >= ParamCount;
 end;
@@ -403,6 +419,8 @@ var
   TrasmissionKey, TrasmissionIV, SubsequentKey, SubsequentIV: string;
   DecryptionPluginName, DecompressionPluginName, HashingPluginName: string;
   IsDecDecHash: Boolean;
+  AdditionalFiles: TStringList;
+  i: Integer;
 begin
   if ParamCount = 0 then
   begin
@@ -416,104 +434,117 @@ begin
     WriteLn('The --DecompressionPluginName parameter is the name of a decryption plugin, used for decrypting what is being sent now. If not provided, no encryption is done.');
     WriteLn('The --HashingPluginName parameter is the name of a decryption plugin, used for decrypting what is being sent now. If not provided, no encryption is done.');
     WriteLn('The --IsDecDecHash parameter, if provided, must be True and it means that the file being sent now, is a DecDecHash plugin, like one of the above. If not, it means it is an ordinary plugin (or other file).');
+    WriteLn('The --AdditionalFile parameter can be provided multiple times, to include additional files to archive.');
     WriteLn;
     Exit;
   end;
 
-  LoadSettingsFromCmd(ClientFnm, PluginFnm, PluginFnmInsideArchive,
-                      DecryptionPluginName, DecompressionPluginName, HashingPluginName,
-                      UIClickerAddress, UIClickerPort, IsDecDecHash);
-
-  if not FileExists(ClientFnm) then
-  begin
-    WriteLn('ClickerClient.dll not found.');
-    Exit;
-  end;
-
-  if not FileExists(PluginFnm) then
-  begin
-    WriteLn('The name of the plugin to be sent is not valid or file not found.');
-    Exit;
-  end;
-
-  if PluginFnmInsideArchive = '' then
-  begin
-    WriteLn('Invalid plugin destination file name.');
-    Exit;
-  end;
-
-  if Trim(UIClickerAddress) = '' then
-  begin
-    WriteLn('Invalid UIClicker address.');
-    Exit;
-  end;
-
-  PortNum := StrToIntDef(UIClickerPort, -1);
-  if (PortNum < 0) or (PortNum > 65534) then
-  begin
-    WriteLn('Invalid UIClicker port.');
-    Exit;
-  end;
-
-  Write('Trasmission Key=');
-  ReadLn(TrasmissionKey);
-
-  if TrasmissionKey <> '' then
-  begin
-    Write('Trasmission IV=');
-    ReadLn(TrasmissionIV);
-  end;
-
-  Write('Subsequent Key=');
-  ReadLn(SubsequentKey);
-
-  if TrasmissionKey <> '' then
-  begin
-    Write('Subsequent IV=');
-    ReadLn(SubsequentIV);
-  end;
-
-  //if (DecryptionPluginName > '') and IsDecDecHash then   //TBD
-  //  DecryptionPluginName := ExtractFileName(DecryptionPluginName) + 'arc|Mem:\' + ExtractFileName(DecryptionPluginName);
-
-  EncFile := TMemoryStream.Create;
+  AdditionalFiles := TStringList.Create;
   try
-    try
-      if not LoadClickerClient(ClientFnm) then
+    LoadSettingsFromCmd(ClientFnm, PluginFnm, PluginFnmInsideArchive,
+                        DecryptionPluginName, DecompressionPluginName, HashingPluginName,
+                        UIClickerAddress, UIClickerPort, AdditionalFiles, IsDecDecHash);
+
+    if not FileExists(ClientFnm) then
+    begin
+      WriteLn('ClickerClient.dll not found.');
+      Exit;
+    end;
+
+    if not FileExists(PluginFnm) then
+    begin
+      WriteLn('The name of the plugin to be sent is not valid or file not found.');
+      Exit;
+    end;
+
+    if PluginFnmInsideArchive = '' then
+    begin
+      WriteLn('Invalid plugin destination file name.');
+      Exit;
+    end;
+
+    if Trim(UIClickerAddress) = '' then
+    begin
+      WriteLn('Invalid UIClicker address.');
+      Exit;
+    end;
+
+    PortNum := StrToIntDef(UIClickerPort, -1);
+    if (PortNum < 0) or (PortNum > 65534) then
+    begin
+      WriteLn('Invalid UIClicker port.');
+      Exit;
+    end;
+
+    for i := 0 to AdditionalFiles.Count - 1 do
+      if not FileExists(AdditionalFiles.Strings[i]) then
       begin
-        WriteLn('Can''t load ClickerClient.dll (expected as the first argument): ' + ParamStr(1));
+        WriteLn('File not found: ' + AdditionalFiles.Strings[i]);
         Exit;
       end;
 
+    Write('Trasmission Key=');
+    ReadLn(TrasmissionKey);
+
+    if TrasmissionKey <> '' then
+    begin
+      Write('Trasmission IV=');
+      ReadLn(TrasmissionIV);
+    end;
+
+    Write('Subsequent Key=');
+    ReadLn(SubsequentKey);
+
+    if TrasmissionKey <> '' then
+    begin
+      Write('Subsequent IV=');
+      ReadLn(SubsequentIV);
+    end;
+
+    //if (DecryptionPluginName > '') and IsDecDecHash then   //TBD
+    //  DecryptionPluginName := ExtractFileName(DecryptionPluginName) + 'arc|Mem:\' + ExtractFileName(DecryptionPluginName);
+
+    EncFile := TMemoryStream.Create;
+    try
       try
-        InitClickerClient;
-        UIClickerLink := 'http://' + UIClickerAddress + ':' + UIClickerPort + '/';
-        SetServerAddress(@WideString(UIClickerLink)[1]);
-
-        SetLength(VerificationLink, CMaxSharedStringLength);
-        SetLength(VerificationLink, GetServerAddress(@VerificationLink[1]));
-
-        if VerificationLink <> UIClickerLink then
+        if not LoadClickerClient(ClientFnm) then
         begin
-          WriteLn('Wrong UIClicker address configured in ClickerClient.dll: ' + VerificationLink);
+          WriteLn('Can''t load ClickerClient.dll (expected as the first argument): ' + ParamStr(1));
           Exit;
         end;
 
-        WriteLn('Sending plugin to ' + UIClickerLink);
-        WriteLn('Response: ' + ArchivePlugin(PluginFnm, PluginFnmInsideArchive, TrasmissionKey, TrasmissionIV, SubsequentKey, SubsequentIV, DecryptionPluginName, DecompressionPluginName, HashingPluginName, '', DecompressionPluginName > '', IsDecDecHash, EncFile));
-      finally
         try
-          DoneClickerClient;
+          InitClickerClient;
+          UIClickerLink := 'http://' + UIClickerAddress + ':' + UIClickerPort + '/';
+          SetServerAddress(@WideString(UIClickerLink)[1]);
+
+          SetLength(VerificationLink, CMaxSharedStringLength);
+          SetLength(VerificationLink, GetServerAddress(@VerificationLink[1]));
+
+          if VerificationLink <> UIClickerLink then
+          begin
+            WriteLn('Wrong UIClicker address configured in ClickerClient.dll: ' + VerificationLink);
+            Exit;
+          end;
+
+          WriteLn('Sending plugin to ' + UIClickerLink);
+          WriteLn('Response: ' + ArchivePlugin(PluginFnm, PluginFnmInsideArchive, TrasmissionKey, TrasmissionIV, SubsequentKey, SubsequentIV, DecryptionPluginName, DecompressionPluginName, HashingPluginName, '', DecompressionPluginName > '', IsDecDecHash, AdditionalFiles, EncFile));
         finally
-          UnLoadClickerClient;
+          try
+            DoneClickerClient;
+          finally
+            UnLoadClickerClient;
+          end;
         end;
+      except
+        on E: Exception do
+          WriteLn(E.Message);
       end;
-    except
-      on E: Exception do
-        WriteLn(E.Message);
+    finally
+      EncFile.Free;
     end;
   finally
-    EncFile.Free;
+    AdditionalFiles.Free;
   end;
 end.
 
