@@ -226,9 +226,9 @@ const
   CIVFileName: string = 'Mem:\IV.txt';
 var
   PluginInMemFS: TPluginInMemFileSystem;
-  i: Integer;
-  s: string;
-  TempFileSize: Integer;
+  //i: Integer;
+  //s: string;
+  //TempFileSize: Integer;
 begin
   Result := True;
   FKeySet := False;  //init also here
@@ -238,34 +238,36 @@ begin
   try
     PluginInMemFS := TPluginInMemFileSystem.Create;
     try
-      try
-        TempFileSize := PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, CKeyFileName);
-      except
-        on E: Exception do
-        begin
-          AOnActionPlugin_AddToLog(PChar('Ex on GetFileSize_1: ' + E.Message));
-          TempFileSize := -1; //in case the file is not found
-        end;
-      end;
+      //try
+      //  TempFileSize := PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, CKeyFileName);
+      //except
+      //  on E: Exception do
+      //  begin
+      //    AOnActionPlugin_AddToLog(PChar('Ex on GetFileSize_1: ' + E.Message));
+      //    TempFileSize := -1; //in case the file is not found
+      //  end;
+      //end;
 
-      if TempFileSize > -1 then //if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, CKeyFileName) then  //there seems to be a bug when calling FileExistsInMem, because it throws AV
+      //if TempFileSize > -1 then //if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, CKeyFileName) then  //there seems to be a bug when calling FileExistsInMem, because it throws AV  - probably, it was from a memory overwrite in ProcessMemoryContent above
+      if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, CKeyFileName) then
       begin
         FKeySet := True;
         //read key from file
         SetLength(FKey, PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, CKeyFileName));
         PluginInMemFS.LoadFileFromMem(AOnActionPlugin_InMemFS, CKeyFileName, @FKey[1]);
 
-        try
-          TempFileSize := PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, CIVFileName);
-        except
-          on E: Exception do
-          begin
-            AOnActionPlugin_AddToLog(PChar('Ex on GetFileSize_2: ' + E.Message));
-            TempFileSize := -1; //in case the file is not found
-          end;
-        end;
+        //try
+        //  TempFileSize := PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, CIVFileName);
+        //except
+        //  on E: Exception do
+        //  begin
+        //    AOnActionPlugin_AddToLog(PChar('Ex on GetFileSize_2: ' + E.Message));
+        //    TempFileSize := -1; //in case the file is not found
+        //  end;
+        //end;
 
-        if TempFileSize > -1 then //if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, CIVFileName) then     //see above
+        //if TempFileSize > -1 then //if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, CIVFileName) then     //see above
+        if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, CIVFileName) then
         begin
           //read IV from file
           SetLength(FIV, PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, CIVFileName));
