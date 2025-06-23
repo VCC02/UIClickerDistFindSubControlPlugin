@@ -21,3 +21,5 @@ https://github.com/VCC02/MiscUtils
 https://github.com/VCC02/UIClicker
 
 https://github.com/VCC02/MQTTClient
+
+![alt text](https://github.com/VCC02/UIClickerDistFindSubControlPlugin/blob/master/Doc/DistSch.png?raw=true)
