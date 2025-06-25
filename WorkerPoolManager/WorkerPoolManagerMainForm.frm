@@ -57,13 +57,13 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
         Width = 100
       end    
       item
-        MinWidth = 100
+        MinWidth = 300
         Position = 4
         Text = 'State'
-        Width = 100
+        Width = 300
       end>
     Header.Height = 23
-    Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible]
     Header.Style = hsFlatButtons
     TabOrder = 1
     TreeOptions.SelectionOptions = [toFullRowSelect]

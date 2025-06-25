@@ -341,4 +341,12 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Left = 911
     Top = 221
   end
+  object IdHTTPServer2: TIdHTTPServer
+    Bindings = <>
+    OnConnect = IdHTTPServer2Connect
+    OnException = IdHTTPServer2Exception
+    OnCommandGet = IdHTTPServer2CommandGet
+    Left = 984
+    Top = 144
+  end
 end

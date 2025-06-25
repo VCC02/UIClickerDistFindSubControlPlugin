@@ -54,6 +54,7 @@ type
     IdDecoderMIME1: TIdDecoderMIME;
     IdHTTP1: TIdHTTP;
     IdHTTPServer1: TIdHTTPServer;
+    IdHTTPServer2: TIdHTTPServer;
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdTCPClient1: TIdTCPClient;
     imgFindSubControlBackground: TImage;
@@ -86,6 +87,11 @@ type
       ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
     procedure IdHTTPServer1Connect(AContext: TIdContext);
     procedure IdHTTPServer1Exception(AContext: TIdContext; AException: Exception
+      );
+    procedure IdHTTPServer2CommandGet(AContext: TIdContext;
+      ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+    procedure IdHTTPServer2Connect(AContext: TIdContext);
+    procedure IdHTTPServer2Exception(AContext: TIdContext; AException: Exception
       );
     procedure lbeUIClickerPortChange(Sender: TObject);
     procedure tmrConnectTimer(Sender: TObject);
@@ -1983,6 +1989,18 @@ begin
           AddToLog(ParamStr(i));
     end;
 
+    if ParamStr(i) = '--SetMonitoringPort' then
+    begin
+      IdHTTPServer2.DefaultPort := StrToIntDef(ParamStr(i + 1), 33883);
+      AddToLog(ParamStr(i) + ' ' + IntToStr(IdHTTPServer2.DefaultPort));
+      try
+        IdHTTPServer2.Active := True;    //logging later
+      except
+      end;
+
+      Inc(i);
+    end;
+
     {$IFDEF TestBuild}
       if ParamStr(i) = '--SetReportedOS' then
       begin
@@ -2005,13 +2023,14 @@ begin
       AddToLog('To set the port the broker is listening on, use  --SetBrokerPort <Port>');
       AddToLog('To set the port UIClicker is listening on, use  --SetUIClickerPort <Port>');
       AddToLog('To set the full file name with the broker credentials, use  --SetBrokerCredFile <FullPathToFilename>. The file format is ini, with "Username" and "Password" keys under the "Credentials" section (no quotes). Default file is up.txt, near this exe.');
-      AddToLog('To set the broker username, instead of readinging it from credentials file, use   --SetBrokerUser <username>. This is used if the credentials file does not exist.');
-      AddToLog('To set the broker password, instead of readinging it from credentials file, use   --SetBrokerPassword <username>. This is used if the credentials file does not exist.');
+      AddToLog('To set the broker username, instead of readinging it from credentials file, use  --SetBrokerUser <username>. This is used if the credentials file does not exist.');
+      AddToLog('To set the broker password, instead of readinging it from credentials file, use  --SetBrokerPassword <username>. This is used if the credentials file does not exist.');
       AddToLog('To skip saving current settings to ini, use  --SkipSavingIni Yes');
       AddToLog('To set the worker extra name, use  --SetWorkerExtraName <Name>. This name is reported in plugin and can be used to further identify the worker. By default, this name is a combination of multiple timestamp and random values.');
       AddToLog('To set the worker extra caption, use  --SetWorkerExtraCaption <Caption>. This caption is concatenated (with a dash) to the existing window caption. It is useful to identify the window, by a master UIClicker, when arranging the windows on desktop.');
       AddToLog('To set the reported operating sytem, use  --SetReportedOS <OS>. This value is sent to the plugin and is available in test builds only.');
       AddToLog('To set the reported fonts, instead of the available sytem fonts, use  --SetReportedFonts <comma-separated list of font names>. This value is sent to the plugin and is available in test builds only.');
+      AddToLog('To set the monitoring port, used to identify this application, use  --SetMonitoringPort <Port>');
     end;
 
     Inc(i);
@@ -2301,6 +2320,31 @@ begin
 end;
 
 
+procedure TfrmFindSubControlWorkerMain.IdHTTPServer2CommandGet(
+  AContext: TIdContext; ARequestInfo: TIdHTTPRequestInfo;
+  AResponseInfo: TIdHTTPResponseInfo);
+begin
+  //
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.IdHTTPServer2Connect(AContext: TIdContext);
+begin
+  AContext.Connection.Socket.ReadTimeout := 10000;   //if no bytes are received in 10s, then close the connection
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.IdHTTPServer2Exception(
+  AContext: TIdContext; AException: Exception);
+begin
+  try
+    if AException.Message <> 'Connection Closed Gracefully.' then
+      //AddToLogFromThread('Server exception: ' + AException.Message);
+  except
+  end;
+end;
+
+
 procedure TfrmFindSubControlWorkerMain.lbeUIClickerPortChange(Sender: TObject);
 begin
   try
@@ -2487,6 +2531,11 @@ begin
   end
   else
     AddToLog('Password file not found. Using empty password, or expecting credentials from command line..');
+
+  if IdHTTPServer2.Active then
+    AddToLog('Listening on port ' + IntToStr(IdHTTPServer2.DefaultPort) + ' for monitoring.')
+  else
+    AddToLog('Can''t listen on port ' + IntToStr(IdHTTPServer2.DefaultPort) + ' for monitoring.');
 
   {$IFDEF UsingDynTFT}
     MM_Init;

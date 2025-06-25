@@ -163,11 +163,6 @@ type
     function StartUIClickerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
     function StartWorkerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
 
-    function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
-    function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
-    function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): Boolean;
-    function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
-
     procedure StartBrokerApp(var AApp: TRunningApp; AMachineAddress: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
     procedure StartWorkerApp(var AApp: TRunningApp; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word);
     procedure StartUIClickerApp(var AApp: TRunningApp; AMachineAddress: string);
@@ -175,6 +170,11 @@ type
     procedure InitBrokersToBeRunning(AMachineNodeData: PMachineRec);
     procedure InitWorkersToBeRunning(AMachineNodeData: PMachineRec);
     procedure InitUIClickersToBeRunning(AMachineNodeData: PMachineRec);
+
+    function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
+    function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
+    function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): Boolean;
+    function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
     procedure RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
   public
@@ -193,6 +193,9 @@ const
 
   CUIClickerPortOffset = 20000; //This value is added to a worker port, to get the port UIClicker is listening on.
                                 //For example, if a worker listens on 12345, its UIClicker listens on 32345.
+  CWorkerMonitoringOffset = 120;  //This value is added to a UIClicker port, on which a worker is listening on.
+                                  //This is used for getting the list of apps listening on ports.
+                                  //If more than 120 ports are used from UIClickers, then please increase this number.
 
 var
   frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain;
@@ -236,6 +239,7 @@ end;
 
 procedure TfrmWorkerPoolManagerMain.FormCreate(Sender: TObject);
 begin
+  GeneralConnectTimeout := 500; //0.5s should be enough on local host
   vstMachines.NodeDataSize := SizeOf(TMachineRec);
   tmrStartup.Enabled := True;
 end;
@@ -726,8 +730,8 @@ begin
       AApp.NextState := SMonitorStatus;
 
     SMonitorStatus:
-      if AApp.StartedCount < 1 then   //a new logic is required
-        AApp.NextState := SStartRemoteApps
+      if AApp.StartedCount < 1 then         //a new logic is required
+        AApp.NextState := SStartRemoteApps  //Call a function, to get the list of running processes. If this app is not running, then run it.
       else
         AApp.NextState := SMonitorStatus;  //another state is required here, to wait (e.g. 10s) before the next call to GetListOfAppsWhichHaveToBeStarted
 
@@ -738,7 +742,10 @@ begin
       AApp.NextState := SWaitForRemoteApps;
 
     SWaitForRemoteApps:
-      AApp.NextState := SMonitorStatus;
+      if GetTickCount64 - AApp.StartedAt > 10000 then
+        AApp.NextState := SMonitorStatus
+      else
+        AApp.NextState := SWaitForRemoteApps;
   end;
 
   AApp.State := AApp.NextState;
@@ -1113,6 +1120,8 @@ begin                                                                           
                                  IntToStr(ABrokerPort) + #4#5 +
                                  '--SetUIClickerPort' + #4#5 +
                                  IntToStr(AUIClickerPort) + #4#5 +
+                                 '--SetMonitoringPort' + #4#5 +
+                                 IntToStr(AUIClickerPort + CWorkerMonitoringOffset) + #4#5 +
                                  '--SetWorkerExtraCaption' + #4#5 +
                                  AWorkerExtraCaption + #4#5 +
                                  '--SkipSavingIni' + #4#5 +
