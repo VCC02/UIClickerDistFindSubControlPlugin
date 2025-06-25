@@ -1750,6 +1750,7 @@ begin
             end; //SuccessfullyDecoded
           end;
         except
+          Sleep(1);
         end;
 
         //Inc(ReadCount);
