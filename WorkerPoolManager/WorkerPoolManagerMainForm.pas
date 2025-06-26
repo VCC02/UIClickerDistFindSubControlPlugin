@@ -966,6 +966,7 @@ var
   ExecAppOptions: TClkExecAppOptions;
   PluginOptions: TClkPluginOptions;
   j: Integer;
+  ExecResults: TStringList;
 begin
   Result := '';
 
@@ -975,20 +976,29 @@ begin
                                   '$ConfFile$' + #13#10 +
                                   //'$BrokerUsername$' + #13#10 +   //for debugging only
                                   //'$BrokerPassword$' + #13#10 +   //for debugging only
-                                  '$WorkerCount$' + #13#10;
+                                  '$WorkerCount$' + #13#10 +
+                                  '$ExecAction_Err$' + #13#10 +
+                                  '$PluginError$' + #13#10 +
+                                  '$ExecAction_StdOut$' + #13#10;
 
   SetVarOptions.ListOfVarValues := ABrokerPort + #13#10 +
                                    '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\pp_' + ABrokerPort + '.txt' + #13#10 +
                                    '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf' + #13#10 +
                                    //ABrokerUsername + #13#10 +   //for debugging only
                                    //ABrokerPassword + #13#10 +   //for debugging only
-                                   IntToStr(Length(AWorkerClickerPairs)) + #13#10;
+                                   IntToStr(Length(AWorkerClickerPairs)) + #13#10 +
+                                   '' + #13#10 +
+                                   '' + #13#10 +
+                                   '' + #13#10;
 
   SetVarOptions.ListOfVarEvalBefore := '0' + #13#10 +
                                        '1' + #13#10 +
                                        '1' + #13#10 +
                                        //'0' + #13#10 +  //for debugging only
                                        //'0' + #13#10 +  //for debugging only
+                                       '0' + #13#10 +
+                                       '0' + #13#10 +
+                                       '0' + #13#10 +
                                        '0' + #13#10;
 
   //for j := 0 to Length(AWorkerClickerPairs) - 1 do     //for debugging only
@@ -1026,11 +1036,35 @@ begin
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
   try
-    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
-    //AddToLog('Creating pp file: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
+    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run passwd for plugin', 5000, False);
+    AddToLog('Creating pp file for plugin: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
   except
     on E: Exception do
-      AddToLog('Ex on creating pp file: ' + E.Message);
+      AddToLog('Ex on creating pp file for plugin: ' + E.Message);
+  end;
+
+  ExecResults := TStringList.Create;
+  try
+    ExecResults.Text := FastReplace_87ToReturn(Result);
+    if ExecResults.Values['$ExecAction_Err$'] <> '' then
+    begin
+      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$PluginError$'] <> '' then
+    begin
+      Result := '$PluginError$=' + ExecResults.Values['$PluginError$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
+    begin
+      Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
+      Exit;
+    end;
+  finally
+    ExecResults.Free;
   end;
 
   //this for loop requires the above setting other fields from the ExecAppOptions structure
@@ -1042,11 +1076,35 @@ begin
                                  AWorkerClickerPairs[j].Worker.BrokerPassword;
 
     try
-      Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
-      AddToLog('Creating pp file: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
+      Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run passwd for worker[' + IntToStr(j) + ']', 5000, False);
+      AddToLog('Creating pp file for worker: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
     except
       on E: Exception do
-        AddToLog('Ex on creating pp file: ' + E.Message);
+        AddToLog('Ex on creating pp file for worker: ' + E.Message);
+    end;
+
+    ExecResults := TStringList.Create;
+    try
+      ExecResults.Text := FastReplace_87ToReturn(Result);
+      if ExecResults.Values['$ExecAction_Err$'] <> '' then
+      begin
+        Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+        Exit;
+      end;
+
+      if ExecResults.Values['$PluginError$'] <> '' then
+      begin
+        Result := '$PluginError$=' + ExecResults.Values['$PluginError$'];
+        Exit;
+      end;
+
+      if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
+      begin
+        Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
+        Exit;
+      end;
+    finally
+      ExecResults.Free;
     end;
   end; //for j
 
@@ -1059,6 +1117,24 @@ begin
   except
     on E: Exception do
       AddToLog('Ex on running plugin for setting broker params before starting broker: ' + E.Message);
+  end;
+
+  ExecResults := TStringList.Create;
+  try
+    ExecResults.Text := FastReplace_87ToReturn(Result);
+    if ExecResults.Values['$ExecAction_Err$'] <> '' then
+    begin
+      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$PluginError$'] <> '' then
+    begin
+      Result := '$PluginError$=' + ExecResults.Values['$PluginError$'];
+      Exit;
+    end;
+  finally
+    ExecResults.Free;
   end;
 
   ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto.exe';
@@ -1075,6 +1151,24 @@ begin
   except
     on E: Exception do
       AddToLog('Ex on starting broker: ' + E.Message);
+  end;
+
+  ExecResults := TStringList.Create;
+  try
+    ExecResults.Text := FastReplace_87ToReturn(Result);
+    if ExecResults.Values['$ExecAction_Err$'] <> '' then
+    begin
+      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
+    begin
+      Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
+      Exit;
+    end;
+  finally
+    ExecResults.Free;
   end;
 end;
 
