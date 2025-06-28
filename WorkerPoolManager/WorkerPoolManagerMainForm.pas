@@ -156,6 +156,8 @@ type
     procedure vstMachinesGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
   private
+    FCmdPortNumber: string;
+
     function GetCredentialsFile(var AAppPool: TAppPool): string;
     function ProcessCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
@@ -240,6 +242,8 @@ end;
 procedure TfrmWorkerPoolManagerMain.FormCreate(Sender: TObject);
 begin
   GeneralConnectTimeout := 500; //0.5s should be enough on local host
+  FCmdPortNumber := '5444';
+
   vstMachines.NodeDataSize := SizeOf(TMachineRec);
   tmrStartup.Enabled := True;
 end;
@@ -351,7 +355,7 @@ begin
   for i := 0 to Length(AMachineNodeData^.AppsToBeRunning) - 1 do     //broker(s)
   begin                                  //set all these, even if AMachineNodeData^.AppsToBeRunning[i].HasBroker is False
     AMachineNodeData^.AppsToBeRunning[i].Broker.Port := IntToStr(spnedtMinBrokerPort.Value + i); //base port + app index
-    AMachineNodeData^.AppsToBeRunning[i].Broker.Address := '127.0.0.1';
+    AMachineNodeData^.AppsToBeRunning[i].Broker.Address := AMachineNodeData^.Address;
     AMachineNodeData^.AppsToBeRunning[i].Broker.State := SInit;//arUnknown;
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedAt := 0;
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedCount := 0;
@@ -380,7 +384,7 @@ begin
     begin
       if AMachineNodeData^.MachineOS = mosWin then
       begin
-        AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address := '127.0.0.1'; //just connect to the same machine
+        AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Address := AMachineNodeData^.AppsToBeRunning[i].Broker.Address; //just connect to the same machine
 
         if spnedtBrokerCountPerMachine.Value > 0 then
           AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port := AMachineNodeData^.AppsToBeRunning[i].Broker.Port //0000, 1111 etc
@@ -418,7 +422,7 @@ begin
     for j := 0 to Length(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do //UIClickers
     begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port := IntToStr(StrToIntDef(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.Port, 0) + CUIClickerPortOffset + i * Length(AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs) + j);
-      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address := '127.0.0.1';
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address := AMachineNodeData^.AppsToBeRunning[i].Broker.Address;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.State := SInit;//arUnknown;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedAt := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount := 0;
@@ -644,7 +648,7 @@ procedure TfrmWorkerPoolManagerMain.StartBrokerApp(var AApp: TRunningApp; AMachi
 begin
   Inc(AApp.StartedCount);
   AApp.StartedAt := GetTickCount64;
-  AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, '5444', AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
+  AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
   Sleep(250);
 end;
 
@@ -656,7 +660,7 @@ begin
     Inc(AApp.StartedCount);
     AApp.StartedAt := GetTickCount64;
     AApp.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineAddress,
-                                                       '5444',
+                                                       FCmdPortNumber,
                                                        AWorkerExtraCaption,
                                                        AApp.Address,
                                                        StrToIntDef(AApp.Port, 1183),
@@ -679,7 +683,7 @@ procedure TfrmWorkerPoolManagerMain.StartUIClickerApp(var AApp: TRunningApp; AMa
 begin
   Inc(AApp.StartedCount);
   AApp.StartedAt := GetTickCount64;
-  AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, '5444', StrToIntDef(AApp.Port, 1183)); //UIClicker will listen on BrokerPort+20000
+  AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, FCmdPortNumber, StrToIntDef(AApp.Port, 1183)); //UIClicker will listen on BrokerPort+20000
   Sleep(250);
 end;
 
@@ -758,7 +762,7 @@ begin
         AApp.NextState := SMonitorStatus;
         //dbg:
         //if AAppType = atWorker then
-        //  if FindWorkerStatusConnected(AMachineAddress, '5444', CWinParam, AWorkerExtraCaption) then
+        //  if FindWorkerStatusConnected(AMachineAddress, FCmdPortNumber, CWinParam, AWorkerExtraCaption) then
         //    ;
       end
       else
@@ -918,8 +922,19 @@ end;
 
 procedure TfrmWorkerPoolManagerMain.btnGetListeningProcessesClick(
   Sender: TObject);
+var
+  Node: PVirtualNode;
+  NodeData: PMachineRec;
 begin
-  AddToLog(#13#10 + GetListOfListeningAppsOnRemoteMachine('127.0.0.1', '5444', CWinParam));
+  Node := vstMachines.GetFirst;
+  if Node = nil then
+  begin
+    MessageBoxFunction('Please select a machine in list.', PChar(Caption), 0);
+    Exit;
+  end;
+
+  NodeData := vstMachines.GetNodeData(Node);
+  AddToLog(#13#10 + GetListOfListeningAppsOnRemoteMachine(NodeData^.Address, FCmdPortNumber, CWinParam));
 end;
 
 
@@ -959,7 +974,7 @@ begin
   begin
     AddToLog('Please add a machine first, in order to send proper content.');
 
-    Res := SendPoolCredentials('127.0.0.1', '5444', 'Dummy_UserName', 'Dummy_Password');
+    Res := SendPoolCredentials('127.0.0.1', FCmdPortNumber, 'Dummy_UserName', 'Dummy_Password');
     AddToLog('Sending dummy pool credentials result: ' + Res);
 
     Exit;
@@ -969,7 +984,7 @@ begin
 
   if Length(NodeData^.AppsToBeRunning) > 0 then
   begin
-    Res := SendPoolCredentials('127.0.0.1', '5444', NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
+    Res := SendPoolCredentials(NodeData^.Address, FCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
     AddToLog('Sending pool credentials result: ' + Res);
   end
   else

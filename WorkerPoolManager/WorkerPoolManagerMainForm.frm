@@ -153,6 +153,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   object btnGetListeningProcesses: TButton
     Left = 556
     Height = 25
+    Hint = 'Get processes from selected machine.'
     Top = 399
     Width = 148
     Caption = 'Get listening processes'
