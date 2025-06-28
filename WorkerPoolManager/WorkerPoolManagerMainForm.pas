@@ -173,7 +173,7 @@ type
 
     function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
-    function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): Boolean;
+    function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string): Boolean;
     function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
     procedure RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
@@ -731,7 +731,18 @@ begin
 
     SMonitorStatus:
       if AApp.StartedCount < 1 then         //a new logic is required
-        AApp.NextState := SStartRemoteApps  //Call a function, to get the list of running processes. If this app is not running, then run it.
+      begin
+        case AAppType of                    //Call a function, to get the list of running processes. If this app is not running, then run it.
+          atBroker:
+            AApp.NextState := SStartRemoteApps;
+
+          atWorker:
+            AApp.NextState := SStartRemoteApps;
+
+          atUIClicker:
+            AApp.NextState := SStartRemoteApps;
+        end;
+      end
       else
         AApp.NextState := SMonitorStatus;  //another state is required here, to wait (e.g. 10s) before the next call to GetListOfAppsWhichHaveToBeStarted
 
@@ -743,7 +754,13 @@ begin
 
     SWaitForRemoteApps:
       if GetTickCount64 - AApp.StartedAt > 10000 then
-        AApp.NextState := SMonitorStatus
+      begin
+        AApp.NextState := SMonitorStatus;
+        //dbg:
+        //if AAppType = atWorker then
+        //  if FindWorkerStatusConnected(AMachineAddress, '5444', CWinParam, AWorkerExtraCaption) then
+        //    ;
+      end
       else
         AApp.NextState := SWaitForRemoteApps;
   end;
@@ -1336,7 +1353,7 @@ end;
 
 
 //It works on Win only machines, because of the UIClicker interaction. Eventually, this may be replaced by a client-server approach.
-function TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): Boolean;  //code version of FindWorkerStatusConnected.clktmpl
+function TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string): Boolean;  //code version of FindWorkerStatusConnected.clktmpl
 var
   FindControl_FindWorker: TClkFindControlOptions;
   WindowOperations_BringToFront: TClkWindowOperationsOptions;
@@ -1344,15 +1361,42 @@ var
   FindSubControl_FindStatusConnected: TClkFindSubControlOptions;
 
   Response: string;
+  ResultStr: TStringList;
 begin
   GetDefaultPropertyValues_FindControl(FindControl_FindWorker);
-  FindControl_FindWorker.MatchCriteria.SearchForControlMode := sfcmFindWindow;
-  FindControl_FindWorker.MatchText := 'FindSubControl Worker - $ExtraWorkerName$';
+  FindControl_FindWorker.MatchCriteria.SearchForControlMode := sfcmEnumWindows;
+  FindControl_FindWorker.MatchText := 'FindSubControl Worker - ' + AWorkerExtraCaption;   // $ExtraWorkerName$
   FindControl_FindWorker.MatchClassName := 'Window';
   Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker', 5000, CREParam_FileLocation_ValueDisk);
 
+  ResultStr := TStringList.Create;
+  try
+    ResultStr.Text := FastReplace_87ToReturn(Response);
+    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Result then
+    begin
+      AddToLog('Find Worker: ' + ResultStr.Values['$ExecAction_Err$']);
+      Exit;
+    end;
+  finally
+    ResultStr.Free;
+  end;
+
   GetDefaultPropertyValues_WindowOperations(WindowOperations_BringToFront);
   Response := ExecuteWindowOperationsAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), WindowOperations_BringToFront);
+
+  ResultStr := TStringList.Create;
+  try
+    ResultStr.Text := FastReplace_87ToReturn(Response);
+    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Result then
+    begin
+      AddToLog('Bring to front: ' + ResultStr.Values['$ExecAction_Err$']);
+      Exit;
+    end;
+  finally
+    ResultStr.Free;
+  end;
 
   GetDefaultPropertyValues_FindControl(FindControl_FindMQTTGroupBox);
   FindControl_FindMQTTGroupBox.MatchText := 'MQTT';
@@ -1365,6 +1409,19 @@ begin
   FindControl_FindMQTTGroupBox.InitialRectangle.BottomOffset :='289';
   FindControl_FindMQTTGroupBox.UseWholeScreen := False;
   Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find MQTT GroupBox', 3000, CREParam_FileLocation_ValueDisk);
+
+  ResultStr := TStringList.Create;
+  try
+    ResultStr.Text := FastReplace_87ToReturn(Response);
+    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Result then
+    begin
+      AddToLog('Find MQTT GroupBox: ' + ResultStr.Values['$ExecAction_Err$']);
+      Exit;
+    end;
+  finally
+    ResultStr.Free;
+  end;
 
   GetDefaultPropertyValues_FindSubControl(FindSubControl_FindStatusConnected);
   FindSubControl_FindStatusConnected.MatchCriteria.WillMatchBitmapText := True;
@@ -1413,6 +1470,19 @@ begin
   FindSubControl_FindStatusConnected.CachedControlTop := '';
   FindSubControl_FindStatusConnected.MatchPrimitiveFiles := '';
   Response := ExecuteFindSubControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindSubControl_FindStatusConnected, 'Find status "Connected"', 10000, CREParam_FileLocation_ValueDisk);
+
+  ResultStr := TStringList.Create;
+  try
+    ResultStr.Text := FastReplace_87ToReturn(Response);
+    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Result then
+    begin
+      AddToLog('Find status "Connected": ' + ResultStr.Values['$ExecAction_Err$']);
+      Exit;
+    end;
+  finally
+    ResultStr.Free;
+  end;
 end;
 
 
