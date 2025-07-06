@@ -238,6 +238,7 @@ begin
       if PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, ACredentialsFilePath) then
       begin
         Content.SetSize(PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, ACredentialsFilePath));
+        AddToLog('Credentials file size: ' + IntToStr(Content.Size));
         PluginInMemFS.LoadFileFromMem(AOnActionPlugin_InMemFS, ACredentialsFilePath, Content.Memory);
 
         Ini := TClkIniReadonlyFile.Create(Content);
@@ -1571,6 +1572,8 @@ begin
     ListOfVars.LineBreak := #13#10;
     ListOfVars.Text := AListOfVars;
     CredentialsFullFileNamePropertyValue := EvaluateAllReplacements(ListOfVars, CredentialsFullFileNamePropertyValue);
+    AddressPropertyValue := EvaluateAllReplacements(ListOfVars, AddressPropertyValue);
+    PortPropertyValue := EvaluateAllReplacements(ListOfVars, PortPropertyValue);
 
     // AProperties.Values[CVariablesForWorkersPropertyName] is a comma-separated list of vars
     GetAllVarsAndValuesFromVarsForWorkers(AProperties.Values[CVariablesForWorkersPropertyName], ListOfVars, VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore);
@@ -1608,7 +1611,7 @@ begin
       end
       else
       begin
-        FSMError := 'Can''t connect to broker.';
+        FSMError := 'Can''t connect to broker. ' + AddressPropertyValue + ':' + PortPropertyValue;
         AddToLog(FSMError);
       end;
     end;

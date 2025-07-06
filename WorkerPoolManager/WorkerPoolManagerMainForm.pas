@@ -288,7 +288,7 @@ begin
                     CBrokerPortKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Port + #13#10;
 
           if AIncludeCredentials then
-            Result := Result + GetCredentialsFile(NodeData^.AppsToBeRunning[i]);
+            Result := Result + CCredentialsFileKeyName + '=' + GetCredentialsFile(NodeData^.AppsToBeRunning[i]);
         end;
 
     Node := Node^.NextSibling;

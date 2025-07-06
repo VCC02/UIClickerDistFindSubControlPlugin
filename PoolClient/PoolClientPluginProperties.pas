@@ -29,7 +29,7 @@ unit PoolClientPluginProperties;
 interface
 
 uses
-  Classes, SysUtils, ClickerUtils;
+  Classes, SysUtils, ClickerUtils, WorkerPoolCommonConsts;
 
 
 const
@@ -110,7 +110,7 @@ const
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
     '127.0.0.1', //PoolManagerAddress
     '11883', //PoolManagerPort
-    'Mem:\CredentialsFileName.txt', //OutputCredentialsFileName
+    CPoolCredentialsFileName, //OutputCredentialsFileName
     '$MQTTBrokerAdress$', //BrokerAddressOutputVarName
     '$MQTTBrokerPort$'  //BrokerPortOutputVarName
   );
