@@ -50,7 +50,8 @@ const
 
   //broker/worker params
   CMachineOSParam = 'MachineOS';
-
+  CWorkerMachineAddress = 'WorkerMachineAddress';   //Where the "service" UIClicker is running, together with broker and workers.
+  CDistPluginMachineAddress = 'DistPluginMachineAddress';  //Where the "Dist" plugin is running.
 
   //Responses
   CErrPrefix = 'Err:';

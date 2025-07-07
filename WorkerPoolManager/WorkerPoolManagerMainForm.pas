@@ -93,6 +93,8 @@ type
     MachineType: TMachineType;
     MachineOS: TMachineOS;
 
+    DistAddress: string; //Address of machine, where the "Dist" plugin is used.
+
     ListOfLinWorkersAllocated: string;  //Used when this is a broker machine and another machine with Lin workers point to this one.
 
     TargetBrokerCountPerWinMachine: Integer;  //how many brokers should be running on this machine
@@ -185,6 +187,7 @@ type
     procedure InitBrokersToBeRunning(AMachineNodeData: PMachineRec);
     procedure InitWorkersToBeRunning(AMachineNodeData: PMachineRec);
     procedure InitUIClickersToBeRunning(AMachineNodeData: PMachineRec);
+    function SendPoolCredentials(AMachineAddress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;
 
     function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
@@ -194,8 +197,8 @@ type
     procedure RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
   public
     function GetBrokerInfoForClient(APoolClientUserName, APoolClientPassword: string; AIncludeCredentials: Boolean): string;
-    function GetMachineByIP(AMachineIP: string): PVirtualNode;
-    function SetMachineOnline(APeerIP, AMachineOS: string): string;
+    function GetMachineByAddress(AMachineAddress: string): PVirtualNode;
+    function SetMachineOnline(AWorkerMachineAddress, AWorkerMachineOS, ADistMachineAddress: string): string;
 
     procedure AddToLog(s: string);
   end;
@@ -245,9 +248,11 @@ procedure TResourceSyncObj.DoSynchronize;
 begin
   FResult := 'OK=OK'; //a default response
   //Commands for broker and worker machines:
-  if Pos('/' + CMachineOnline, FCmd) = 1 then
-  begin
-    FResult := frmWorkerPoolManagerMain.SetMachineOnline(FPeerIP, FParams.Values[CMachineOSParam]);
+  if Pos('/' + CMachineOnline, FCmd) = 1 then   //This request is expected to be sent by the tool/app which "creates" VMs, which knows what IP addresses have the two new VMs (one for "Dist" plugin, and the other for workers).
+  begin                                         //The request should be sent once the VMs are created and booted up (after their UIClickers should be started from Startup folder or something similar).
+    FResult := frmWorkerPoolManagerMain.SetMachineOnline(FParams.Values[CWorkerMachineAddress],
+                                                         FParams.Values[CMachineOSParam],
+                                                         FParams.Values[CDistPluginMachineAddress]);
     //FResult := '=Nothing' + #13#10 +
     //           frmWorkerPoolManagerMain.SetMachineOnline(FPeerIP, FParams.Values[CMachineOSParam]) + #13#10 +
     //          'Remaining=';
@@ -359,7 +364,7 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetMachineByIP(AMachineIP: string): PVirtualNode;
+function TfrmWorkerPoolManagerMain.GetMachineByAddress(AMachineAddress: string): PVirtualNode;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
@@ -374,7 +379,7 @@ begin
   repeat
     NodeData := vstMachines.GetNodeData(Node);
     if Assigned(NodeData) then
-      if NodeData^.Address = AMachineIP then
+      if NodeData^.Address = AMachineAddress then
       begin
         Result := Node;
         Break;
@@ -493,23 +498,25 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.SetMachineOnline(APeerIP, AMachineOS: string): string;
+function TfrmWorkerPoolManagerMain.SetMachineOnline(AWorkerMachineAddress, AWorkerMachineOS, ADistMachineAddress: string): string;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
   ToBeAdded: Boolean;
   i, j, k: Integer;
+  Res: string;
 begin
-  Node := GetMachineByIP(APeerIP);
+  Node := GetMachineByAddress(AWorkerMachineAddress);
   ToBeAdded := Node = nil;
 
   if ToBeAdded then
     Node := vstMachines.AddChild(vstMachines.RootNode);
 
   NodeData := vstMachines.GetNodeData(Node);
-  NodeData^.Address := APeerIP;
+  NodeData^.Address := AWorkerMachineAddress;
+  NodeData^.DistAddress := ADistMachineAddress;
 
-  if AMachineOS = CWinParam then
+  if AWorkerMachineOS = CWinParam then
   begin
     NodeData^.MachineOS := mosWin;
     if ToBeAdded then
@@ -527,7 +534,7 @@ begin
     end;
   end
   else
-    if AMachineOS = CLinParam then
+    if AWorkerMachineOS = CLinParam then
     begin
       NodeData^.MachineOS := mosLin;
       if ToBeAdded then
@@ -607,6 +614,14 @@ begin
     InitBrokersToBeRunning(NodeData);
     InitWorkersToBeRunning(NodeData);
     InitUIClickersToBeRunning(NodeData);
+
+    if Length(NodeData^.AppsToBeRunning) > 0 then
+    begin
+      Res := SendPoolCredentials(NodeData^.DistAddress, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
+      AddToLog('Sending pool credentials result: ' + Res);
+    end
+    else
+      AddToLog('No pools are allocated.');
   end; //ToBeAdded
 
   vstMachines.InvalidateNode(Node);
@@ -996,7 +1011,7 @@ end;
 
 procedure TfrmWorkerPoolManagerMain.btnAddMachineClick(Sender: TObject);
 begin
-  SetMachineOnline('127.0.0.1', CWinParam);
+  SetMachineOnline('127.0.0.1', CWinParam, '127.0.0.1');
 end;
 
 
@@ -1018,7 +1033,7 @@ begin
 end;
 
 
-function SendPoolCredentials(AMachineAddress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;  //This sends the pool credentials to the UIClicker which runs the plugin. This code doesn't have to be run from here.
+function TfrmWorkerPoolManagerMain.SendPoolCredentials(AMachineAddress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;  //This sends the pool credentials to the UIClicker which runs the plugin. This code doesn't have to be run from here.
 var
   Link: string;
   Content: string; //pool credentials file
@@ -1063,8 +1078,8 @@ begin
   NodeData := vstMachines.GetNodeData(Node);
 
   if Length(NodeData^.AppsToBeRunning) > 0 then
-  begin                                          //////////////////NodeData^.Address is wrong here. There should be a different field for FDistUIClickerCmdAddress
-    Res := SendPoolCredentials(NodeData^.Address, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
+  begin
+    Res := SendPoolCredentials(NodeData^.DistAddress, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
     AddToLog('Sending pool credentials result: ' + Res);
   end
   else
