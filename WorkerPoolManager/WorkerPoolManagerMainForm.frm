@@ -144,9 +144,12 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   object btnSendPoolCredentialsToLocal: TButton
     Left = 544
     Height = 25
+    Hint = 'ToDo: Move feature to API.'#13#10'The address of this ("Dist") UIClicker is not in this list of machines.'
     Top = 328
     Width = 192
     Caption = 'Send Pool credentials to local'
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 5
     OnClick = btnSendPoolCredentialsToLocalClick
   end

@@ -292,6 +292,7 @@ var
   PluginFS: TPluginInMemFileSystem;
   CredentialsFileContent: string;
   PoolUserName, PoolPassWord: string;
+  ReturnedBrokerAddress: string;
 begin
   try
     Result := False;
@@ -355,20 +356,29 @@ begin
           ServerInfo.LineBreak := #13#10;
           ServerInfo.Text := Response;
 
-          SetTemplateVar(OutputBrokerAddressVarName, ServerInfo.Values[CBrokerAddressKeyName]);
+          ReturnedBrokerAddress := ServerInfo.Values[CBrokerAddressKeyName];
+
+          if (ReturnedBrokerAddress = CErrPrefix + CUserNotFound) or
+             (ReturnedBrokerAddress = CErrPrefix + CWrongPassword) then  //auth errors are returned in ReturnedBrokerAddress
+          begin
+            SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Pool authentication error: ' + ReturnedBrokerAddress);
+            Exit;
+          end;
+
+          SetTemplateVar(OutputBrokerAddressVarName, ReturnedBrokerAddress);
           SetTemplateVar(OutputBrokerPortVarName, ServerInfo.Values[CBrokerPortKeyName]);
 
           if OutputFnm <> '' then
           begin
             CredentialsFileContent := FastReplace_45ToReturn(ServerInfo.Values[CCredentialsFileKeyName]);
             try
-              //AddToLog('Credentials file content: ' + CredentialsFileContent);    //for debugging only
+              //AddToLog('Broker credentials - file content: ' + CredentialsFileContent);    //for debugging only
               PluginFS.SaveFileToMem(AOnActionPlugin_InMemFS, OutputFnm, @CredentialsFileContent[1], Length(CredentialsFileContent));
             finally
               FillChar(CredentialsFileContent[1], Length(CredentialsFileContent), 0);
             end;
 
-            AddToLog('Credentials file saved..  FileSize: ' + IntToStr(PluginFS.GetFileSize(AOnActionPlugin_InMemFS, OutputFnm)));
+            AddToLog('Broker credentials - file saved..  FileSize: ' + IntToStr(PluginFS.GetFileSize(AOnActionPlugin_InMemFS, OutputFnm)));
           end;
         finally
           ServerInfo.Free;

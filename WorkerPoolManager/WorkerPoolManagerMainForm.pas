@@ -106,7 +106,18 @@ type
 
   PMachineRec = ^TMachineRec;
 
-  TSyncObj = class(TIdSync)
+  TPluginSyncObj = class(TIdSync)
+  private
+    FCmd: string;
+    FParams: TStrings;
+    FPeerIP: string;
+    FResult: string;
+  protected
+    procedure DoSynchronize; override;
+  end;
+
+
+  TResourceSyncObj = class(TIdSync)
   private
     FCmd: string;
     FParams: TStrings;
@@ -156,10 +167,12 @@ type
     procedure vstMachinesGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
   private
-    FCmdPortNumber: string;
+    FServiceUIClickerCmdPortNumber: string;
+    FDistUIClickerCmdPortNumber: string;
 
     function GetCredentialsFile(var AAppPool: TAppPool): string;
-    function ProcessCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
+    function ProcessPluginCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
+    function ProcessResourceCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
     function StartMQTTBrokerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
@@ -180,7 +193,7 @@ type
 
     procedure RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
   public
-    function GetBrokerInfoForClient(APoolClientUserName: string; AIncludeCredentials: Boolean): string;
+    function GetBrokerInfoForClient(APoolClientUserName, APoolClientPassword: string; AIncludeCredentials: Boolean): string;
     function GetMachineByIP(AMachineIP: string): PVirtualNode;
     function SetMachineOnline(APeerIP, AMachineOS: string): string;
 
@@ -211,19 +224,26 @@ uses
   ClickerUtils, ClickerActionsClient, ClickerActionProperties;
 
 
-procedure TSyncObj.DoSynchronize;
+procedure TPluginSyncObj.DoSynchronize;
 begin
   FResult := 'OK=OK'; //a default response
 
   //Commands for Pool server
-  if Pos('/' + CGetConfigCmd, FCmd) = 1 then
+  if Pos('/' + CGetConfigCmd, FCmd) = 1 then     //PoolClient gets broker credentials. It authenticates here with Pool credentials.
   begin
     FResult := '=Nothing' + #13#10 +
-               frmWorkerPoolManagerMain.GetBrokerInfoForClient(FParams.Values[CPoolClientUserNameParam], FParams.Values[CIncludeCredentialsParam] = '1') + #13#10 +
+               frmWorkerPoolManagerMain.GetBrokerInfoForClient(FParams.Values[CPoolClientUserNameParam],
+                                                               FParams.Values[CPoolClientPassWordParam],
+                                                               FParams.Values[CIncludeCredentialsParam] = '1') + #13#10 +
               'Remaining=';
     Exit;
   end;
+end;
 
+
+procedure TResourceSyncObj.DoSynchronize;
+begin
+  FResult := 'OK=OK'; //a default response
   //Commands for broker and worker machines:
   if Pos('/' + CMachineOnline, FCmd) = 1 then
   begin
@@ -242,7 +262,11 @@ end;
 procedure TfrmWorkerPoolManagerMain.FormCreate(Sender: TObject);
 begin
   GeneralConnectTimeout := 500; //0.5s should be enough on local host
-  FCmdPortNumber := '5444';
+  FServiceUIClickerCmdPortNumber := '55444';
+  FDistUIClickerCmdPortNumber := '5444';
+
+  AddToLog('Using port ' + FServiceUIClickerCmdPortNumber + ' for "Service" UIClicker (on broker and workers machine).');
+  AddToLog('Using port ' + FDistUIClickerCmdPortNumber + ' for "Dist" UIClicker (where the UIClickerDistFindSubControl plugin is used).');
 
   vstMachines.NodeDataSize := SizeOf(TMachineRec);
   tmrStartup.Enabled := True;
@@ -267,13 +291,13 @@ end;
 function GetDummyCredentialsFile: string;
 begin
   Result := '[Credentials]' + #4#5 +
-            'Username=UserName' + #4#5 +   //It's ok to return these credentials to the client.
-            'Password=Password' + #4#5 +   //Workers will have their own credentials.
-            'PoolID=PoolID' + #4#5;
+            'Username=BadUserName' + #4#5 +   //It's ok to return these credentials to the client.
+            'Password=BadPassword' + #4#5 +   //Workers will have their own credentials.
+            'PoolID=BadPoolID' + #4#5;
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetBrokerInfoForClient(APoolClientUserName: string; AIncludeCredentials: Boolean): string;
+function TfrmWorkerPoolManagerMain.GetBrokerInfoForClient(APoolClientUserName, APoolClientPassword: string; AIncludeCredentials: Boolean): string;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
@@ -300,11 +324,23 @@ begin
         if NodeData^.AppsToBeRunning[i].PoolUserName = APoolClientUserName then   //PoolUserName should be a machine field, not an app field
         begin
           UserNameFound := True;
-          Result := CBrokerAddressKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Address + #13#10 +
-                    CBrokerPortKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Port + #13#10;
 
-          if AIncludeCredentials then
-            Result := Result + CCredentialsFileKeyName + '=' + GetCredentialsFile(NodeData^.AppsToBeRunning[i]);
+          if NodeData^.AppsToBeRunning[i].PoolPassWord = APoolClientPassword then
+          begin
+            Result := CBrokerAddressKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Address + #13#10 +
+                      CBrokerPortKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Port + #13#10;
+
+            if AIncludeCredentials then
+              Result := Result + CCredentialsFileKeyName + '=' + GetCredentialsFile(NodeData^.AppsToBeRunning[i]);
+          end
+          else
+          begin
+            Result := CBrokerAddressKeyName + '=' + CErrPrefix + CWrongPassword + #13#10 +
+              CBrokerPortKeyName + '=' + '0' + #13#10;
+
+            if AIncludeCredentials then
+              Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
+          end;
 
           Break;
         end;
@@ -578,11 +614,28 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.ProcessCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
+function TfrmWorkerPoolManagerMain.ProcessPluginCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 var
-  SyncObj: TSyncObj;
+  SyncObj: TPluginSyncObj;
 begin
-  SyncObj := TSyncObj.Create;
+  SyncObj := TPluginSyncObj.Create;
+  try
+    SyncObj.FCmd := ACmd;
+    SyncObj.FParams := AParams;
+    SyncObj.FPeerIP := APeerIP;
+    SyncObj.Synchronize;
+    Result := SyncObj.FResult;
+  finally
+    SyncObj.Free;
+  end;
+end;
+
+
+function TfrmWorkerPoolManagerMain.ProcessResourceCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
+var
+  SyncObj: TResourceSyncObj;
+begin
+  SyncObj := TResourceSyncObj.Create;
   try
     SyncObj.FCmd := ACmd;
     SyncObj.FParams := AParams;
@@ -603,7 +656,7 @@ begin
   AResponseInfo.ContentType := 'text/plain';
   AResponseInfo.CharSet := 'US-ASCII';
 
-  AResponseInfo.ResponseText := ProcessCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
+  AResponseInfo.ResponseText := ProcessPluginCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
   Sleep(10);
 end;
 
@@ -616,7 +669,7 @@ begin
   AResponseInfo.ContentType := 'text/plain';
   AResponseInfo.CharSet := 'US-ASCII';
 
-  AResponseInfo.ResponseText := ProcessCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
+  AResponseInfo.ResponseText := ProcessResourceCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
   Sleep(10);
 end;
 
@@ -675,7 +728,7 @@ procedure TfrmWorkerPoolManagerMain.StartBrokerApp(var AApp: TRunningApp; AMachi
 begin
   Inc(AApp.StartedCount);
   AApp.StartedAt := GetTickCount64;
-  AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
+  AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
   Sleep(250);
 end;
 
@@ -687,7 +740,7 @@ begin
     Inc(AApp.StartedCount);
     AApp.StartedAt := GetTickCount64;
     AApp.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineAddress,
-                                                       FCmdPortNumber,
+                                                       FServiceUIClickerCmdPortNumber,
                                                        AWorkerExtraCaption,
                                                        AApp.Address,
                                                        StrToIntDef(AApp.Port, 1183),
@@ -710,7 +763,7 @@ procedure TfrmWorkerPoolManagerMain.StartUIClickerApp(var AApp: TRunningApp; AMa
 begin
   Inc(AApp.StartedCount);
   AApp.StartedAt := GetTickCount64;
-  AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, FCmdPortNumber, StrToIntDef(AApp.Port, 1183)); //UIClicker will listen on BrokerPort+20000
+  AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, StrToIntDef(AApp.Port, 1183)); //UIClicker will listen on BrokerPort+20000
   Sleep(250);
 end;
 
@@ -961,7 +1014,7 @@ begin
   end;
 
   NodeData := vstMachines.GetNodeData(Node);
-  AddToLog(#13#10 + GetListOfListeningAppsOnRemoteMachine(NodeData^.Address, FCmdPortNumber, CWinParam));
+  AddToLog(#13#10 + GetListOfListeningAppsOnRemoteMachine(NodeData^.Address, FServiceUIClickerCmdPortNumber, CWinParam));
 end;
 
 
@@ -1001,7 +1054,7 @@ begin
   begin
     AddToLog('Please add a machine first, in order to send proper content.');
 
-    Res := SendPoolCredentials('127.0.0.1', FCmdPortNumber, 'Dummy_UserName', 'Dummy_Password');
+    Res := SendPoolCredentials('127.0.0.1', FDistUIClickerCmdPortNumber, 'Dummy_UserName', 'Dummy_Password');
     AddToLog('Sending dummy pool credentials result: ' + Res);
 
     Exit;
@@ -1010,8 +1063,8 @@ begin
   NodeData := vstMachines.GetNodeData(Node);
 
   if Length(NodeData^.AppsToBeRunning) > 0 then
-  begin
-    Res := SendPoolCredentials(NodeData^.Address, FCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
+  begin                                          //////////////////NodeData^.Address is wrong here. There should be a different field for FDistUIClickerCmdAddress
+    Res := SendPoolCredentials(NodeData^.Address, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
     AddToLog('Sending pool credentials result: ' + Res);
   end
   else

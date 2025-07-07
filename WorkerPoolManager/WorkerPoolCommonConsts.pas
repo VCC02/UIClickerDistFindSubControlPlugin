@@ -55,6 +55,7 @@ const
   //Responses
   CErrPrefix = 'Err:';
   CUserNotFound = 'UserNotFound';
+  CWrongPassword = 'WrongPassword';
 
   CMachineSet = 'MachineSet';
 
