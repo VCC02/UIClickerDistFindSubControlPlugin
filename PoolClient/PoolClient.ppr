@@ -302,6 +302,7 @@ begin
     ListOfAllVars := TStringList.Create;
     PluginSettings := TStringList.Create;
     PluginFS := TPluginInMemFileSystem.Create;
+    TempPluginHandlers := TPluginHandlers.Create(nil);
     try
       ListOfAllVars.LineBreak := #13#10;
       DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
@@ -385,6 +386,7 @@ begin
       FreeAndNil(PluginSettings);
       FreeAndNil(IdHTTPClient1);
       FreeAndNil(PluginFS);
+      FreeAndNil(TempPluginHandlers);
     end;
   except
     on E: Exception do
