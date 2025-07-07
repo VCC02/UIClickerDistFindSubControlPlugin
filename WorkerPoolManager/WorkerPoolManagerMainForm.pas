@@ -264,35 +264,62 @@ begin
 end;
 
 
+function GetDummyCredentialsFile: string;
+begin
+  Result := '[Credentials]' + #4#5 +
+            'Username=UserName' + #4#5 +   //It's ok to return these credentials to the client.
+            'Password=Password' + #4#5 +   //Workers will have their own credentials.
+            'PoolID=PoolID' + #4#5;
+end;
+
+
 function TfrmWorkerPoolManagerMain.GetBrokerInfoForClient(APoolClientUserName: string; AIncludeCredentials: Boolean): string;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
   i: Integer;
+  UserNameFound: Boolean;
 begin
   Node := vstMachines.GetFirst;
   if Node = nil then
   begin
     Result := CBrokerAddressKeyName + '=' + CErrPrefix + CUserNotFound + #13#10 +
               CBrokerPortKeyName + '=' + '0' + #13#10;
+
+    if AIncludeCredentials then
+      Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
+
     Exit;
   end;
 
+  UserNameFound := False;
   repeat
     NodeData := vstMachines.GetNodeData(Node);
     if Assigned(NodeData) then
       for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
-        if NodeData^.AppsToBeRunning[i].PoolUserName = APoolClientUserName then
+        if NodeData^.AppsToBeRunning[i].PoolUserName = APoolClientUserName then   //PoolUserName should be a machine field, not an app field
         begin
+          UserNameFound := True;
           Result := CBrokerAddressKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Address + #13#10 +
                     CBrokerPortKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Port + #13#10;
 
           if AIncludeCredentials then
             Result := Result + CCredentialsFileKeyName + '=' + GetCredentialsFile(NodeData^.AppsToBeRunning[i]);
+
+          Break;
         end;
 
     Node := Node^.NextSibling;
   until Node = nil;
+
+  if not UserNameFound then
+  begin                        //ToDo: - refactoring
+    Result := CBrokerAddressKeyName + '=' + CErrPrefix + CUserNotFound + #13#10 +
+              CBrokerPortKeyName + '=' + '0' + #13#10;
+
+    if AIncludeCredentials then
+      Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
+  end;
 end;
 
 
