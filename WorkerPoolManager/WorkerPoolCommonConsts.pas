@@ -39,7 +39,9 @@ const
   //Commands
   CGetConfigCmd = 'GetConfig'; //the PoolClient plugin requests broker address and port
 
-  CMachineOnline = 'MachineOnline'; //a machine, with broker(s) and workers, is online
+  CMachineOnline = 'MachineOnline'; //a machine, with broker(s) and workers, is online. Also, a dist machine is online.
+  CRemoveWorkerMachine = 'RemoveWorkerMachine';
+  CRemoveDistMachine = 'RemoveDistMachine';
 
   //Command parameters
   CIncludeCredentialsParam = 'IncludeCredentials'; //When set to 1, the Pool manager returs an additional content, which is the "Credentials File" for connecting to broker.
@@ -59,7 +61,10 @@ const
   CWrongPassword = 'WrongPassword';
 
   CMachineSet = 'MachineSet';
-
+  CWorkerMachineNotFound = 'WorkerMachineNotFound';
+  CDistMachineNotFound = 'DistMachineNotFound';
+  CMachineRemoved = 'MachineRemoved';
+  CTooManyDistMachines = 'TooManyDistMachines';
 
   //Other:
   CWinParam = 'Win';

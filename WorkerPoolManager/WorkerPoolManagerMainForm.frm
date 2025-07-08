@@ -58,8 +58,14 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
         Width = 100
       end    
       item
-        MinWidth = 300
+        MinWidth = 150
         Position = 4
+        Text = 'Dist Address(es)'
+        Width = 150
+      end    
+      item
+        MinWidth = 300
+        Position = 5
         Text = 'State'
         Width = 300
       end>
@@ -221,7 +227,6 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     ReuseSocket = rsFalse
     UseNagle = False
     Scheduler = IdSchedulerOfThreadPool1
-    KeepAlive = True
     OnCommandGet = IdHTTPServerPluginsCommandGet
     Left = 320
     Top = 216
@@ -235,7 +240,6 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     ReuseSocket = rsFalse
     UseNagle = False
     Scheduler = IdSchedulerOfThreadPool2
-    KeepAlive = True
     OnCommandGet = IdHTTPServerResourcesCommandGet
     Left = 496
     Top = 216

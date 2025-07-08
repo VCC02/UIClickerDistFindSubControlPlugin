@@ -62,6 +62,7 @@ type
 
     State: TFSM;
     NextState: TFSM;
+    //Please update procedures and functions for deleting this type of item, if adding array fields.
   end;
 
   PRunningApp = ^TRunningApp;
@@ -211,6 +212,8 @@ type
     function GetBrokerInfoForClient(APoolClientUserName, APoolClientPassword: string; AIncludeCredentials: Boolean): string;
     function GetMachineByAddress(AMachineAddress: string): PVirtualNode;
     function SetMachineOnline(AWorkerMachineAddress, AWorkerMachineOS, ADistMachineAddress: string): string;
+    function RemoveWorkerMachine(AWorkerMachineAddress: string): string;
+    function RemoveDistMachine(AWorkerMachineAddress, ADistMachineAddress: string): string;
 
     procedure AddToLog(s: string);
   end;
@@ -268,6 +271,20 @@ begin
     //FResult := '=Nothing' + #13#10 +
     //           frmWorkerPoolManagerMain.SetMachineOnline(FPeerIP, FParams.Values[CMachineOSParam]) + #13#10 +
     //          'Remaining=';
+
+    Exit;
+  end;
+
+  if Pos('/' + CRemoveWorkerMachine, FCmd) = 1 then
+  begin
+    FResult := frmWorkerPoolManagerMain.RemoveWorkerMachine(FParams.Values[CWorkerMachineAddress]);
+    Exit;
+  end;
+
+  if Pos('/' + CRemoveDistMachine, FCmd) = 1 then
+  begin
+    FResult := frmWorkerPoolManagerMain.RemoveDistMachine(FParams.Values[CWorkerMachineAddress],
+                                                          FParams.Values[CDistPluginMachineAddress]);
     Exit;
   end;
 end;
@@ -587,8 +604,10 @@ var
   i, j, k: Integer;
   Res: string;
   PoolIdx: Integer;
+  FoundAvailableDistSlot: Boolean;
 begin
   Result := 'OK';
+  FoundAvailableDistSlot := False;
   Node := GetMachineByAddress(AWorkerMachineAddress);
   ToBeAdded := Node = nil;
 
@@ -615,11 +634,13 @@ begin
         NodeData^.AppsToBeRunning[i].DistAddress := ''; //Init with empty. Will update later.
       end;
 
-      if Length(NodeData^.AppsToBeRunning) = 1 then
-      begin
-        NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
-        Result := ADistMachineAddress;
-      end;
+      for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do  //pools
+        if NodeData^.AppsToBeRunning[i].DistAddress = '' then
+        begin
+          NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
+          Result := ADistMachineAddress;
+          Break;
+        end;
     end;
   end
   else
@@ -639,11 +660,13 @@ begin
           NodeData^.AppsToBeRunning[i].DistAddress := ''; //Init with empty. Will update later.
         end;
 
-        if Length(NodeData^.AppsToBeRunning) = 1 then
-        begin
-          NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
-          Result := ADistMachineAddress;
-        end;
+        for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do  //pools
+          if NodeData^.AppsToBeRunning[i].DistAddress = '' then
+          begin
+            NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
+            Result := ADistMachineAddress;
+            Break;
+          end;
       end;
     end
     else
@@ -727,7 +750,7 @@ begin
                                    FDistUIClickerCmdPortNumber,
                                    NodeData^.AppsToBeRunning[PoolIdx].PoolUserName,
                                    NodeData^.AppsToBeRunning[PoolIdx].PoolPassWord);
-        AddToLog('Sending pool credentials result: ' + Res);
+        AddToLog('Sending pool credentials result for dist machine ' + ADistMachineAddress + ': ' + Res);
       end;
     end
     else
@@ -738,21 +761,100 @@ begin
     for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
       if NodeData^.AppsToBeRunning[i].DistAddress = '' then //find an available slot
       begin
+        FoundAvailableDistSlot := True;
         NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
         Res := SendPoolCredentials(ADistMachineAddress,
                                    FDistUIClickerCmdPortNumber,
                                    NodeData^.AppsToBeRunning[i].PoolUserName,
                                    NodeData^.AppsToBeRunning[i].PoolPassWord);
-        AddToLog('Sending pool credentials result: ' + Res);
+        AddToLog('Sending pool credentials result for dist machine ' + ADistMachineAddress + ': ' + Res);
 
         Break; //do not update the others
       end;
+
+    if not FoundAvailableDistSlot then
+      Result := CTooManyDistMachines;
   end;
 
   vstMachines.InvalidateNode(Node);
 
   if Result = 'OK' then
     Result := CMachineSet;
+end;
+
+
+function TfrmWorkerPoolManagerMain.RemoveWorkerMachine(AWorkerMachineAddress: string): string;
+var
+  Node: PVirtualNode;
+  NodeData: PMachineRec;
+begin
+  Result := CWorkerMachineNotFound;
+
+  Node := GetMachineByAddress(AWorkerMachineAddress);
+  if Node = nil then
+    Exit;
+
+  NodeData := vstMachines.GetNodeData(Node);
+  if NodeData = nil then
+    Exit;
+
+  if NodeData^.Address = AWorkerMachineAddress then
+  begin
+    vstMachines.DeleteNode(Node);
+    vstMachines.Repaint;
+    Result := CMachineRemoved;
+    Exit;
+  end;
+end;
+
+
+procedure RemoveDistMachineAtIndex(var APoolArr: TAppPoolArr; AIndex: Integer);
+var
+  i: Integer;
+begin
+  if (AIndex < 0) or (AIndex > Length(APoolArr) - 1) then
+    Exit;
+
+  for i := AIndex to Length(APoolArr) - 2 do
+    APoolArr[i] := APoolArr[i + 1]; //there is a dynamic array field in this structure, but it should be fine to have pointer := pointer.
+
+  SetLength(APoolArr, Length(APoolArr) - 1);
+end;
+
+
+function TfrmWorkerPoolManagerMain.RemoveDistMachine(AWorkerMachineAddress, ADistMachineAddress: string): string;
+var
+  Node: PVirtualNode;
+  NodeData: PMachineRec;
+  i: Integer;
+  DistFound: Boolean;
+begin
+  Result := CWorkerMachineNotFound;
+
+  Node := GetMachineByAddress(AWorkerMachineAddress);
+  if Node = nil then
+    Exit;
+
+  NodeData := vstMachines.GetNodeData(Node);
+  if NodeData = nil then
+    Exit;
+
+  if NodeData^.Address = AWorkerMachineAddress then
+  begin
+    DistFound := False;
+    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+      if NodeData^.AppsToBeRunning[i].DistAddress = ADistMachineAddress then
+      begin
+        DistFound := True;
+        NodeData^.AppsToBeRunning[i].DistAddress := ''; //simply clear the address, do not call RemoveDistMachineAtIndex(NodeData^.AppsToBeRunning, i);  //the number of items should not be modified
+        vstMachines.RepaintNode(Node);
+        Result := CMachineRemoved;
+        Exit;
+      end;
+
+    if not DistFound then
+      Result := CDistMachineNotFound;
+  end;
 end;
 
 
@@ -1128,6 +1230,17 @@ begin
       2: CellText := CMachineTypeStr[NodeData^.MachineType];
       3: CellText := CMachineOSStr[NodeData^.MachineOS];
       4:
+      begin
+        CellText := '';
+        for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+        begin
+          CellText := CellText + '[' + NodeData^.AppsToBeRunning[i].DistAddress + ']';
+          if i < Length(NodeData^.AppsToBeRunning) - 1 then
+            CellText := CellText + ', ';
+        end;
+      end;
+
+      5:
       begin
         CellText := 'Broker: ';
         for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
