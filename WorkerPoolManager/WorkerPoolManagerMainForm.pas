@@ -82,6 +82,7 @@ type
     PoolUserName: string; //This is allocated at the same time the machine is allocated. Multiple users (pools) can be allowed / machine.
     PoolPassWord: string;
     PoolID: string; //Reserved for now. May be implemented later, if required.
+    DistAddress: string; //Address of machine, where the "Dist" plugin is used.  //One Dist UIClicker (and machine) / pool.
   end;
 
   TAppPoolArr = array of TAppPool;
@@ -92,8 +93,6 @@ type
     Port: string;
     MachineType: TMachineType;
     MachineOS: TMachineOS;
-
-    DistAddress: string; //Address of machine, where the "Dist" plugin is used.
 
     ListOfLinWorkersAllocated: string;  //Used when this is a broker machine and another machine with Lin workers point to this one.
 
@@ -390,6 +389,20 @@ begin
 end;
 
 
+function GetIndexOfDistAddressFromAppPoolArr(var AAppPoolArr: TAppPoolArr; ADistAddress: string): Integer;
+var
+  i: Integer;
+begin
+  Result := -1;
+  for i := 0 to Length(AAppPoolArr) - 1 do
+    if AAppPoolArr[i].DistAddress = ADistAddress then
+    begin
+      Result := i;
+      Break;
+    end;
+end;
+
+
 function TfrmWorkerPoolManagerMain.GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 var
   Node: PVirtualNode;
@@ -505,6 +518,7 @@ var
   ToBeAdded: Boolean;
   i, j, k: Integer;
   Res: string;
+  PoolIdx: Integer;
 begin
   Node := GetMachineByAddress(AWorkerMachineAddress);
   ToBeAdded := Node = nil;
@@ -514,7 +528,6 @@ begin
 
   NodeData := vstMachines.GetNodeData(Node);
   NodeData^.Address := AWorkerMachineAddress;
-  NodeData^.DistAddress := ADistMachineAddress;
 
   if AWorkerMachineOS = CWinParam then
   begin
@@ -530,7 +543,11 @@ begin
       begin
         NodeData^.AppsToBeRunning[i].HasBroker := True;
         SetLength(NodeData^.AppsToBeRunning[i].WorkerClickerPairs, NodeData^.TargetWorkerCountPerWinMachine);
+        NodeData^.AppsToBeRunning[i].DistAddress := ''; //Init with empty. Will update later.
       end;
+
+      if Length(NodeData^.AppsToBeRunning) = 1 then
+        NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
     end;
   end
   else
@@ -547,7 +564,11 @@ begin
         begin
           NodeData^.AppsToBeRunning[i].HasBroker := NodeData^.TargetBrokerCountPerLinMachine > 0;
           SetLength(NodeData^.AppsToBeRunning[i].WorkerClickerPairs, NodeData^.TargetWorkerCountPerLinMachine);
+          NodeData^.AppsToBeRunning[i].DistAddress := ''; //Init with empty. Will update later.
         end;
+
+        if Length(NodeData^.AppsToBeRunning) = 1 then
+          NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
       end;
     end
     else
@@ -617,12 +638,41 @@ begin
 
     if Length(NodeData^.AppsToBeRunning) > 0 then
     begin
-      Res := SendPoolCredentials(NodeData^.DistAddress, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
-      AddToLog('Sending pool credentials result: ' + Res);
+      PoolIdx := GetIndexOfDistAddressFromAppPoolArr(NodeData^.AppsToBeRunning, ADistMachineAddress);
+      if PoolIdx = -1 then
+      begin
+        //The number of pools should match the number of Dist machines. If PoolIdx is -1, then the machine might have now a new address.
+        //Not sure how to handle this right now.
+        AddToLog('Error: Can''t find the pool by the address of Dist machine: ' + ADistMachineAddress);
+      end
+      else  // NodeData^.AppsToBeRunning[PoolIdx].DistAddress should already be the same as ADistMachineAddress.
+      begin
+        NodeData^.AppsToBeRunning[PoolIdx].DistAddress := ADistMachineAddress;
+        Res := SendPoolCredentials(ADistMachineAddress,
+                                   FDistUIClickerCmdPortNumber,
+                                   NodeData^.AppsToBeRunning[PoolIdx].PoolUserName,
+                                   NodeData^.AppsToBeRunning[PoolIdx].PoolPassWord);
+        AddToLog('Sending pool credentials result: ' + Res);
+      end;
     end
     else
       AddToLog('No pools are allocated.');
-  end; //ToBeAdded
+  end //ToBeAdded
+  else
+  begin //the function may be called with an existing worker machine address, but a new dist machine address to be assigned to this worker machine address
+    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+      if NodeData^.AppsToBeRunning[i].DistAddress = '' then //find an available slot
+      begin
+        NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
+        Res := SendPoolCredentials(ADistMachineAddress,
+                                   FDistUIClickerCmdPortNumber,
+                                   NodeData^.AppsToBeRunning[i].PoolUserName,
+                                   NodeData^.AppsToBeRunning[i].PoolPassWord);
+        AddToLog('Sending pool credentials result: ' + Res);
+
+        Break; //do not update the others
+      end;
+  end;
 
   vstMachines.InvalidateNode(Node);
   Result := CMachineSet;
@@ -1079,7 +1129,7 @@ begin
 
   if Length(NodeData^.AppsToBeRunning) > 0 then
   begin
-    Res := SendPoolCredentials(NodeData^.DistAddress, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
+    Res := SendPoolCredentials(NodeData^.AppsToBeRunning[0].DistAddress, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
     AddToLog('Sending pool credentials result: ' + Res);
   end
   else
