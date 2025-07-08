@@ -142,16 +142,21 @@ type
     IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool;
     lblMinBrokerPort: TLabel;
     lblBrokerCountPerMachine: TLabel;
+    lblServiceUIClickerPort: TLabel;
+    lblDistUIClickerPort: TLabel;
     memInfo: TMemo;
     memLog: TMemo;
     spnedtBrokerCountPerMachine: TSpinEdit;
     spnedtMinBrokerPort: TSpinEdit;
+    spnedtServiceUIClickerPort: TSpinEdit;
+    spnedtDistUIClickerPort: TSpinEdit;
     tmrFSM: TTimer;
     tmrStartup: TTimer;
     vstMachines: TVirtualStringTree;
     procedure btnAddMachineClick(Sender: TObject);
     procedure btnGetListeningProcessesClick(Sender: TObject);
     procedure btnSendPoolCredentialsToLocalClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure IdHTTPServerPluginsCommandGet(AContext: TIdContext;
       ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
@@ -163,6 +168,8 @@ type
     procedure IdHTTPServerResourcesConnect(AContext: TIdContext);
     procedure IdHTTPServerResourcesException(AContext: TIdContext; AException: Exception
       );
+    procedure spnedtDistUIClickerPortChange(Sender: TObject);
+    procedure spnedtServiceUIClickerPortChange(Sender: TObject);
     procedure tmrFSMTimer(Sender: TObject);
     procedure tmrStartupTimer(Sender: TObject);
     procedure vstMachinesGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
@@ -193,7 +200,13 @@ type
     function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string): Boolean;
     function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
+    procedure UpdateServiceUIClickerCmdPortNumber;
+    procedure UpdateDistUIClickerCmdPortNumber;
+
     procedure RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
+
+    procedure LoadSettingsFromIni;
+    procedure SaveSettingsToIni;
   public
     function GetBrokerInfoForClient(APoolClientUserName, APoolClientPassword: string; AIncludeCredentials: Boolean): string;
     function GetMachineByAddress(AMachineAddress: string): PVirtualNode;
@@ -223,7 +236,7 @@ implementation
 
 
 uses
-  ClickerUtils, ClickerActionsClient, ClickerActionProperties;
+  ClickerUtils, ClickerActionsClient, ClickerActionProperties, ClickerIniFiles;
 
 
 procedure TPluginSyncObj.DoSynchronize;
@@ -262,18 +275,73 @@ end;
 
 { TfrmWorkerPoolManagerMain }
 
+procedure TfrmWorkerPoolManagerMain.UpdateServiceUIClickerCmdPortNumber;
+begin
+  FServiceUIClickerCmdPortNumber := IntToStr(spnedtServiceUIClickerPort.Value);
+  AddToLog('Using port ' + FServiceUIClickerCmdPortNumber + ' for "Service" UIClicker (on broker and workers machine).');
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.UpdateDistUIClickerCmdPortNumber;
+begin
+  FDistUIClickerCmdPortNumber := IntToStr(spnedtDistUIClickerPort.Value);
+  AddToLog('Using port ' + FDistUIClickerCmdPortNumber + ' for "Dist" UIClicker (where the UIClickerDistFindSubControl plugin is used).');
+end;
+
 
 procedure TfrmWorkerPoolManagerMain.FormCreate(Sender: TObject);
 begin
   GeneralConnectTimeout := 500; //0.5s should be enough on local host
-  FServiceUIClickerCmdPortNumber := '55444';
-  FDistUIClickerCmdPortNumber := '5444';
-
-  AddToLog('Using port ' + FServiceUIClickerCmdPortNumber + ' for "Service" UIClicker (on broker and workers machine).');
-  AddToLog('Using port ' + FDistUIClickerCmdPortNumber + ' for "Dist" UIClicker (where the UIClickerDistFindSubControl plugin is used).');
 
   vstMachines.NodeDataSize := SizeOf(TMachineRec);
   tmrStartup.Enabled := True;
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.LoadSettingsFromIni;
+var
+  Ini: TClkIniReadonlyFile;
+begin
+  Ini := TClkIniReadonlyFile.Create(ExtractFilePath(ParamStr(0)) + 'WorkerPoolManager.ini');
+  try
+    Left := Ini.ReadInteger('Window', 'Left', Left);
+    Top := Ini.ReadInteger('Window', 'Top', Top);
+    Width := Ini.ReadInteger('Window', 'Width', Width);
+    Height := Ini.ReadInteger('Window', 'Height', Height);
+
+    spnedtBrokerCountPerMachine.Value := Ini.ReadInteger('Settings', 'BrokerCountPerMachine', spnedtBrokerCountPerMachine.Value);
+    spnedtMinBrokerPort.Value := Ini.ReadInteger('Settings', 'MinBrokerPort', spnedtMinBrokerPort.Value);
+    spnedtServiceUIClickerPort.Value := Ini.ReadInteger('Settings', 'ServiceUIClickerPort', spnedtServiceUIClickerPort.Value);
+    spnedtDistUIClickerPort.Value := Ini.ReadInteger('Settings', 'DistUIClickerPort', spnedtDistUIClickerPort.Value);
+
+    UpdateServiceUIClickerCmdPortNumber;
+    UpdateDistUIClickerCmdPortNumber;
+  finally
+    Ini.Free;
+  end;
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.SaveSettingsToIni;
+var
+  Ini: TClkIniFile;
+begin
+  Ini := TClkIniFile.Create(ExtractFilePath(ParamStr(0)) + 'WorkerPoolManager.ini');
+  try
+    Ini.WriteInteger('Window', 'Left', Left);
+    Ini.WriteInteger('Window', 'Top', Top);
+    Ini.WriteInteger('Window', 'Width', Width);
+    Ini.WriteInteger('Window', 'Height', Height);
+
+    Ini.WriteInteger('Settings', 'BrokerCountPerMachine', spnedtBrokerCountPerMachine.Value);
+    Ini.WriteInteger('Settings', 'MinBrokerPort', spnedtMinBrokerPort.Value);
+    Ini.WriteInteger('Settings', 'ServiceUIClickerPort', spnedtServiceUIClickerPort.Value);
+    Ini.WriteInteger('Settings', 'DistUIClickerPort', spnedtDistUIClickerPort.Value);
+
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
 end;
 
 
@@ -520,6 +588,7 @@ var
   Res: string;
   PoolIdx: Integer;
 begin
+  Result := 'OK';
   Node := GetMachineByAddress(AWorkerMachineAddress);
   ToBeAdded := Node = nil;
 
@@ -547,7 +616,10 @@ begin
       end;
 
       if Length(NodeData^.AppsToBeRunning) = 1 then
+      begin
         NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
+        Result := ADistMachineAddress;
+      end;
     end;
   end
   else
@@ -568,7 +640,10 @@ begin
         end;
 
         if Length(NodeData^.AppsToBeRunning) = 1 then
+        begin
           NodeData^.AppsToBeRunning[i].DistAddress := ADistMachineAddress;
+          Result := ADistMachineAddress;
+        end;
       end;
     end
     else
@@ -639,11 +714,11 @@ begin
     if Length(NodeData^.AppsToBeRunning) > 0 then
     begin
       PoolIdx := GetIndexOfDistAddressFromAppPoolArr(NodeData^.AppsToBeRunning, ADistMachineAddress);
-      if PoolIdx = -1 then
+      if (PoolIdx = -1) or (ADistMachineAddress = '') then
       begin
         //The number of pools should match the number of Dist machines. If PoolIdx is -1, then the machine might have now a new address.
         //Not sure how to handle this right now.
-        AddToLog('Error: Can''t find the pool by the address of Dist machine: ' + ADistMachineAddress);
+        AddToLog('Can''t find the pool by the address of Dist machine: ' + ADistMachineAddress);
       end
       else  // NodeData^.AppsToBeRunning[PoolIdx].DistAddress should already be the same as ADistMachineAddress.
       begin
@@ -675,7 +750,9 @@ begin
   end;
 
   vstMachines.InvalidateNode(Node);
-  Result := CMachineSet;
+
+  if Result = 'OK' then
+    Result := CMachineSet;
 end;
 
 
@@ -762,6 +839,18 @@ procedure TfrmWorkerPoolManagerMain.IdHTTPServerResourcesException(
   AContext: TIdContext; AException: Exception);
 begin
   //AddToLogFromThread(AException.Message);
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.spnedtServiceUIClickerPortChange(Sender: TObject);
+begin
+  UpdateServiceUIClickerCmdPortNumber;
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.spnedtDistUIClickerPortChange(Sender: TObject);
+begin
+  UpdateDistUIClickerCmdPortNumber;
 end;
 
 
@@ -1003,9 +1092,11 @@ procedure TfrmWorkerPoolManagerMain.tmrStartupTimer(Sender: TObject);
 begin
   tmrStartup.Enabled := False;
 
+  LoadSettingsFromIni;
+
   try
     IdHTTPServerPlugins.Active := True;
-    AddToLog('WorkerPoolManager is listening on port ' + IntToStr(IdHTTPServerPlugins.DefaultPort));
+    AddToLog('WorkerPoolManager is listening on port ' + IntToStr(IdHTTPServerPlugins.DefaultPort) + ' for plugin connections.');
   except
     on E: Exception do
       AddToLog('Can''t listening on port ' + IntToStr(IdHTTPServerPlugins.DefaultPort) + '  ' + E.Message);
@@ -1013,7 +1104,7 @@ begin
 
   try
     IdHTTPServerResources.Active := True;
-    AddToLog('WorkerPoolManager is listening on port ' + IntToStr(IdHTTPServerResources.DefaultPort));
+    AddToLog('WorkerPoolManager is listening on port ' + IntToStr(IdHTTPServerResources.DefaultPort) + ' for resource management connections.');
   except
     on E: Exception do
       AddToLog('Can''t listening on port ' + IntToStr(IdHTTPServerResources.DefaultPort) + '  ' + E.Message);
@@ -1134,6 +1225,18 @@ begin
   end
   else
     AddToLog('No pools are allocated.');
+end;
+
+
+procedure TfrmWorkerPoolManagerMain.FormClose(Sender: TObject;
+  var CloseAction: TCloseAction);
+begin
+  try
+    SaveSettingsToIni;
+  except
+    on E: Exception do
+      AddToLog('Error saving settings. ' + E.Message);
+  end;
 end;
 
 

@@ -7,6 +7,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   ClientHeight = 531
   ClientWidth = 744
   LCLVersion = '8.4'
+  OnClose = FormClose
   OnCreate = FormCreate
   object memInfo: TMemo
     Left = 0
@@ -71,18 +72,18 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   end
   object grpSettings: TGroupBox
     Left = 0
-    Height = 105
+    Height = 120
     Top = 304
-    Width = 408
+    Width = 424
     Caption = 'Settings'
-    ClientHeight = 85
-    ClientWidth = 404
+    ClientHeight = 100
+    ClientWidth = 420
     TabOrder = 2
     object spnedtBrokerCountPerMachine: TSpinEdit
       Left = 8
       Height = 23
-      Top = 23
-      Width = 154
+      Top = 24
+      Width = 146
       EditorEnabled = False
       MaxValue = 40
       MinValue = 1
@@ -97,10 +98,10 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
       Caption = 'Broker count per machine'
     end
     object spnedtMinBrokerPort: TSpinEdit
-      Left = 176
+      Left = 168
       Height = 23
       Hint = 'Broker port allocation starts at this value and it ends, depending on count.'
-      Top = 23
+      Top = 24
       Width = 104
       EditorEnabled = False
       MaxValue = 65534
@@ -111,11 +112,53 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
       Value = 20000
     end
     object lblMinBrokerPort: TLabel
-      Left = 176
+      Left = 168
       Height = 15
-      Top = 7
+      Top = 8
       Width = 83
       Caption = 'Min broker port'
+    end
+    object lblServiceUIClickerPort: TLabel
+      Left = 288
+      Height = 15
+      Top = 8
+      Width = 112
+      Caption = 'Service UIClicker port'
+    end
+    object spnedtServiceUIClickerPort: TSpinEdit
+      Left = 288
+      Height = 23
+      Hint = 'Service UIClicker port.'#13#10'This is theUIClicker instance, running on the broker/worker machine,'#13#10'which is used for starting brokers, workers and other UIClickers.'
+      Top = 24
+      Width = 120
+      MaxValue = 65534
+      MinValue = 500
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 2
+      Value = 55444
+      OnChange = spnedtServiceUIClickerPortChange
+    end
+    object spnedtDistUIClickerPort: TSpinEdit
+      Left = 288
+      Height = 23
+      Hint = 'Dist UIClicker port.'#13#10'This is theUIClicker instance, running the UIClickerDistFindSubControl plugin and the PoolClient plugin.'#13#10'It is not running on the same machine as the brokers and workers.'
+      Top = 72
+      Width = 120
+      MaxValue = 65534
+      MinValue = 500
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 3
+      Value = 5444
+      OnChange = spnedtDistUIClickerPortChange
+    end
+    object lblDistUIClickerPort: TLabel
+      Left = 288
+      Height = 15
+      Top = 56
+      Width = 95
+      Caption = 'Dist UIClicker port'
     end
   end
   object btnAddMachine: TButton
