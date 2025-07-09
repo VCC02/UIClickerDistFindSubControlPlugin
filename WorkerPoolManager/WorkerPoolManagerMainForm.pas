@@ -141,6 +141,7 @@ type
     IdHTTPServerResources: TIdHTTPServer;
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool;
+    lblMaxWorkerMachineCount: TLabel;
     lblMinBrokerPort: TLabel;
     lblBrokerCountPerMachine: TLabel;
     lblServiceUIClickerPort: TLabel;
@@ -148,6 +149,7 @@ type
     memInfo: TMemo;
     memLog: TMemo;
     spnedtBrokerCountPerMachine: TSpinEdit;
+    spnedtMaxWorkerMachineCount: TSpinEdit;
     spnedtMinBrokerPort: TSpinEdit;
     spnedtServiceUIClickerPort: TSpinEdit;
     spnedtDistUIClickerPort: TSpinEdit;
@@ -330,6 +332,7 @@ begin
     spnedtMinBrokerPort.Value := Ini.ReadInteger('Settings', 'MinBrokerPort', spnedtMinBrokerPort.Value);
     spnedtServiceUIClickerPort.Value := Ini.ReadInteger('Settings', 'ServiceUIClickerPort', spnedtServiceUIClickerPort.Value);
     spnedtDistUIClickerPort.Value := Ini.ReadInteger('Settings', 'DistUIClickerPort', spnedtDistUIClickerPort.Value);
+    spnedtMaxWorkerMachineCount.Value := Ini.ReadInteger('Settings', 'MaxWorkerMachineCount', spnedtMaxWorkerMachineCount.Value);
 
     UpdateServiceUIClickerCmdPortNumber;
     UpdateDistUIClickerCmdPortNumber;
@@ -354,6 +357,7 @@ begin
     Ini.WriteInteger('Settings', 'MinBrokerPort', spnedtMinBrokerPort.Value);
     Ini.WriteInteger('Settings', 'ServiceUIClickerPort', spnedtServiceUIClickerPort.Value);
     Ini.WriteInteger('Settings', 'DistUIClickerPort', spnedtDistUIClickerPort.Value);
+    Ini.WriteInteger('Settings', 'MaxWorkerMachineCount', spnedtMaxWorkerMachineCount.Value);
 
     Ini.UpdateFile;
   finally
@@ -410,7 +414,7 @@ begin
     NodeData := vstMachines.GetNodeData(Node);
     if Assigned(NodeData) then
       for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
-        if NodeData^.AppsToBeRunning[i].PoolUserName = APoolClientUserName then   //PoolUserName should be a machine field, not an app field
+        if NodeData^.AppsToBeRunning[i].PoolUserName = APoolClientUserName then
         begin
           UserNameFound := True;
 
@@ -612,7 +616,15 @@ begin
   ToBeAdded := Node = nil;
 
   if ToBeAdded then
-    Node := vstMachines.AddChild(vstMachines.RootNode);
+  begin
+    if Integer(vstMachines.RootNodeCount) < spnedtMaxWorkerMachineCount.Value then
+      Node := vstMachines.AddChild(vstMachines.RootNode)
+    else
+    begin
+      Result := CTooManyWorkerMachines;
+      Exit;
+    end;
+  end;
 
   NodeData := vstMachines.GetNodeData(Node);
   NodeData^.Address := AWorkerMachineAddress;
@@ -690,7 +702,7 @@ begin
         begin
           Sleep(33);
           Randomize;
-          NodeData^.AppsToBeRunning[i].PoolPassWord := NodeData^.AppsToBeRunning[i].Broker.BrokerPassword + IntToHex(Random(MaxInt)) + IntToStr(Random(MaxInt));
+          NodeData^.AppsToBeRunning[i].PoolPassWord := NodeData^.AppsToBeRunning[i].PoolPassWord + IntToHex(Random(MaxInt)) + IntToStr(Random(MaxInt));
         end;
 
         Randomize;
@@ -1287,7 +1299,7 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.SendPoolCredentials(AMachineAddress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;  //This sends the pool credentials to the UIClicker which runs the plugin. This code doesn't have to be run from here.
+function TfrmWorkerPoolManagerMain.SendPoolCredentials(AMachineAddress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;  //This sends the pool credentials to the UIClicker which runs the plugin.
 var
   Link: string;
   Content: string; //pool credentials file
@@ -1317,6 +1329,7 @@ var
   Res: string;
   Node: PVirtualNode;
   NodeData: PMachineRec;
+  i: Integer;
 begin
   Node := vstMachines.GetFirst;
   if Node = nil then
@@ -1332,12 +1345,16 @@ begin
   NodeData := vstMachines.GetNodeData(Node);
 
   if Length(NodeData^.AppsToBeRunning) > 0 then
-  begin
-    Res := SendPoolCredentials(NodeData^.AppsToBeRunning[0].DistAddress, FDistUIClickerCmdPortNumber, NodeData^.AppsToBeRunning[0].PoolUserName, NodeData^.AppsToBeRunning[0].PoolPassWord);
-    AddToLog('Sending pool credentials result: ' + Res);
-  end
-  else
-    AddToLog('No pools are allocated.');
+    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+    begin
+      Res := SendPoolCredentials(NodeData^.AppsToBeRunning[i].DistAddress,
+                                 FDistUIClickerCmdPortNumber,
+                                 NodeData^.AppsToBeRunning[i].PoolUserName,
+                                 NodeData^.AppsToBeRunning[i].PoolPassWord);
+      AddToLog('Sending pool credentials result: ' + Res);
+    end
+    else
+      AddToLog('No pools are allocated.');
 end;
 
 

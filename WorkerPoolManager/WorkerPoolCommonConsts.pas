@@ -64,6 +64,7 @@ const
   CWorkerMachineNotFound = 'WorkerMachineNotFound';
   CDistMachineNotFound = 'DistMachineNotFound';
   CMachineRemoved = 'MachineRemoved';
+  CTooManyWorkerMachines = 'TooManyWorkerMachines';
   CTooManyDistMachines = 'TooManyDistMachines';
 
   //Other:

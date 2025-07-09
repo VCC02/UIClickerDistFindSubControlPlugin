@@ -88,11 +88,14 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     object spnedtBrokerCountPerMachine: TSpinEdit
       Left = 8
       Height = 23
+      Hint = 'This also means "Dist" machines count per worker machine.'
       Top = 24
       Width = 146
       EditorEnabled = False
       MaxValue = 40
       MinValue = 1
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 0
       Value = 1
     end
@@ -165,6 +168,27 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
       Top = 56
       Width = 95
       Caption = 'Dist UIClicker port'
+    end
+    object spnedtMaxWorkerMachineCount: TSpinEdit
+      Left = 8
+      Height = 23
+      Hint = 'This applies to machines with both brokers and workers and also on worker-only machines.'#13#10'It is the maximum number of allowed items in the above table.'
+      Top = 72
+      Width = 146
+      EditorEnabled = False
+      MaxValue = 200
+      MinValue = 2
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 4
+      Value = 2
+    end
+    object lblMaxWorkerMachineCount: TLabel
+      Left = 8
+      Height = 15
+      Top = 56
+      Width = 144
+      Caption = 'Max worker machine count'
     end
   end
   object btnAddMachine: TButton
