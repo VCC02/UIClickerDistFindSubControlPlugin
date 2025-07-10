@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 26;
+  CAdditionalPropertiesCount = 28;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -68,6 +68,9 @@ const
   CExtraDebuggingInfoPropertyIndex = 25;
   CEvaluateFileNameBeforeSendingPropertyIndex = 26;
 
+  CCustomFontProfilesPropertyIndex = 27;
+  CUsedFontProfilesPropertyIndex = 28;
+
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
   CAddressPropertyName = 'Address';
@@ -98,6 +101,8 @@ const
   CVariablesForWorkersPropertyName = 'VariablesForWorkers';
   CExtraDebuggingInfoPropertyName = 'ExtraDebuggingInfo';
   CEvaluateFileNameBeforeSendingPropertyName = 'EvaluateFileNameBeforeSending';
+  CCustomFontProfilesPropertyName = 'CustomFontProfiles';
+  CUsedFontProfilesPropertyName = 'UsedFontProfiles';
 
   CReqCapOperation_wcsReqCapAndFindSubControl = 'wcsReqCapAndFindSubControl';
   CReqCapOperation_wcsReqCapAndGetFonts = 'wcsReqCapAndGetFonts';
@@ -105,6 +110,8 @@ const
   CReqCapOperation_wcsReqCapAndUpdateCache = 'wcsReqCapAndUpdateCache';
   CReqCapOperation_wcsLoadCacheAndFindSubControl = 'wcsLoadCacheAndFindSubControl';
 
+  CUsedFontProfiles_FromConfiguredAction = 'ufpFromConfiguredAction';
+  CUsedFontProfiles_FromCustom = 'ufpFromCustom';
 
   CRequiredSubControlPropertyNames: array[0..CPropertiesCount - 1] of string = (  //these are the expected FindSubControl property names, configured in plugin properties
     CFindSubControlActionPropertyName,
@@ -137,7 +144,9 @@ const
 
     CVariablesForWorkersPropertyName,
     CExtraDebuggingInfoPropertyName,
-    CEvaluateFileNameBeforeSendingPropertyName
+    CEvaluateFileNameBeforeSendingPropertyName,
+    CCustomFontProfilesPropertyName,
+    CUsedFontProfilesPropertyName
   );
 
   //property details: (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
@@ -173,7 +182,9 @@ const
     'SpinText',      //LzmaFastBytes
     'TextWithArrow', //VariablesForWorkers
     'BooleanCombo',  //ExtraDebuggingInfo
-    'BooleanCombo'   //EvaluateFileNameBeforeSending
+    'BooleanCombo',  //EvaluateFileNameBeforeSending
+    'UserEditor',    //CustomFontProfiles
+    'EnumCombo'      //UsedFontProfiles
   );
 
   CRequiredSubControlPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
@@ -207,7 +218,9 @@ const
 
     CDTString,  //VariablesForWorkers
     CDTBool,    //ExtraDebuggingInfo
-    CDTBool     //EvaluateFileNameBeforeSending
+    CDTBool,    //EvaluateFileNameBeforeSending
+    CDTString,  //CustomFontProfiles
+    CDTEnum     //UsedFontProfiles
   );
 
   CPluginEnumCounts: array[0..CPropertiesCount - 1] of Integer = (
@@ -241,7 +254,9 @@ const
 
     0, //VariablesForWorkers
     0, //ExtraDebuggingInfo
-    0  //EvaluateFileNameBeforeSending
+    0, //EvaluateFileNameBeforeSending
+    0, //CustomFontProfiles
+    2  //UsedFontProfiles
   );
 
   CPluginEnumStrings: array[0..CPropertiesCount - 1] of string = (
@@ -279,7 +294,9 @@ const
 
     '', //VariablesForWorkers
     '', //ExtraDebuggingInfo
-    ''  //EvaluateFileNameBeforeSending
+    '', //EvaluateFileNameBeforeSending
+    '', //CustomFontProfiles
+    CUsedFontProfiles_FromConfiguredAction + #4#5 + CUsedFontProfiles_FromCustom + #4#5
   );
 
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
@@ -317,7 +334,9 @@ const
 
     'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.',  //VariablesForWorkers
     'When set to True, the plugin updates a few variables with debugging information or statistics,' + #4#5 + 'like task allocation to workers - what font profiles end up on what workers, what bmp/pmtv files end up on what workers etc.',  //ExtraDebuggingInfo
-    'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.' //EvaluateFileNameBeforeSending
+    'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.', //EvaluateFileNameBeforeSending
+    'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.',
+    'When UsedFontProfiles is ufpFromCustom, the font profiles, configured in CustomFontProfiles property, are used to distribute tasks.'
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -351,7 +370,9 @@ const
 
     '', //VariablesForWorkers
     '', //ExtraDebuggingInfo
-    ''  //EvaluateFileNameBeforeSending
+    '', //EvaluateFileNameBeforeSending
+    'PropertyValue[28]==ufpFromCustom', //CustomFontProfiles
+    '' //UsedFontProfiles
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -384,7 +405,9 @@ const
     '5', //LzmaFastBytesPropertyName
     '$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$',  //VariablesForWorkers
     'False', //ExtraDebuggingInfo
-    'False' //EvaluateFileNameBeforeSending
+    'False', //EvaluateFileNameBeforeSending
+    '', //CustomFontProfiles
+    'ufpFromConfiguredAction' //UsedFontProfiles
   );
 
 

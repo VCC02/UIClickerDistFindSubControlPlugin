@@ -39,7 +39,7 @@ uses
 
   ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
   MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties,
-  ClickerPluginInMemFileSystem, ClickerPrimitives;
+  ClickerPluginInMemFileSystem, ClickerPrimitives, DistFindSubControlPropertyEditorForm;
 
 type
   //TStringArr = array of string;
@@ -3654,10 +3654,37 @@ begin
 end;
 
 
+function EditProperty(APropertyIndex: Integer;
+                      ACurrentValue: Pointer;
+                      ANewValue: Pointer;
+                      ALenOfNewValue: PDWord): Boolean; cdecl;
+var
+  CurrentValue, NewValue: string;
+begin
+  SetPointedContentToString(ACurrentValue, CurrentValue);
+
+  NewValue := CurrentValue;
+
+  Application.Initialize;
+  FExHandler := TExHandler.Create;
+  try
+    ExceptProc := @CatchUnhandledException;
+    Application.OnException := FExHandler.CustomExceptionHandler;
+
+    //open editor here
+    Result := EditCustomFontProfilesProperty(CurrentValue, NewValue);
+    ALenOfNewValue^ := SetPointedContentFromString(NewValue, ANewValue);
+  finally
+    FExHandler.Free;
+  end;
+end;
+
+
 exports
   GetAPIVersion,
   GetListOfProperties,
-  ExecutePlugin;
+  ExecutePlugin,
+  EditProperty;
 
 begin
 end.
