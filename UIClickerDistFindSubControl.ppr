@@ -3672,7 +3672,7 @@ begin
     Application.OnException := FExHandler.CustomExceptionHandler;
 
     //open editor here
-    Result := EditCustomFontProfilesProperty(CurrentValue, NewValue);
+    Result := EditCustomFontProfilesProperty(APropertyIndex, CurrentValue, NewValue);
     ALenOfNewValue^ := SetPointedContentFromString(NewValue, ANewValue);
   finally
     FExHandler.Free;

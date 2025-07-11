@@ -2,10 +2,10 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
   Left = 373
   Height = 240
   Top = 185
-  Width = 320
+  Width = 344
   Caption = 'DistFindSubControl - Property Editor'
   ClientHeight = 240
-  ClientWidth = 320
+  ClientWidth = 344
   Icon.Data = {
     7E04000000000100010010100000010020006804000016000000280000001000
     0000200000000100200000000000000400000000000000000000000000000000
@@ -48,7 +48,7 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
   LCLVersion = '8.4'
   OnClose = FormClose
   object btnOK: TButton
-    Left = 73
+    Left = 81
     Height = 25
     Top = 199
     Width = 75
@@ -58,7 +58,7 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
     OnClick = btnOKClick
   end
   object btnCancel: TButton
-    Left = 157
+    Left = 172
     Height = 25
     Top = 200
     Width = 75
@@ -67,14 +67,24 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
     TabOrder = 1
     OnClick = btnCancelClick
   end
-  object lbeProperty: TLabeledEdit
+  object lbeClkPrfFile: TLabeledEdit
     Left = 16
     Height = 23
     Top = 40
     Width = 288
     EditLabel.Height = 15
     EditLabel.Width = 288
-    EditLabel.Caption = 'Property'
+    EditLabel.Caption = 'ClkPrf File'
     TabOrder = 2
+  end
+  object btnBrowseClkPrfFile: TButton
+    Left = 312
+    Height = 23
+    Top = 40
+    Width = 27
+    Anchors = [akTop, akRight]
+    Caption = '...'
+    TabOrder = 3
+    OnClick = btnBrowseClkPrfFileClick
   end
 end

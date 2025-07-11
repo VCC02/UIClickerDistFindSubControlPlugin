@@ -335,7 +335,7 @@ const
     'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.',  //VariablesForWorkers
     'When set to True, the plugin updates a few variables with debugging information or statistics,' + #4#5 + 'like task allocation to workers - what font profiles end up on what workers, what bmp/pmtv files end up on what workers etc.',  //ExtraDebuggingInfo
     'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.', //EvaluateFileNameBeforeSending
-    'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.',
+    'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.' + #4#5 + 'For now, this is a path to a .clkprf file.',
     'When UsedFontProfiles is ufpFromCustom, the font profiles, configured in CustomFontProfiles property, are used to distribute tasks.'
   );
 
