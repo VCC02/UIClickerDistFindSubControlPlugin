@@ -61,6 +61,7 @@ type
     btnOK: TButton;
     btnCancel: TButton;
     btnBrowseClkPrfFile: TButton;
+    imgGradient: TImage;
     lbeClkPrfFile: TLabeledEdit;
     procedure btnBrowseClkPrfFileClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
@@ -85,7 +86,9 @@ implementation
 
 
 uses
-  DistFindSubControlPluginProperties, ClickerIniFiles, ClickerTemplates;
+  DistFindSubControlPluginProperties, ClickerIniFiles, Math
+  //, ClickerTemplates
+  ;
 
 
 function EditCustomFontProfilesProperty(APropertyIndex: Integer; ACurrentValue: string; out ANewValue: string): Boolean;
@@ -306,8 +309,11 @@ var
   TempRanges: TStringList;
   i, j: Integer;
   Range: TRange;
-  Bmp: TBitmap;
-  GradRect: TRect;
+  //Bmp: TBitmap;
+  //GradRect: TRect;
+  R, G, B: Byte;
+  MaxRGBInterval: Integer;
+  RInc, GInc, BInc: Double;
 begin
   TempRanges := TStringList.Create;
   try
@@ -324,24 +330,68 @@ begin
 
         if AIsHexColor then
         begin
-          Bmp := TBitmap.Create;
-          try
-            Bmp.PixelFormat := pf24bit;
-            WipeBitmap(Bmp, Range.MaxValue - Range.MinValue + 1, 3);
+          //Bmp := TBitmap.Create;
+          //try
+          //  Bmp.PixelFormat := pf24bit;
+          //  WipeBitmap(Bmp, Range.MaxValue - Range.MinValue + 1, 3);
+          //
+          //  Bmp.Canvas.Pen.Style := psSolid; //gradients are painted with pen style
+          //  Bmp.Canvas.Brush.Style := bsClear;
+          //
+          //  GradRect.Left := 0;
+          //  GradRect.Top := 0;
+          //  GradRect.Width := Bmp.Width;
+          //  GradRect.Height := 3;
+          //  Bmp.Canvas.GradientFill(GradRect, Range.StartColor, Range.EndColor, gdHorizontal);
+          //
+          //  for j := 0 to Bmp.Width - 1 do
+          //    ADestFieldRanges.Add(IntToHex(Bmp.Canvas.Pixels[j, 1], 6));
+          //finally
+          //  Bmp.Free;
+          //end;
 
-            Bmp.Canvas.Pen.Style := psSolid; //gradients are painted with pen style
-            Bmp.Canvas.Brush.Style := bsClear;
+          //Alternate implementation, without bitmap and gradient fill. This is a bit more accurate. Still not perfect, because of rounding.
+          MaxRGBInterval := Range.MaxValue - Range.MinValue + 1;
 
-            GradRect.Left := 0;
-            GradRect.Top := 0;
-            GradRect.Width := Bmp.Width;
-            GradRect.Height := 3;
-            Bmp.Canvas.GradientFill(GradRect, Range.StartColor, Range.EndColor, gdHorizontal);
+          if Range.IntervalR = 0 then
+            Range.IntervalR := 1;
 
-            for j := 0 to Bmp.Width - 1 do
-              ADestFieldRanges.Add(IntToHex(Bmp.Canvas.Pixels[j, 1], 6));
-          finally
-            Bmp.Free;
+          if Range.IntervalG = 0 then
+            Range.IntervalG := 1;
+
+          if Range.IntervalB = 0 then
+            Range.IntervalB := 1;
+
+          case Range.MaxIntervalIndex of
+            0:  //R;
+            begin
+              RInc :=                                  1 * Sign(SmallInt(Range.R2) - SmallInt(Range.R1));
+              GInc := (Range.IntervalG / MaxRGBInterval) * Sign(SmallInt(Range.G2) - SmallInt(Range.G1));
+              BInc := (Range.IntervalB / MaxRGBInterval) * Sign(SmallInt(Range.B2) - SmallInt(Range.B1));
+            end;  //R
+
+            1:  //G;
+            begin
+              RInc := (Range.IntervalR / MaxRGBInterval) * Sign(SmallInt(Range.R2) - SmallInt(Range.R1));
+              GInc :=                                  1 * Sign(SmallInt(Range.G2) - SmallInt(Range.G1));
+              BInc := (Range.IntervalB / MaxRGBInterval) * Sign(SmallInt(Range.B2) - SmallInt(Range.B1));
+            end;  //G
+
+            2:  //G;
+            begin
+              RInc := (Range.IntervalR / MaxRGBInterval) * Sign(SmallInt(Range.R2) - SmallInt(Range.R1));
+              GInc := (Range.IntervalG / MaxRGBInterval) * Sign(SmallInt(Range.G2) - SmallInt(Range.G1));
+              BInc :=                                  1 * Sign(SmallInt(Range.B2) - SmallInt(Range.B1));
+            end;  //G
+          end; //case
+
+          for j := 0 to MaxRGBInterval - 1 do
+          begin
+            R := Round(Range.R1 + j * RInc);
+            G := Round(Range.G1 + j * GInc);
+            B := Round(Range.B1 + j * BInc);
+
+            ADestFieldRanges.Add(IntToHex(RGBToColor(R, G, B), 6));
           end;
         end
         else
@@ -450,27 +500,28 @@ end;
 procedure UpdateFindSubControlActionWithNewProfiles(var AAction: TClkFindSubControlOptions; AProfiles: TClkFindControlMatchBitmapTextDistArr);
 var
   i: Integer;
-  Template: TClkActionsRecArr;
-  Content: TStringList;
-  TempAction: TClkActionRec;
+  //Template: TClkActionsRecArr;
+  //Content: TStringList;
+  //TempAction: TClkActionRec;
 begin
   SetLength(AAction.MatchBitmapText, 0);
   for i := 0 to Length(AProfiles) - 1 do
     AddProfileRangesToActionProfiles(AAction.MatchBitmapText, AProfiles[i]);
 
-  Content := TStringList.Create;
-  try
-    SetLength(Template, 1);
-    TempAction.ActionOptions.Action := acFindSubControl;
-    TempAction.ActionOptions.ActionName := 'Debugging';
-    TempAction.FindSubControlOptions := AAction;
-    CopyActionContent(TempAction, Template[0]);
-    SaveTemplateWithCustomActionsToStringList_V2(Content, Template, 'Debugging...', 'NoIcon.ico');
-
-    Content.SaveToFile(ExtractFilePath(ParamStr(0)) + '..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\DebuggingGeneratedCustomProfiles.txt');
-  finally
-    Content.Free;
-  end;
+  //For Debugging only:
+  //Content := TStringList.Create;
+  //try
+  //  SetLength(Template, 1);
+  //  TempAction.ActionOptions.Action := acFindSubControl;
+  //  TempAction.ActionOptions.ActionName := 'Debugging';
+  //  TempAction.FindSubControlOptions := AAction;
+  //  CopyActionContent(TempAction, Template[0]);
+  //  SaveTemplateWithCustomActionsToStringList_V2(Content, Template, 'Debugging...', 'NoIcon.ico');
+  //
+  //  Content.SaveToFile(ExtractFilePath(ParamStr(0)) + '..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\DebuggingGeneratedCustomProfiles.txt');
+  //finally
+  //  Content.Free;
+  //end;
 end;
 
 
