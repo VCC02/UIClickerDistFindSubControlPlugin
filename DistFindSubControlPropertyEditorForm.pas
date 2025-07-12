@@ -202,12 +202,15 @@ end;
 type
   TRange = record
     MinValue, MaxValue: Integer;
+    StartColor, EndColor: TColor; //used if is hex color
   end;
 
-procedure GetFieldRangeFromString(ARangeStr: string; AIsHex: Boolean; out ARange: TRange);
+procedure GetFieldRangeFromString(ARangeStr: string; AIsHexColor: Boolean; out ARange: TRange);
 var
   MinValueStr, MaxValueStr: string;
   ph: Integer;
+  R1, R2, G1, G2, B1, B2: Byte;
+  IntervalR, IntervalG, IntervalB: Byte;
 begin
   if Pos('..', ARangeStr) > 0 then
   begin
@@ -220,10 +223,38 @@ begin
     MaxValueStr := ARangeStr;
   end;
 
-  if AIsHex then
+  if AIsHexColor then
   begin
-    ARange.MinValue := HexToInt(MinValueStr);
-    ARange.MaxValue := HexToInt(MaxValueStr);
+    ARange.StartColor := HexToInt(MinValueStr);
+    ARange.EndColor := HexToInt(MaxValueStr);
+    RedGreenBlue(ARange.StartColor, R1, G1, B1);
+    RedGreenBlue(ARange.EndColor, R2, G2, B2);
+    IntervalR := Abs(SmallInt(R1) - SmallInt(R2));
+    IntervalG := Abs(SmallInt(G1) - SmallInt(G2));
+    IntervalB := Abs(SmallInt(B1) - SmallInt(B2));
+
+    if IntervalR > IntervalG then
+    begin
+      ARange.MinValue := R1;
+      ARange.MaxValue := R2;
+
+      if IntervalB > IntervalR then
+      begin
+        ARange.MinValue := B1;
+        ARange.MaxValue := B2;
+      end;
+    end
+    else
+    begin
+      ARange.MinValue := G1;
+      ARange.MaxValue := G2;
+
+      if IntervalB > IntervalG then
+      begin
+        ARange.MinValue := B1;
+        ARange.MaxValue := B2;
+      end;
+    end;
   end
   else
   begin
@@ -243,11 +274,13 @@ begin
 end;
 
 
-procedure GetAllFieldRanges(AField: string; AIsHex: Boolean; ADestFieldRanges: TStringList);
+procedure GetAllFieldRanges(AField: string; AIsHexColor: Boolean; ADestFieldRanges: TStringList);
 var
   TempRanges: TStringList;
   i, j: Integer;
   Range: TRange;
+  Bmp: TBitmap;
+  GradRect: TRect;
 begin
   TempRanges := TStringList.Create;
   try
@@ -260,17 +293,33 @@ begin
         ADestFieldRanges.Add(TempRanges.Strings[i])
       else
       begin
-        GetFieldRangeFromString(TempRanges.Strings[i], AIsHex, Range);  //this will limit the interval to an acceptable size
+        GetFieldRangeFromString(TempRanges.Strings[i], AIsHexColor, Range);  //this will limit the interval to an acceptable size
 
-        if AIsHex then
+        if AIsHexColor then
         begin
-          for j := Range.MinValue to Range.MaxValue do
-            ADestFieldRanges.Add(IntToHex(i, 6));
+          Bmp := TBitmap.Create;
+          try
+            Bmp.PixelFormat := pf24bit;
+            Bmp.SetSize(Range.MaxValue - Range.MinValue + 1, 1);
+            Bmp.Canvas.Pen.Style := psClear;
+            Bmp.Canvas.Brush.Style := bsSolid;
+
+            GradRect.Left := 0;
+            GradRect.Top := 0;
+            GradRect.Width := Bmp.Width;
+            GradRect.Height := 1;
+            Bmp.Canvas.GradientFill(GradRect, Range.MinValue, Range.MaxValue, gdHorizontal);
+
+            for j := 0 to Bmp.Width - 1 do
+              ADestFieldRanges.Add(IntToHex(Bmp.Canvas.Pixels[j, 0], 6));
+          finally
+            Bmp.Free;
+          end;
         end
         else
         begin
           for j := Range.MinValue to Range.MaxValue do
-            ADestFieldRanges.Add(IntToStr(i));
+            ADestFieldRanges.Add(IntToStr(j));
         end;
       end;
   finally
@@ -349,19 +398,19 @@ begin
                                       AMatchBitmapText[n].BackgroundColor := AllFieldsRanges[1].Strings[r1];      //is hex
                                       AMatchBitmapText[n].FontName := AllFieldsRanges[2].Strings[r2];
                                       AMatchBitmapText[n].FontSize := StrToIntDef(AllFieldsRanges[3].Strings[r3], 8);
-                                      AMatchBitmapText[n].Bold := StrToBool(AllFieldsRanges[4].Strings[r4]);
-                                      AMatchBitmapText[n].Italic := StrToBool(AllFieldsRanges[5].Strings[r5]);
-                                      AMatchBitmapText[n].Underline := StrToBool(AllFieldsRanges[6].Strings[r6]);
-                                      AMatchBitmapText[n].StrikeOut := StrToBool(AllFieldsRanges[7].Strings[r7]);
+                                      AMatchBitmapText[n].Bold := StrToBool(AllFieldsRanges[4].Strings[r4]) or (AllFieldsRanges[4].Strings[r4] = '1');
+                                      AMatchBitmapText[n].Italic := StrToBool(AllFieldsRanges[5].Strings[r5]) or (AllFieldsRanges[5].Strings[r5] = '1');
+                                      AMatchBitmapText[n].Underline := StrToBool(AllFieldsRanges[6].Strings[r6]) or (AllFieldsRanges[6].Strings[r6] = '1');
+                                      AMatchBitmapText[n].StrikeOut := StrToBool(AllFieldsRanges[7].Strings[r7]) or (AllFieldsRanges[7].Strings[r7] = '1');
                                       AMatchBitmapText[n].FontQuality := FontQuality_AsStringToValue(AllFieldsRanges[8].Strings[r8]);
-                                      AMatchBitmapText[n].FontQualityUsesReplacement := StrToBool(AllFieldsRanges[9].Strings[r9]);
+                                      AMatchBitmapText[n].FontQualityUsesReplacement := StrToBool(AllFieldsRanges[9].Strings[r9]) or (AllFieldsRanges[9].Strings[r9] = '1');
                                       AMatchBitmapText[n].FontQualityReplacement := AllFieldsRanges[10].Strings[r10];
                                       AMatchBitmapText[n].ProfileName := AllFieldsRanges[11].Strings[r11];
                                       AMatchBitmapText[n].CropLeft := AllFieldsRanges[12].Strings[r12];
                                       AMatchBitmapText[n].CropTop := AllFieldsRanges[13].Strings[r13];
                                       AMatchBitmapText[n].CropRight := AllFieldsRanges[14].Strings[r14];
                                       AMatchBitmapText[n].CropBottom := AllFieldsRanges[15].Strings[r15];
-                                      AMatchBitmapText[n].IgnoreBackgroundColor := StrToBool(AllFieldsRanges[16].Strings[r16]);
+                                      AMatchBitmapText[n].IgnoreBackgroundColor := StrToBool(AllFieldsRanges[16].Strings[r16]) or (AllFieldsRanges[16].Strings[r16] = '1');
                                     end;
   finally
     for i := 0 to Length(AllFieldsRanges) - 1 do

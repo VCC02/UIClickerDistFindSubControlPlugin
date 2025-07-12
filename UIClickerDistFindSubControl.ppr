@@ -183,6 +183,8 @@ var
   FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
   DisplayExtraDebuggingInfo: Boolean;
   EvaluateFileNameBeforeSending: Boolean;
+  UsingCustomFontProfiles: Boolean;
+  CustomProfilesFnm: string;
 
   RecTh: TMQTTReceiveThread;
 
@@ -3014,6 +3016,7 @@ var
     TempArchiveHandlers: TArchiveHandlers;
     BkSize: Int64;
     BackgroundWidth, BackgroundHeight: Integer;
+    CustomProfiles: TClkFindControlMatchBitmapTextDistArr;
   begin
     Result := True;
 
@@ -3082,6 +3085,15 @@ var
         end
         else
           ;//SetLength(SplitActions, MaxSplitActionsCount);
+
+        if UsingCustomFontProfiles then
+        begin
+          AddToLog('Loading custom font profiles from ' + CustomProfilesFnm);
+          LoadClkPrf(CustomProfilesFnm, CustomProfiles);
+          AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
+          UpdateFindSubControlActionWithNewProfiles(DecodedAction, CustomProfiles);
+          AddToLog('Found ' + IntToStr(Length(DecodedAction.MatchBitmapText)) + ' custom font profile(s).');
+        end;
 
 
         //The number of available workers can be less than, equal to or greater than the number of subproperties.
@@ -3375,6 +3387,8 @@ begin
       RequestedTextRenderingOS := PluginSettings.ValueFromIndex[CTextRenderingOSPropertyIndex];
       DisplayExtraDebuggingInfo := PluginSettings.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';
       EvaluateFileNameBeforeSending := PluginSettings.ValueFromIndex[CEvaluateFileNameBeforeSendingPropertyIndex] = 'True';
+      UsingCustomFontProfiles := PluginSettings.ValueFromIndex[CUseFontProfilesPropertyIndex] = CUseFontProfiles_FromCustom;
+      CustomProfilesFnm := PluginSettings.ValueFromIndex[CCustomFontProfilesPropertyIndex];
 
       AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
 

@@ -1,10 +1,10 @@
 object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   Left = 373
-  Height = 531
+  Height = 574
   Top = 185
   Width = 744
   Caption = 'WorkerPoolManager'
-  ClientHeight = 531
+  ClientHeight = 574
   ClientWidth = 744
   LCLVersion = '8.4'
   OnClose = FormClose
@@ -78,11 +78,11 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   end
   object grpSettings: TGroupBox
     Left = 0
-    Height = 120
+    Height = 168
     Top = 304
     Width = 424
     Caption = 'Settings'
-    ClientHeight = 100
+    ClientHeight = 148
     ClientWidth = 420
     TabOrder = 2
     object spnedtBrokerCountPerMachine: TSpinEdit
@@ -190,6 +190,51 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
       Width = 144
       Caption = 'Max worker machine count'
     end
+    object spnedtWorkerCountPerWinMachine: TSpinEdit
+      Left = 32
+      Height = 23
+      Top = 120
+      Width = 44
+      MaxValue = 100
+      MinValue = 1
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 5
+      Value = 4
+    end
+    object lblWorkerCountPerMachine: TLabel
+      Left = 8
+      Height = 15
+      Top = 104
+      Width = 141
+      Caption = 'Worker count per machine'
+    end
+    object lblWin: TLabel
+      Left = 8
+      Height = 15
+      Top = 124
+      Width = 21
+      Caption = 'Win'
+    end
+    object spnedtWorkerCountPerLinMachine: TSpinEdit
+      Left = 108
+      Height = 23
+      Top = 120
+      Width = 44
+      MaxValue = 100
+      MinValue = 1
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 6
+      Value = 2
+    end
+    object lblLin: TLabel
+      Left = 88
+      Height = 15
+      Top = 124
+      Width = 16
+      Caption = 'Lin'
+    end
   end
   object btnAddMachine: TButton
     Left = 531
@@ -203,7 +248,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   object memLog: TMemo
     Left = 0
     Height = 97
-    Top = 432
+    Top = 475
     Width = 744
     Anchors = [akLeft, akRight, akBottom]
     Font.Height = -13

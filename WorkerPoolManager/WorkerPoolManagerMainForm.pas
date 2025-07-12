@@ -141,9 +141,12 @@ type
     IdHTTPServerResources: TIdHTTPServer;
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool;
+    lblWin: TLabel;
     lblMaxWorkerMachineCount: TLabel;
     lblMinBrokerPort: TLabel;
     lblBrokerCountPerMachine: TLabel;
+    lblLin: TLabel;
+    lblWorkerCountPerMachine: TLabel;
     lblServiceUIClickerPort: TLabel;
     lblDistUIClickerPort: TLabel;
     memInfo: TMemo;
@@ -151,8 +154,10 @@ type
     spnedtBrokerCountPerMachine: TSpinEdit;
     spnedtMaxWorkerMachineCount: TSpinEdit;
     spnedtMinBrokerPort: TSpinEdit;
+    spnedtWorkerCountPerWinMachine: TSpinEdit;
     spnedtServiceUIClickerPort: TSpinEdit;
     spnedtDistUIClickerPort: TSpinEdit;
+    spnedtWorkerCountPerLinMachine: TSpinEdit;
     tmrFSM: TTimer;
     tmrStartup: TTimer;
     vstMachines: TVirtualStringTree;
@@ -333,6 +338,8 @@ begin
     spnedtServiceUIClickerPort.Value := Ini.ReadInteger('Settings', 'ServiceUIClickerPort', spnedtServiceUIClickerPort.Value);
     spnedtDistUIClickerPort.Value := Ini.ReadInteger('Settings', 'DistUIClickerPort', spnedtDistUIClickerPort.Value);
     spnedtMaxWorkerMachineCount.Value := Ini.ReadInteger('Settings', 'MaxWorkerMachineCount', spnedtMaxWorkerMachineCount.Value);
+    spnedtWorkerCountPerWinMachine.Value := Ini.ReadInteger('Settings', 'WorkerCountPerWinMachine', spnedtWorkerCountPerWinMachine.Value);
+    spnedtWorkerCountPerLinMachine.Value := Ini.ReadInteger('Settings', 'WorkerCountPerLinMachine', spnedtWorkerCountPerLinMachine.Value);
 
     UpdateServiceUIClickerCmdPortNumber;
     UpdateDistUIClickerCmdPortNumber;
@@ -358,6 +365,8 @@ begin
     Ini.WriteInteger('Settings', 'ServiceUIClickerPort', spnedtServiceUIClickerPort.Value);
     Ini.WriteInteger('Settings', 'DistUIClickerPort', spnedtDistUIClickerPort.Value);
     Ini.WriteInteger('Settings', 'MaxWorkerMachineCount', spnedtMaxWorkerMachineCount.Value);
+    Ini.WriteInteger('Settings', 'WorkerCountPerWinMachine', spnedtWorkerCountPerWinMachine.Value);
+    Ini.WriteInteger('Settings', 'WorkerCountPerLinMachine', spnedtWorkerCountPerLinMachine.Value);
 
     Ini.UpdateFile;
   finally
@@ -635,7 +644,7 @@ begin
     if ToBeAdded then
     begin
       NodeData^.TargetBrokerCountPerWinMachine := spnedtBrokerCountPerMachine.Value;
-      NodeData^.TargetWorkerCountPerWinMachine := 4;
+      NodeData^.TargetWorkerCountPerWinMachine := spnedtWorkerCountPerWinMachine.Value;
 
       SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine);   //Win
 
@@ -662,7 +671,7 @@ begin
       if ToBeAdded then
       begin
         NodeData^.TargetBrokerCountPerLinMachine := 0;
-        NodeData^.TargetWorkerCountPerLinMachine := 2;
+        NodeData^.TargetWorkerCountPerLinMachine := spnedtWorkerCountPerWinMachine.Value;
 
         SetLength(NodeData^.AppsToBeRunning, NodeData^.TargetBrokerCountPerWinMachine);   //still Win     - a new logic is required here (with UI settings), to decide exactly what apps are running on Lin
         for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do  //pools
