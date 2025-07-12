@@ -85,7 +85,7 @@ implementation
 
 
 uses
-  DistFindSubControlPluginProperties, ClickerIniFiles;
+  DistFindSubControlPluginProperties, ClickerIniFiles, ClickerTemplates;
 
 
 function EditCustomFontProfilesProperty(APropertyIndex: Integer; ACurrentValue: string; out ANewValue: string): Boolean;
@@ -203,14 +203,15 @@ type
   TRange = record
     MinValue, MaxValue: Integer;
     StartColor, EndColor: TColor; //used if is hex color
+    R1, R2, G1, G2, B1, B2: Byte;
+    IntervalR, IntervalG, IntervalB: Byte;
+    MaxIntervalIndex: Byte; //0 = R, 1 = G, 2 = B
   end;
 
 procedure GetFieldRangeFromString(ARangeStr: string; AIsHexColor: Boolean; out ARange: TRange);
 var
   MinValueStr, MaxValueStr: string;
   ph: Integer;
-  R1, R2, G1, G2, B1, B2: Byte;
-  IntervalR, IntervalG, IntervalB: Byte;
 begin
   if Pos('..', ARangeStr) > 0 then
   begin
@@ -227,32 +228,36 @@ begin
   begin
     ARange.StartColor := HexToInt(MinValueStr);
     ARange.EndColor := HexToInt(MaxValueStr);
-    RedGreenBlue(ARange.StartColor, R1, G1, B1);
-    RedGreenBlue(ARange.EndColor, R2, G2, B2);
-    IntervalR := Abs(SmallInt(R1) - SmallInt(R2));
-    IntervalG := Abs(SmallInt(G1) - SmallInt(G2));
-    IntervalB := Abs(SmallInt(B1) - SmallInt(B2));
+    RedGreenBlue(ARange.StartColor, ARange.R1, ARange.G1, ARange.B1);
+    RedGreenBlue(ARange.EndColor, ARange.R2, ARange.G2, ARange.B2);
+    ARange.IntervalR := Abs(SmallInt(ARange.R1) - SmallInt(ARange.R2));
+    ARange.IntervalG := Abs(SmallInt(ARange.G1) - SmallInt(ARange.G2));
+    ARange.IntervalB := Abs(SmallInt(ARange.B1) - SmallInt(ARange.B2));
 
-    if IntervalR > IntervalG then
+    if ARange.IntervalR > ARange.IntervalG then
     begin
-      ARange.MinValue := R1;
-      ARange.MaxValue := R2;
+      ARange.MinValue := ARange.R1;
+      ARange.MaxValue := ARange.R2;
+      ARange.MaxIntervalIndex := 0;
 
-      if IntervalB > IntervalR then
+      if ARange.IntervalB > ARange.IntervalR then
       begin
-        ARange.MinValue := B1;
-        ARange.MaxValue := B2;
+        ARange.MinValue := ARange.B1;
+        ARange.MaxValue := ARange.B2;
+        ARange.MaxIntervalIndex := 2;
       end;
     end
     else
     begin
-      ARange.MinValue := G1;
-      ARange.MaxValue := G2;
+      ARange.MinValue := ARange.G1;
+      ARange.MaxValue := ARange.G2;
+      ARange.MaxIntervalIndex := 1;
 
-      if IntervalB > IntervalG then
+      if ARange.IntervalB > ARange.IntervalG then
       begin
-        ARange.MinValue := B1;
-        ARange.MaxValue := B2;
+        ARange.MinValue := ARange.B1;
+        ARange.MaxValue := ARange.B2;
+        ARange.MaxIntervalIndex := 2;
       end;
     end;
   end
@@ -271,6 +276,28 @@ begin
 
   if ARange.MaxValue - ARange.MinValue > 128 then
     ARange.MaxValue := ARange.MinValue + 128;        //limit the interval to an acceptable size
+end;
+
+
+procedure DrawWipeRect(ACanvas: TCanvas; NewWidth, NewHeight: Integer);
+begin
+  ACanvas.Lock;
+  try
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.Brush.Color := clRed;
+    ACanvas.Pen.Color := clRed;
+    ACanvas.Rectangle(0, 0, NewWidth {- 1}, NewHeight {- 1});
+  finally
+    ACanvas.Unlock
+  end;
+end;
+
+
+procedure WipeBitmap(ABitmap: TBitmap; NewWidth, NewHeight: Integer);
+begin
+  //ABitmap.Clear;
+  ABitmap.SetSize(NewWidth, NewHeight);
+  DrawWipeRect(ABitmap.Canvas, NewWidth, NewHeight);
 end;
 
 
@@ -300,18 +327,19 @@ begin
           Bmp := TBitmap.Create;
           try
             Bmp.PixelFormat := pf24bit;
-            Bmp.SetSize(Range.MaxValue - Range.MinValue + 1, 1);
-            Bmp.Canvas.Pen.Style := psClear;
-            Bmp.Canvas.Brush.Style := bsSolid;
+            WipeBitmap(Bmp, Range.MaxValue - Range.MinValue + 1, 3);
+
+            Bmp.Canvas.Pen.Style := psSolid; //gradients are painted with pen style
+            Bmp.Canvas.Brush.Style := bsClear;
 
             GradRect.Left := 0;
             GradRect.Top := 0;
             GradRect.Width := Bmp.Width;
-            GradRect.Height := 1;
-            Bmp.Canvas.GradientFill(GradRect, Range.MinValue, Range.MaxValue, gdHorizontal);
+            GradRect.Height := 3;
+            Bmp.Canvas.GradientFill(GradRect, Range.StartColor, Range.EndColor, gdHorizontal);
 
             for j := 0 to Bmp.Width - 1 do
-              ADestFieldRanges.Add(IntToHex(Bmp.Canvas.Pixels[j, 0], 6));
+              ADestFieldRanges.Add(IntToHex(Bmp.Canvas.Pixels[j, 1], 6));
           finally
             Bmp.Free;
           end;
@@ -402,7 +430,7 @@ begin
                                       AMatchBitmapText[n].Italic := StrToBool(AllFieldsRanges[5].Strings[r5]) or (AllFieldsRanges[5].Strings[r5] = '1');
                                       AMatchBitmapText[n].Underline := StrToBool(AllFieldsRanges[6].Strings[r6]) or (AllFieldsRanges[6].Strings[r6] = '1');
                                       AMatchBitmapText[n].StrikeOut := StrToBool(AllFieldsRanges[7].Strings[r7]) or (AllFieldsRanges[7].Strings[r7] = '1');
-                                      AMatchBitmapText[n].FontQuality := FontQuality_AsStringToValue(AllFieldsRanges[8].Strings[r8]);
+                                      AMatchBitmapText[n].FontQuality := {FontQuality_AsStringToValue} TFontQuality(StrToIntDef(AllFieldsRanges[8].Strings[r8], 0));
                                       AMatchBitmapText[n].FontQualityUsesReplacement := StrToBool(AllFieldsRanges[9].Strings[r9]) or (AllFieldsRanges[9].Strings[r9] = '1');
                                       AMatchBitmapText[n].FontQualityReplacement := AllFieldsRanges[10].Strings[r10];
                                       AMatchBitmapText[n].ProfileName := AllFieldsRanges[11].Strings[r11];
@@ -422,10 +450,27 @@ end;
 procedure UpdateFindSubControlActionWithNewProfiles(var AAction: TClkFindSubControlOptions; AProfiles: TClkFindControlMatchBitmapTextDistArr);
 var
   i: Integer;
+  Template: TClkActionsRecArr;
+  Content: TStringList;
+  TempAction: TClkActionRec;
 begin
   SetLength(AAction.MatchBitmapText, 0);
   for i := 0 to Length(AProfiles) - 1 do
     AddProfileRangesToActionProfiles(AAction.MatchBitmapText, AProfiles[i]);
+
+  Content := TStringList.Create;
+  try
+    SetLength(Template, 1);
+    TempAction.ActionOptions.Action := acFindSubControl;
+    TempAction.ActionOptions.ActionName := 'Debugging';
+    TempAction.FindSubControlOptions := AAction;
+    CopyActionContent(TempAction, Template[0]);
+    SaveTemplateWithCustomActionsToStringList_V2(Content, Template, 'Debugging...', 'NoIcon.ico');
+
+    Content.SaveToFile(ExtractFilePath(ParamStr(0)) + '..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\DebuggingGeneratedCustomProfiles.txt');
+  finally
+    Content.Free;
+  end;
 end;
 
 

@@ -44,13 +44,13 @@ uses
 type
   //TStringArr = array of string;
 
-  TArrayOfString = array[0..0] of string;
-  PArrayOfString = ^TArrayOfString;
-  TArrayOfEnumStrings = array[0..0] of PArrayOfString;
-  PArrayOfEnumStrings = ^TArrayOfEnumStrings;
+  //TArrayOfString = array[0..0] of string;
+  //PArrayOfString = ^TArrayOfString;
+  //TArrayOfEnumStrings = array[0..0] of PArrayOfString;
+  //PArrayOfEnumStrings = ^TArrayOfEnumStrings;
 
 
-  TDbgPoint = function(APointName, ALogMsg: string): Boolean;
+  //TDbgPoint = function(APointName, ALogMsg: string): Boolean;
 
   TResponseVars = record
     ControlLeft, ControlTop, ControlRight, ControlBottom: string;
@@ -144,7 +144,7 @@ const
 var
   IdTCPClient1: TIdTCPClient;
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
-  DebugPoint: TDbgPoint;
+  //DebugPoint: TDbgPoint;
   AtLeastOneWorkerFoundTheSubControl: Boolean;
   WorkerRespondedCount: Word;
   FLatestMsg: string = '';
@@ -1532,7 +1532,6 @@ var
   ListOfVarsForWorkers: TStringList;
   i: Integer;
   VarName, VarValue: string;
-  AllNames, AllValues, AllEvalBefore: string;
 begin
   ListOfVarsForWorkers := TStringList.Create;
   try
@@ -1542,9 +1541,9 @@ begin
 
     ListOfVarsForWorkers.Text := AVarsForWorkers;
 
-    AllNames := '';
-    AllValues := '';
-    AllEvalBefore := '';
+    AAllNames := '';
+    AAllValues := '';
+    AAllEvalBefore := '';
     for i := 0 to ListOfVarsForWorkers.Count - 1 do
     begin
       VarName := ListOfVarsForWorkers.Strings[i];
@@ -2252,7 +2251,7 @@ var
   var
     TempBk: TMemoryStream;
     BkFileNameLocation: TImageSourceFileNameLocation;
-    BkHash: string;
+    //BkHash: string;
     TempBmp: TBitmap;
   begin
     ABackgroundSize := -2; //init with something
@@ -2275,7 +2274,7 @@ var
       if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
       begin
         ABackgroundSize := TempBk.Size;
-        BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
+        //BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
 
         //if not FileExistsInCache(AllWorkers[0].FileCacheInfo, CBackgroundFileNameInArchive, TempBk) then    The problem right now, is that the same background archive is sent to all workers. That means the cache has to be verified for all workers and only some of them may need thi archive.
         BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
@@ -3089,6 +3088,11 @@ var
         if UsingCustomFontProfiles then
         begin
           AddToLog('Loading custom font profiles from ' + CustomProfilesFnm);
+
+          if Pos('MEM:', UpperCase(CustomProfilesFnm)) = 0 then
+            if not FileExists(CustomProfilesFnm) then
+              raise Exception.Create('File not found: ' + CustomProfilesFnm);
+
           LoadClkPrf(CustomProfilesFnm, CustomProfiles);
           AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
           UpdateFindSubControlActionWithNewProfiles(DecodedAction, CustomProfiles);
@@ -3282,7 +3286,7 @@ var
   FoundMatchingOS, HasTxtTasks: Boolean;
 begin
   Result := False;
-  DebugPoint := @DbgPoint;
+  //DebugPoint := @DbgPoint;
   SetLength(AllWorkers, 0);
   FLatestMsg := 'Error message not set.';
   SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');

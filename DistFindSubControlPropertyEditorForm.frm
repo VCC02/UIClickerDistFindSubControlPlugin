@@ -72,6 +72,7 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
     Height = 23
     Top = 40
     Width = 288
+    Anchors = [akTop, akLeft, akRight]
     EditLabel.Height = 15
     EditLabel.Width = 288
     EditLabel.Caption = 'ClkPrf File'
