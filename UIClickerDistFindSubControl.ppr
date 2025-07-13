@@ -1383,9 +1383,16 @@ var
   tk: QWord;
 begin
   AddToLog('Disconnected from broker...');
+
+  if RecTh = nil then
+  begin
+    AddToLog('+++++++++++++++++++ RecTh is nil on disconnecting. Nothing to wait for then. (This is a race condition)'); //This handler should be called when RecTh is still valid.
+    Exit;
+  end;
+
   try
-    RecTh.Terminate;
     tk := GetTickCount64;
+    RecTh.Terminate;
     repeat
       Application.ProcessMessages;
       Sleep(1);
@@ -1398,7 +1405,7 @@ begin
     until RecTh.FDone;
   except
     on E: Exception do
-      AddToLog('+++++++++++++++++++ Ex on terminating RecTh: ' + E.Message);
+      AddToLog('+++++++++++++++++++ Ex on terminating RecTh: ' + E.Message + '   Waiting duration: ' + IntToStr(GetTickCount64 - tk) + '  RecTh = ' + IntToStr(QWord(RecTh)));
   end;
 end;
 
@@ -1446,6 +1453,7 @@ var
   tk: QWord;
   ClientToServerBuf: {$IFDEF SingleOutputBuffer} PMQTTBuffer; {$ELSE} PMQTTMultiBuffer; {$ENDIF}
   Err: Word;
+  //StillRunning: Boolean;
 begin
   Result := False;
   //Disconnecting:
@@ -1468,10 +1476,15 @@ begin
     Application.ProcessMessages;
     Sleep(1);
   until (GetTickCount64 - tk > 1500) or RecTh.Terminated;
+
+  //StillRunning := not RecTh.Terminated;
   FreeAndNil(RecTh);
 
   IdTCPClient1.Disconnect(False);
   Result := True;
+
+  //if StillRunning then
+  //  MessageBox(0, 'MQTT thread is still running..', 'Dist plugin', 0);
 end;
 
 
@@ -1791,7 +1804,7 @@ begin
       if ConnectedSucessfully then
         NextState := SWaitForConAck
       else
-        NextState := SDone;
+        NextState := SDisconnectFromBroker;
 
     SWaitForConAck:
     begin
@@ -1799,7 +1812,7 @@ begin
         NextState := SSubscribeToResponses
       else
         if GetTickCount64 - tk > 1000 then
-          NextState := SDone //Timeout
+          NextState := SDisconnectFromBroker  //Timeout
         else
           NextState := SWaitForConAck;
     end;
@@ -1808,7 +1821,7 @@ begin
       if SubscribedSucessfully then
         NextState := SWaitForResponsesSubAck
       else
-        NextState := SDone;
+        NextState := SDisconnectFromBroker;
 
     SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
       if SubAckReceived then
@@ -1816,13 +1829,15 @@ begin
         if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
           NextState := SLoadCache
         else
-          NextState := SRequestCapabilities
+          NextState := SRequestCapabilities;
       end
       else
+      begin
         if GetTickCount64 - tk > 1000 then
-          NextState := SDone //Timeout
+          NextState := SDisconnectFromBroker  //Timeout
         else
           NextState := SWaitForResponsesSubAck;
+      end;
 
     SRequestCapabilities:
       NextState := SWaitForCapabilitiesResponse;
@@ -1864,7 +1879,7 @@ begin
       begin
         FSMError := 'Too many workers (' + IntToStr(Length(AllWorkers)) + '). Please modify the index encoding to raise the limit above 255.';
         AddToLog(FSMError);
-        NextState := SDone;
+        NextState := SDisconnectFromBroker;
       end
       else
         NextState := SPublishBackgroundImageToAllWorkers;
@@ -1876,7 +1891,7 @@ begin
     SWaitForBackgroundImageResults:
       if GetTickCount64 - tk > FindSubControlWorkerTimeout then   //not sure what timeout to use here
       begin
-        NextState := SDone; //Timeout
+        NextState := SDisconnectFromBroker;  //Timeout
 
         if WorkerRespondedCount = 0 then
           FSMError := 'Timeout waiting for workers to send the background image to their local UIClicker.'
@@ -1907,7 +1922,7 @@ begin
       else
         if GetTickCount64 - tk > FindSubControlWorkerTimeout then
         begin
-          NextState := SDone; //Timeout
+          NextState := SDisconnectFromBroker;  //Timeout
 
           if WorkerRespondedCount = 0 then
             FSMError := 'Timeout waiting for workers to find the SubControl.'
