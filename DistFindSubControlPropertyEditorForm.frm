@@ -2,10 +2,10 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
   Left = 373
   Height = 240
   Top = 185
-  Width = 344
+  Width = 354
   Caption = 'DistFindSubControl - Property Editor'
   ClientHeight = 240
-  ClientWidth = 344
+  ClientWidth = 354
   Icon.Data = {
     7E04000000000100010010100000010020006804000016000000280000001000
     0000200000000100200000000000000400000000000000000000000000000000
@@ -48,7 +48,7 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
   LCLVersion = '8.4'
   OnClose = FormClose
   object btnOK: TButton
-    Left = 81
+    Left = 84
     Height = 25
     Top = 199
     Width = 75
@@ -58,7 +58,7 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
     OnClick = btnOKClick
   end
   object btnCancel: TButton
-    Left = 172
+    Left = 178
     Height = 25
     Top = 200
     Width = 75
@@ -71,15 +71,15 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
     Left = 16
     Height = 23
     Top = 40
-    Width = 288
+    Width = 274
     Anchors = [akTop, akLeft, akRight]
     EditLabel.Height = 15
-    EditLabel.Width = 288
+    EditLabel.Width = 274
     EditLabel.Caption = 'ClkPrf File'
     TabOrder = 2
   end
   object btnBrowseClkPrfFile: TButton
-    Left = 312
+    Left = 296
     Height = 23
     Top = 40
     Width = 27
@@ -87,5 +87,50 @@ object frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor
     Caption = '...'
     TabOrder = 3
     OnClick = btnBrowseClkPrfFileClick
+  end
+  object spdbtnBrowseInMemFS: TSpeedButton
+    Left = 321
+    Height = 23
+    Top = 40
+    Width = 18
+    Anchors = [akTop, akRight]
+    Font.Color = clWindowText
+    Glyph.Data = {
+      EA000000424DEA0000000000000036000000280000000B000000050000000100
+      180000000000B400000000000000000000000000000000000000FFFFFFFFFFFF
+      FFFFFFFFFFFFFFFFFF39841AFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
+      FFFFFFFFFFFFFFFFFFFF39841A39841A39841AFFFFFFFFFFFFFFFFFFFFFFFF00
+      0000FFFFFFFFFFFFFFFFFF39841A39841A39841A39841A39841AFFFFFFFFFFFF
+      FFFFFF000000FFFFFFFFFFFF39841A39841A39841A39841A39841A39841A3984
+      1AFFFFFFFFFFFF000000FFFFFF39841A39841A39841A39841A39841A39841A39
+      841A39841A39841AFFFFFF000000
+    }
+    ParentFont = False
+    OnClick = spdbtnBrowseInMemFSClick
+  end
+  object btnSaveEmptyFileToInMemFS: TButton
+    Left = 16
+    Height = 25
+    Top = 72
+    Width = 184
+    Caption = 'btnSaveEmptyFileToInMemFS'
+    TabOrder = 4
+    OnClick = btnSaveEmptyFileToInMemFSClick
+  end
+  object btnLoadFileFromDiskAndSaveItToInMemFS: TButton
+    Left = 16
+    Height = 25
+    Top = 112
+    Width = 251
+    Caption = 'btnLoadFileFromDiskAndSaveItToInMemFS'
+    TabOrder = 5
+    OnClick = btnLoadFileFromDiskAndSaveItToInMemFSClick
+  end
+  object pmBrowseInMemFS: TPopupMenu
+    Left = 280
+    Top = 72
+    object MenuItem_BrowseInMemFS: TMenuItem
+      Caption = 'Browse In-Mem FS'
+    end
   end
 end

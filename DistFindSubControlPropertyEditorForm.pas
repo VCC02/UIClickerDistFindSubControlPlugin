@@ -30,7 +30,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  ClickerUtils;
+  Buttons, Menus, ClickerUtils, ClickerActionPlugins;
 
 type
   TClkFindControlMatchBitmapTextDist = record   //Same fields as in TClkFindControlMatchBitmapText, but these are strings, to allow intervals and enumerations.
@@ -61,22 +61,35 @@ type
     btnOK: TButton;
     btnCancel: TButton;
     btnBrowseClkPrfFile: TButton;
+    btnSaveEmptyFileToInMemFS: TButton;
+    btnLoadFileFromDiskAndSaveItToInMemFS: TButton;
     imgGradient: TImage;
     lbeClkPrfFile: TLabeledEdit;
+    MenuItem_BrowseInMemFS: TMenuItem;
+    pmBrowseInMemFS: TPopupMenu;
+    spdbtnBrowseInMemFS: TSpeedButton;
     procedure btnBrowseClkPrfFileClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
+    procedure btnLoadFileFromDiskAndSaveItToInMemFSClick(Sender: TObject);
     procedure btnOKClick(Sender: TObject);
+    procedure btnSaveEmptyFileToInMemFSClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure spdbtnBrowseInMemFSClick(Sender: TObject);
   private
     FEditedFile: TClkFindControlMatchBitmapTextDistArr;
+
+    FPluginReference: Pointer;
+    FOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+
+    procedure InMemFSItemClick(Sender: TObject);
   public
 
   end;
 
 
-function EditCustomFontProfilesProperty(APropertyIndex: Integer; ACurrentValue: string; out ANewValue: string): Boolean;
-procedure LoadClkPrf(AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
-procedure SaveClkPrf(AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
+function EditCustomFontProfilesProperty(APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; APropertyIndex: Integer; ACurrentValue: string; out ANewValue: string): Boolean;
+procedure LoadClkPrf(APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
+procedure SaveClkPrf(APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
 procedure UpdateFindSubControlActionWithNewProfiles(var AAction: TClkFindSubControlOptions; AProfiles: TClkFindControlMatchBitmapTextDistArr);
 
 
@@ -88,14 +101,18 @@ implementation
 uses
   DistFindSubControlPluginProperties, ClickerIniFiles, Math
   //, ClickerTemplates
+  , ClickerPluginInMemFileSystem
   ;
 
 
-function EditCustomFontProfilesProperty(APropertyIndex: Integer; ACurrentValue: string; out ANewValue: string): Boolean;
+function EditCustomFontProfilesProperty(APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; APropertyIndex: Integer; ACurrentValue: string; out ANewValue: string): Boolean;
 var
   frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor;
 begin
   Application.CreateForm(TfrmDistFindSubControlPropertyEditor, frmDistFindSubControlPropertyEditor);
+
+  frmDistFindSubControlPropertyEditor.FPluginReference := APluginReference;
+  frmDistFindSubControlPropertyEditor.FOnActionPlugin_InMemFS := AOnActionPlugin_InMemFS;
 
   //decode ACurrentValue
   frmDistFindSubControlPropertyEditor.lbeClkPrfFile.Text := ACurrentValue;
@@ -111,15 +128,36 @@ begin
 end;
 
 
-procedure LoadClkPrf(AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
+procedure LoadClkPrf(APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
 var
   Ini: TClkIniReadonlyFile;
   i: Integer;
+  PluginInMemFS: TPluginInMemFileSystem;
+  Content: TMemoryStream;
 begin
-  //if Pos('MEM:', Fnm) = 1 then
-  //  Ini := TClkIniReadonlyFile.Create(AMemStream)
-  //else
+  if Pos('MEM:', UpperCase(AFnm)) = 1 then
+  begin
+    Content := TMemoryStream.Create;
+    PluginInMemFS := TPluginInMemFileSystem.Create;
+    try
+      PluginInMemFS.PluginReference := APluginReference;
+
+      if not PluginInMemFS.FileExistsInMem(AOnActionPlugin_InMemFS, AFnm) then
+        raise Exception.Create('File not found in In-Mem FS: ' + #13#10 + AFnm);
+
+      Content.SetSize(PluginInMemFS.GetFileSize(AOnActionPlugin_InMemFS, AFnm));
+      PluginInMemFS.LoadFileFromMem(AOnActionPlugin_InMemFS, AFnm, Content.Memory);
+
+      Content.Position := 0;
+      Ini := TClkIniReadonlyFile.Create(Content);
+    finally
+      PluginInMemFS.Free;
+      Content.Free;
+    end;
+  end
+  else
     Ini := TClkIniReadonlyFile.Create(AFnm);
+
   try
     SetLength(AProfiles, Ini.GetSectionCount);
     for i := 0 to Length(AProfiles) - 1 do
@@ -148,12 +186,12 @@ begin
 end;
 
 
-procedure SaveClkPrf(AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
+procedure SaveClkPrf(APluginReference: Pointer; AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS; AFnm: string; var AProfiles: TClkFindControlMatchBitmapTextDistArr);
 var
   Ini: TClkIniFile;
   i: Integer;
 begin
-  //if Pos('MEM:', Fnm) = 1 then
+  //if Pos('MEM:', UpperCase(AFnm)) = 1 then
   //  Ini := TClkIniFile.Create(AMemStream)
   //else
     Ini := TClkIniFile.Create(AFnm);
@@ -561,6 +599,114 @@ procedure TfrmDistFindSubControlPropertyEditor.FormClose(Sender: TObject;
   var CloseAction: TCloseAction);
 begin
   CloseAction := caFree;
+end;
+
+
+const
+  CNoFiles = 'No files in In-Mem FS...';
+
+
+procedure TfrmDistFindSubControlPropertyEditor.InMemFSItemClick(Sender: TObject);
+var
+  Fnm: string;
+begin
+  Fnm := StringReplace((Sender as TMenuItem).Caption, '&', '', [rfReplaceAll]);
+  if Fnm = CNoFiles then
+  begin
+    MessageBoxFunction(PChar(Fnm), 'UIClickerDistFindSubControl', 0);
+    Exit;
+  end;
+
+  lbeClkPrfFile.Text := Fnm;
+end;
+
+
+procedure TfrmDistFindSubControlPropertyEditor.spdbtnBrowseInMemFSClick(
+  Sender: TObject);
+var
+  PluginInMemFS: TPluginInMemFileSystem;
+  ListOfFiles: TStringList;
+  i: Integer;
+  TempMenuItem: TMenuItem;
+begin
+  PluginInMemFS := TPluginInMemFileSystem.Create;
+  try
+    PluginInMemFS.PluginReference := FPluginReference;
+
+    ListOfFiles := TStringList.Create;
+    try
+      ListOfFiles.LineBreak := #13#10;
+      ListOfFiles.Text := PluginInMemFS.ListMemFilesAsString(FOnActionPlugin_InMemFS);
+
+      if ListOfFiles.Count = 0 then
+        ListOfFiles.Add(CNoFiles);
+
+      MenuItem_BrowseInMemFS.Clear;
+      for i := 0 to ListOfFiles.Count - 1 do
+      begin
+        TempMenuItem := TMenuItem.Create(Self);
+        TempMenuItem.Caption := ListOfFiles.Strings[i];
+        TempMenuItem.OnClick := InMemFSItemClick;
+
+        MenuItem_BrowseInMemFS.Add(TempMenuItem);
+      end;
+    finally
+      ListOfFiles.Free;
+    end;
+  finally
+    PluginInMemFS.Free;
+  end;
+
+  pmBrowseInMemFS.PopUp;
+end;
+
+
+procedure TfrmDistFindSubControlPropertyEditor.btnSaveEmptyFileToInMemFSClick(Sender: TObject);
+var
+  PluginInMemFS: TPluginInMemFileSystem;
+begin
+  PluginInMemFS := TPluginInMemFileSystem.Create;
+  try
+    PluginInMemFS.PluginReference := FPluginReference;
+    PluginInMemFS.SaveFileToMem(FOnActionPlugin_InMemFS, 'Random_' + DateTimeToStr(Now), nil, 0);
+  finally
+    PluginInMemFS.Free;
+  end;
+end;
+
+
+procedure TfrmDistFindSubControlPropertyEditor.btnLoadFileFromDiskAndSaveItToInMemFSClick
+  (Sender: TObject);
+var
+  PluginInMemFS: TPluginInMemFileSystem;
+  TempOpenDialog: TOpenDialog;
+  Content: TMemoryStream;
+  Fnm: string;
+begin
+  TempOpenDialog := TOpenDialog.Create(nil);
+  try
+    TempOpenDialog.Filter := 'Font profiles (*.clkprf)|*.clkprf|All files (*.*)|*.*';
+    if not TempOpenDialog.Execute then
+      Exit;
+
+    Content := TMemoryStream.Create;
+    PluginInMemFS := TPluginInMemFileSystem.Create;
+    try
+      Content.LoadFromFile(TempOpenDialog.FileName);
+
+      PluginInMemFS.PluginReference := FPluginReference;
+      Fnm := 'Mem:' + Copy(TempOpenDialog.FileName, 3, MaxInt);
+      PluginInMemFS.SaveFileToMem(FOnActionPlugin_InMemFS, Fnm, Content.Memory, Content.Size);
+
+      MessageBoxFunction(PChar('ClkPrf filesize: ' + IntToStr(Content.Size) + #13#10 +
+                               '  in mem size: ' + IntToStr(PluginInMemFS.GetFileSize(FOnActionPlugin_InMemFS, Fnm))), 'Dist', 0);
+    finally
+      PluginInMemFS.Free;
+      Content.Free;
+    end;
+  finally
+    TempOpenDialog.Free;
+  end;
 end;
 
 end.

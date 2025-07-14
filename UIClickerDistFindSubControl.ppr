@@ -30,7 +30,7 @@ library UIClickerDistFindSubControl;
 {$ENDIF}
 
 uses
-  //Windows,
+  Windows,
   Interfaces, Classes, SysUtils, Graphics, ExtCtrls, Forms, Math, IdTCPClient,
   DistFindSubControlDM, ImgList, TplZlibUnit, TplLzmaUnit, IntegerList,
   IdGlobal, ClickerUtils, ClickerExtraUtils, ClickerActionPlugins, DllUtils,
@@ -262,7 +262,7 @@ begin
       Content.Free;
     end;
   finally
-    PluginInMemFS.Free
+    PluginInMemFS.Free;
   end;
 end;
 
@@ -3063,9 +3063,8 @@ var
         AddToLog('Warning: The "' + CFullBackgroundImageInResult_PropName + '" property, of the configured FindSubControl action, is set to True. This will cause resulted debugging images to have full size, which will take longer to be compressed and transferred.');
 
       TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
-      MaxSplitActionsCount := TxtCount;
-
-      AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1');
+      MaxSplitActionsCount := TxtCount;   //updated later, if UsingCustomFontProfiles  (kind of ugly)
+      AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1'); //updated later, if UsingCustomFontProfiles
 
       ListOfBmps := TStringList.Create;
       ListOfPmtvs := TStringList.Create;
@@ -3108,10 +3107,14 @@ var
             if not FileExists(CustomProfilesFnm) then
               raise Exception.Create('File not found: ' + CustomProfilesFnm);
 
-          LoadClkPrf(CustomProfilesFnm, CustomProfiles);
+          LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, CustomProfilesFnm, CustomProfiles);
           AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
           UpdateFindSubControlActionWithNewProfiles(DecodedAction, CustomProfiles);
           AddToLog('Found ' + IntToStr(Length(DecodedAction.MatchBitmapText)) + ' custom font profile(s).');
+
+          TxtCount := Length(DecodedAction.MatchBitmapText);
+          MaxSplitActionsCount := Max(MaxSplitActionsCount, TxtCount);
+          AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1');
         end;
 
 
@@ -3687,7 +3690,9 @@ begin
 end;
 
 
-function EditProperty(APropertyIndex: Integer;
+function EditProperty(APluginReference: Pointer;
+                      AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+                      APropertyIndex: Integer;
                       ACurrentValue: Pointer;
                       ANewValue: Pointer;
                       ALenOfNewValue: PDWord): Boolean; cdecl;
@@ -3705,7 +3710,7 @@ begin
     Application.OnException := FExHandler.CustomExceptionHandler;
 
     //open editor here
-    Result := EditCustomFontProfilesProperty(APropertyIndex, CurrentValue, NewValue);
+    Result := EditCustomFontProfilesProperty(APluginReference, AOnActionPlugin_InMemFS, APropertyIndex, CurrentValue, NewValue);
     ALenOfNewValue^ := SetPointedContentFromString(NewValue, ANewValue);
   finally
     FExHandler.Free;
