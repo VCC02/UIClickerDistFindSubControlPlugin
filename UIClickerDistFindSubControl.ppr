@@ -190,7 +190,8 @@ var
 
   State, NextState: TFSM;
   tk: QWord; //used for timeouts
-
+  VerbLevel: Integer;        //0 = low-level MQTT logging, 1 = Dist plugin general logging, 2 = Dist plugin important logging.
+                             //error messages are displayed regardless of this value
   FExHandler: TExHandler;
 
 
@@ -248,7 +249,7 @@ begin
           AUsername := Ini.ReadString('Credentials', 'Username', '');
           APassword := Ini.ReadString('Credentials', 'Password', '');
 
-          AddToLog('Username: ' + AUsername + '  Password: ' + APassword);
+          //AddToLog('Username: ' + AUsername + '  Password: ' + APassword);  //for debugging only
         finally
           Ini.Free;
         end;
@@ -349,7 +350,9 @@ var
   PacketName: string;
 begin
   MQTTPacketToString(APacketType, PacketName);
-  AddToLog('Sending ' + PacketName + ' packet...');
+
+  if VerbLevel < 1 then
+    AddToLog('Sending ' + PacketName + ' packet...');
 
   try
     SendPacketToServer(ClientInstance);
@@ -374,7 +377,8 @@ var
 begin
   Result := True;
 
-  AddToLog('Preparing CONNECT data..');
+  if VerbLevel < 1 then
+    AddToLog('Preparing CONNECT data..');
 
   //Id := Chr((ClientInstance and $FF) + 48);
   //ClientId := 'MyClient' + Id;
@@ -429,44 +433,51 @@ begin
   StringToDynArrayOfByte('SCRAM-SHA-1', AConnectProperties.AuthenticationMethod);       //some example from spec, pag 108   the server may add to its log: "bad AUTH method"
   StringToDynArrayOfByte('client-first-data', AConnectProperties.AuthenticationData);   //some example from spec, pag 108
 
-  AddToLog('Done preparing CONNECT data..');
-  AddToLog('');
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Done preparing CONNECT data..');
+    AddToLog('');
+  end;
 end;
 
 
 procedure HandleOnAfterMQTT_CONNACK(ClientInstance: DWord; var AConnAckFields: TMQTTConnAckFields; var AConnAckProperties: TMQTTConnAckProperties);
 begin
   ConAckReceived := True;
-  AddToLog('Received CONNACK');
 
-  //AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
-  //AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
-  //AddToLog('ConnAckFields.ConnectReasonCode: ' + IntToStr(AConnAckFields.ConnectReasonCode));  //should be 0
-  //
-  //AddToLog('SessionExpiryInterval: ' + IntToStr(AConnAckProperties.SessionExpiryInterval));
-  //AddToLog('ReceiveMaximum: ' + IntToStr(AConnAckProperties.ReceiveMaximum));
-  //AddToLog('MaximumQoS: ' + IntToStr(AConnAckProperties.MaximumQoS));
-  //AddToLog('RetainAvailable: ' + IntToStr(AConnAckProperties.RetainAvailable));
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Received CONNACK');
 
-  if AConnAckFields.EnabledProperties and CMQTTConnAck_EnMaximumPacketSize = CMQTTConnAck_EnMaximumPacketSize then
-    AddToLog('MaximumPacketSize received: ' + IntToStr(AConnAckProperties.MaximumPacketSize))
-  else
-    AddToLog('MaximumPacketSize unknown: ' + IntToStr(AConnAckProperties.MaximumPacketSize));
+    //AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
+    //AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
+    //AddToLog('ConnAckFields.ConnectReasonCode: ' + IntToStr(AConnAckFields.ConnectReasonCode));  //should be 0
+    //
+    //AddToLog('SessionExpiryInterval: ' + IntToStr(AConnAckProperties.SessionExpiryInterval));
+    //AddToLog('ReceiveMaximum: ' + IntToStr(AConnAckProperties.ReceiveMaximum));
+    //AddToLog('MaximumQoS: ' + IntToStr(AConnAckProperties.MaximumQoS));
+    //AddToLog('RetainAvailable: ' + IntToStr(AConnAckProperties.RetainAvailable));
+
+    if AConnAckFields.EnabledProperties and CMQTTConnAck_EnMaximumPacketSize = CMQTTConnAck_EnMaximumPacketSize then
+      AddToLog('MaximumPacketSize received: ' + IntToStr(AConnAckProperties.MaximumPacketSize))
+    else
+      AddToLog('MaximumPacketSize unknown: ' + IntToStr(AConnAckProperties.MaximumPacketSize));
 
 
-  //AddToLog('AssignedClientIdentifier: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AssignedClientIdentifier), #0, '#0', [rfReplaceAll]));
-  //AddToLog('TopicAliasMaximum: ' + IntToStr(AConnAckProperties.TopicAliasMaximum));
-  //AddToLog('ReasonString: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  //AddToLog('UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AConnAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  //AddToLog('WildcardSubscriptionAvailable: ' + IntToStr(AConnAckProperties.WildcardSubscriptionAvailable));
-  //AddToLog('SubscriptionIdentifierAvailable: ' + IntToStr(AConnAckProperties.SubscriptionIdentifierAvailable));
-  //AddToLog('SharedSubscriptionAvailable: ' + IntToStr(AConnAckProperties.SharedSubscriptionAvailable));
-  //AddToLog('ServerKeepAlive: ' + IntToStr(AConnAckProperties.ServerKeepAlive));
-  //AddToLog('ResponseInformation: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ResponseInformation), #0, '#0', [rfReplaceAll]));
-  //AddToLog('ServerReference: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ServerReference), #0, '#0', [rfReplaceAll]));
-  //AddToLog('AuthenticationMethod: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
-  //AddToLog('AuthenticationData: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
-  //
+    //AddToLog('AssignedClientIdentifier: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AssignedClientIdentifier), #0, '#0', [rfReplaceAll]));
+    //AddToLog('TopicAliasMaximum: ' + IntToStr(AConnAckProperties.TopicAliasMaximum));
+    //AddToLog('ReasonString: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    //AddToLog('UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AConnAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    //AddToLog('WildcardSubscriptionAvailable: ' + IntToStr(AConnAckProperties.WildcardSubscriptionAvailable));
+    //AddToLog('SubscriptionIdentifierAvailable: ' + IntToStr(AConnAckProperties.SubscriptionIdentifierAvailable));
+    //AddToLog('SharedSubscriptionAvailable: ' + IntToStr(AConnAckProperties.SharedSubscriptionAvailable));
+    //AddToLog('ServerKeepAlive: ' + IntToStr(AConnAckProperties.ServerKeepAlive));
+    //AddToLog('ResponseInformation: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ResponseInformation), #0, '#0', [rfReplaceAll]));
+    //AddToLog('ServerReference: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ServerReference), #0, '#0', [rfReplaceAll]));
+    //AddToLog('AuthenticationMethod: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
+    //AddToLog('AuthenticationData: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
+    //
+  end;
 
   ///////////////////////////////////////// when the server returns SessionPresentFlag set to 1, the library resends unacknowledged Publish and PubRel packets.
   //AConnAckFields.SessionPresentFlag := 1;
@@ -494,7 +505,9 @@ begin
   SubId := MQTT_CreateClientToServerSubscriptionIdentifier(ClientInstance); //This function has to be called here, in this handler only. The library does not call this function other than for init purposes.
                                                                             //If SubscriptionIdentifiers are used, then user code should free them when resubscribing or when unsubscribing.
   ASubscribeProperties.SubscriptionIdentifier := SubId;  //For now, the user code should keep track of these identifiers and free them on resubscribing or unsubscribing.
-  AddToLog('Subscribing with new SubscriptionIdentifier: ' + IntToStr(SubId));
+
+  if VerbLevel < 1 then
+    AddToLog('Subscribing with new SubscriptionIdentifier: ' + IntToStr(SubId));
 
   Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_GetCapabilities, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
@@ -503,7 +516,8 @@ begin
     Exit;
   end;
 
-  AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
+  if VerbLevel < 1 then
+    AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
 
   Result := FillIn_SubscribePayload(CTopicName_WorkerToApp_SendBackground, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
@@ -532,10 +546,13 @@ begin
   //A subscription is allowed to be made without a SubscriptionIdentifier.
   ASubscribeFields.EnabledProperties := CMQTTSubscribe_EnSubscriptionIdentifier {or CMQTTSubscribe_EnUserProperty};
 
-  AddToLog('Subscribing with PacketIdentifier: ' + IntToStr(ASubscribeFields.PacketIdentifier));
-  AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Subscribing with PacketIdentifier: ' + IntToStr(ASubscribeFields.PacketIdentifier));
+    AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
 
-  AddToLog('');
+    AddToLog('');
+  end;
 end;
 
 
@@ -543,22 +560,26 @@ procedure HandleOnAfterReceivingMQTT_SUBACK(ClientInstance: DWord; var ASubAckFi
 var
   i: Integer;
 begin
-  AddToLog('Received SUBACK');
   SubAckReceived := True;
-  //AddToLog('ASubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
-  //AddToLog('ASubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
-  AddToLog('ASubAckFields.EnabledProperties: ' + IntToStr(ASubAckFields.EnabledProperties));
-  AddToLog('ASubAckFields.PacketIdentifier: ' + IntToStr(ASubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
 
-  AddToLog('ASubAckFields.Payload.Len: ' + IntToStr(ASubAckFields.SrcPayload.Len));
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Received SUBACK');
+    //AddToLog('ASubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
+    //AddToLog('ASubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
+    AddToLog('ASubAckFields.EnabledProperties: ' + IntToStr(ASubAckFields.EnabledProperties));
+    AddToLog('ASubAckFields.PacketIdentifier: ' + IntToStr(ASubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
 
-  for i := 0 to ASubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
-    AddToLog('ASubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(ASubAckFields.SrcPayload.Content^[i]));
+    AddToLog('ASubAckFields.Payload.Len: ' + IntToStr(ASubAckFields.SrcPayload.Len));
 
-  AddToLog('ASubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(ASubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  AddToLog('ASubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(ASubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    for i := 0 to ASubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
+      AddToLog('ASubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(ASubAckFields.SrcPayload.Content^[i]));
 
-  AddToLog('');
+    AddToLog('ASubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(ASubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    AddToLog('ASubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(ASubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+
+    AddToLog('');
+  end;
 end;
 
 
@@ -595,11 +616,12 @@ begin
     Exit;
   end;
 
-  AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' +
-                                    CTopicName_WorkerToApp_SendBackground + '" and "' +
-                                    CTopicName_WorkerToApp_FindSubControl + '" and "' +
-                                    CTopicName_WorkerToApp_GetListOfFonts + '"...'
-                                    );
+  if VerbLevel < 1 then
+    AddToLog('Unsubscribing from "' + CTopicName_WorkerToApp_GetCapabilities + '" and "' +
+                                      CTopicName_WorkerToApp_SendBackground + '" and "' +
+                                      CTopicName_WorkerToApp_FindSubControl + '" and "' +
+                                      CTopicName_WorkerToApp_GetListOfFonts + '"...'
+                                      );
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
 end;
@@ -609,21 +631,24 @@ procedure HandleOnAfterReceivingMQTT_UNSUBACK(ClientInstance: DWord; var AUnsubA
 var
   i: Integer;
 begin
-  AddToLog('Received UNSUBACK');
-  //AddToLog('AUnsubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
-  //AddToLog('AUnsubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
-  AddToLog('AUnsubAckFields.EnabledProperties: ' + IntToStr(AUnsubAckFields.EnabledProperties));
-  AddToLog('AUnsubAckFields.PacketIdentifier: ' + IntToStr(AUnsubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Received UNSUBACK');
+    //AddToLog('AUnsubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
+    //AddToLog('AUnsubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
+    AddToLog('AUnsubAckFields.EnabledProperties: ' + IntToStr(AUnsubAckFields.EnabledProperties));
+    AddToLog('AUnsubAckFields.PacketIdentifier: ' + IntToStr(AUnsubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
 
-  AddToLog('AUnsubAckFields.Payload.Len: ' + IntToStr(AUnsubAckFields.SrcPayload.Len));
+    AddToLog('AUnsubAckFields.Payload.Len: ' + IntToStr(AUnsubAckFields.SrcPayload.Len));
 
-  for i := 0 to AUnsubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
-    AddToLog('AUnsubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(AUnsubAckFields.SrcPayload.Content^[i]));
+    for i := 0 to AUnsubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
+      AddToLog('AUnsubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(AUnsubAckFields.SrcPayload.Content^[i]));
 
-  AddToLog('AUnsubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(AUnsubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  AddToLog('AUnsubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AUnsubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    AddToLog('AUnsubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(AUnsubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    AddToLog('AUnsubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AUnsubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
 
-  AddToLog('');
+    AddToLog('');
+  end;
 end;
 
 
@@ -649,7 +674,9 @@ begin
       TempWorkerSpecificTask := 'DebuggingString';
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_GetCapabilities, APublishFields.TopicName);
       APublishFields.EnabledProperties := CMQTTPublish_EnContentType;
-      AddToLog('Requesting worker capabilities...');
+
+      if VerbLevel < 2 then
+        AddToLog('Requesting worker capabilities...');
     end;
 
     CCallbackID_SendBackgroundToAll:
@@ -657,7 +684,8 @@ begin
       Msg := AllWorkerBackgroundBmpStr;
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_SendBackground, APublishFields.TopicName);
 
-      AddToLog('Publishing SendBackground request to all workers...  Topic: ' + CTopicName_AppToWorker_SendBackground + '   Len(Msg): ' + IntToStr(Length(Msg)));
+      if VerbLevel < 2 then
+        AddToLog('Publishing SendBackground request to all workers...  Topic: ' + CTopicName_AppToWorker_SendBackground + '   Len(Msg): ' + IntToStr(Length(Msg)));
 
       //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
       //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
@@ -673,7 +701,8 @@ begin
       Msg := AllWorkerBackgroundBmpStr;
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_SendBackground + '_' + AllWorkers[CurrentWorkerIndex].Name, APublishFields.TopicName);
 
-      AddToLog('Publishing SendBackground request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
+      if VerbLevel < 2 then
+        AddToLog('Publishing SendBackground request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
 
       //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
       //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
@@ -689,7 +718,8 @@ begin
       Msg := AllWorkers[CurrentWorkerIndex].WorkerActionContentStr;
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_FindSubControl + '_' + AllWorkers[CurrentWorkerIndex].Name, APublishFields.TopicName);
 
-      AddToLog('Publishing FindSubControl request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
+      if VerbLevel < 2 then
+        AddToLog('Publishing FindSubControl request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
 
       //List of tasks for all workers. It can be an '&' separated list of WorkerName=TaskInfo, from all workers array.
       //The list separator has to be compatible with MQTT spec about UTF-8 encoding.
@@ -708,7 +738,8 @@ begin
       Msg := 'none'; //not a requirement so far
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_GetListOfFonts, APublishFields.TopicName);
 
-      AddToLog('Requesting GetListOfFonts from worker[' + IntToStr(CurrentWorkerIndex) + ']...');
+      if VerbLevel < 2 then
+        AddToLog('Requesting GetListOfFonts from worker[' + IntToStr(CurrentWorkerIndex) + ']...');
     end;
 
     else
@@ -721,8 +752,8 @@ begin
   Result := Result and StringToDynArrayOfByte(Msg, APublishFields.ApplicationMessage);
   Result := Result and StringToDynArrayOfByte(TempWorkerSpecificTask, APublishProperties.ContentType);
 
-
-  AddToLog('');
+  if VerbLevel < 2 then
+    AddToLog('');
   //QoS can be overriden here. If users override QoS in this handler, then a a different PacketIdentifier might be allocated (depending on what is available)
 end;
 
@@ -730,31 +761,37 @@ end;
 //This handler is used when this client publishes a message to broker and the broker responds with PUBACK.
 procedure HandleOnBeforeSendingMQTT_PUBACK(ClientInstance: DWord; var APubAckFields: TMQTTPubAckFields; var APubAckProperties: TMQTTPubAckProperties);
 begin
-  AddToLog('Acknowledging with PUBACK');
-  AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
-  AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
-  AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
-  AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Acknowledging with PUBACK');
+    AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
+    AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
+    AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
+    AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
 
-  AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
 
-  AddToLog('');
-  //This handler can be used to override what is being sent to server as a reply to PUBLISH
+    AddToLog('');
+    //This handler can be used to override what is being sent to server as a reply to PUBLISH
+  end;
 end;
 
 
 procedure HandleOnAfterReceivingMQTT_PUBACK(ClientInstance: DWord; var APubAckFields: TMQTTPubAckFields; var APubAckProperties: TMQTTPubAckProperties);
 begin
-  AddToLog('Received PUBACK');
-  //AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
-  //AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
-  //AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
-  //AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
-  //
-  //AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  //AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  AddToLog('');
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Received PUBACK');
+    //AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
+    //AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
+    //AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
+    //AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
+    //
+    //AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    //AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    AddToLog('');
+  end;
 end;
 
 
@@ -824,11 +861,18 @@ var
   Archive: TMemArchive;
   TempArchiveHandlers: TArchiveHandlers;
 begin
-  AddToLog('Decoded response archive size: ' + IntToStr(Length(AArchiveAsResponseStr)));
+  if VerbLevel < 2 then
+    AddToLog('Decoded response archive size: ' + IntToStr(Length(AArchiveAsResponseStr)));
+
   AArchiveAsResponseStr := Copy(AArchiveAsResponseStr, 1, StrToInt64Def(AArchiveSizeStr, Length(AArchiveAsResponseStr)));
-  AddToLog('Received response archive size: ' + AArchiveSizeStr);
+
+  if VerbLevel < 2 then
+    AddToLog('Received response archive size: ' + AArchiveSizeStr);
+
   AArchiveAsResponseStr := HexToString(AArchiveAsResponseStr);
-  AddToLog('Received response raw archive size: ' + IntToStr(Length(AArchiveAsResponseStr)) + '   (* 2 = ' + IntToStr(Length(AArchiveAsResponseStr) shl 1) + ')');
+
+  if VerbLevel < 2 then
+    AddToLog('Received response raw archive size: ' + IntToStr(Length(AArchiveAsResponseStr)) + '   (* 2 = ' + IntToStr(Length(AArchiveAsResponseStr) shl 1) + ')');
 
   ArchiveStream := TMemoryStream.Create;
   Archive := TMemArchive.Create;
@@ -837,14 +881,17 @@ begin
     TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
     ArchiveStream.Write(AArchiveAsResponseStr[1], Length(AArchiveAsResponseStr));
 
-    //AddToLog('First 10 archive bytes: "' + FastReplace_0To1(Copy(AArchiveAsResponseStr, 1, 10)));
-    //AddToLog('Last 10 archive bytes: "' + FastReplace_0To1(Copy(AArchiveAsResponseStr, Length(AArchiveAsResponseStr) - 9, 10)));
-    AddToLog('Computing Archive hash.. Size = ' + IntToStr(ArchiveStream.Size));
-    try
-      AddToLog('Archive hash: ' + ClickerExtraUtils.ComputeHash(ArchiveStream.Memory, ArchiveStream.Size));
-    except
-      on E: Exception do
-        AddToLog('Ex on computing archive hash: ' + E.Message);
+    if VerbLevel < 2 then
+    begin
+      //AddToLog('First 10 archive bytes: "' + FastReplace_0To1(Copy(AArchiveAsResponseStr, 1, 10)));
+      //AddToLog('Last 10 archive bytes: "' + FastReplace_0To1(Copy(AArchiveAsResponseStr, Length(AArchiveAsResponseStr) - 9, 10)));
+      AddToLog('Computing Archive hash.. Size = ' + IntToStr(ArchiveStream.Size));
+      try
+        AddToLog('Archive hash: ' + ClickerExtraUtils.ComputeHash(ArchiveStream.Memory, ArchiveStream.Size));
+      except
+        on E: Exception do
+          AddToLog('Ex on computing archive hash: ' + E.Message);
+      end;
     end;
 
     Archive.OnCompress := TempArchiveHandlers.HandleOnCompress;
@@ -885,15 +932,19 @@ begin
   ID := APublishFields.PacketIdentifier;
   Topic := StringReplace(DynArrayOfByteToString(APublishFields.TopicName), #0, '#0', [rfReplaceAll]);
 
-  AddToLog('Received PUBLISH  ServerPacketIdentifier: ' + IntToStr(ID) +
-                                                 '  Msg: ' + Copy(Msg, 1, Pos(CProtocolParam_ResultImageArchive + '=', Msg) - 1) +
-                                                 '  QoS: ' + IntToStr(QoS) +
-                                                 '  TopicName: ' + Topic);
+  if VerbLevel < 1 then
+    AddToLog('Received PUBLISH  ServerPacketIdentifier: ' + IntToStr(ID) +
+                                                   '  Msg: ' + Copy(Msg, 1, Pos(CProtocolParam_ResultImageArchive + '=', Msg) - 1) +
+                                                   '  QoS: ' + IntToStr(QoS) +
+                                                   '  TopicName: ' + Topic);
 
-  s := '';
-  for i := 0 to APublishProperties.SubscriptionIdentifier.Len - 1 do
-    s := s + IntToStr(APublishProperties.SubscriptionIdentifier.Content^[i]) + ', ';
-  AddToLog('SubscriptionIdentifier(s): ' + s);
+  if VerbLevel < 2 then
+  begin
+    s := '';
+    for i := 0 to APublishProperties.SubscriptionIdentifier.Len - 1 do
+      s := s + IntToStr(APublishProperties.SubscriptionIdentifier.Content^[i]) + ', ';
+    AddToLog('SubscriptionIdentifier(s): ' + s);
+  end;
 
   Content := TStringList.Create;
   try
@@ -919,7 +970,9 @@ begin
         if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
         begin
           Inc(WorkerRespondedCount);
-          AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with success when sending background image.');
+
+          if VerbLevel < 2 then
+            AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with success when sending background image.');
         end
         else
           AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with error when sending background image: ' + Content.Values['$ExecAction_Err$']);
@@ -980,7 +1033,8 @@ begin
     if Topic = CTopicName_WorkerToApp_GetListOfFonts then
       if WaitingForWorkerFonts then
       begin
-        AddToLog('Received fonts from worker: ' + Content.Values[CProtocolParam_Name]);
+        if VerbLevel < 2 then
+          AddToLog('Received fonts from worker: ' + Content.Values[CProtocolParam_Name]);
 
         WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
         if WorkerIndex = -1 then
@@ -998,50 +1052,58 @@ begin
     Content.Free;
   end;
 
-  AddToLog('');
+  if VerbLevel < 1 then
+    AddToLog('');
 end;
 
 
 procedure HandleOnBeforeSending_MQTT_PUBREC(ClientInstance: DWord; var ATempPubRecFields: TMQTTPubRecFields; var ATempPubRecProperties: TMQTTPubRecProperties);
 begin
-  AddToLog('Acknowledging with PUBREC for ServerPacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    AddToLog('Acknowledging with PUBREC for ServerPacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceiving_MQTT_PUBREC(ClientInstance: DWord; var ATempPubRecFields: TMQTTPubRecFields; var ATempPubRecProperties: TMQTTPubRecProperties);
 begin
-  AddToLog('Received PUBREC for PacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    AddToLog('Received PUBREC for PacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
 end;
 
 
 //Sending PUBREL after the PUBREC response from server, after the client has sent a PUBLISH packet with QoS=2.
 procedure HandleOnBeforeSending_MQTT_PUBREL(ClientInstance: DWord; var ATempPubRelFields: TMQTTPubRelFields; var ATempPubRelProperties: TMQTTPubRelProperties);
 begin
-  AddToLog('Acknowledging with PUBREL for PacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    AddToLog('Acknowledging with PUBREL for PacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceiving_MQTT_PUBREL(ClientInstance: DWord; var ATempPubRelFields: TMQTTPubRelFields; var ATempPubRelProperties: TMQTTPubRelProperties);
 begin
-  AddToLog('Received PUBREL for ServerPacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    AddToLog('Received PUBREL for ServerPacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnBeforeSending_MQTT_PUBCOMP(ClientInstance: DWord; var ATempPubCompFields: TMQTTPubCompFields; var ATempPubCompProperties: TMQTTPubCompProperties);
 begin
-  AddToLog('Acknowledging with PUBCOMP for PacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    AddToLog('Acknowledging with PUBCOMP for PacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceiving_MQTT_PUBCOMP(ClientInstance: DWord; var ATempPubCompFields: TMQTTPubCompFields; var ATempPubCompProperties: TMQTTPubCompProperties);
 begin
-  AddToLog('Received PUBCOMP for ServerPacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    AddToLog('Received PUBCOMP for ServerPacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceivingMQTT_PINGRESP(ClientInstance: DWord);
 begin
-  AddToLog('Received PINGRESP');
+  if VerbLevel < 1 then
+    AddToLog('Received PINGRESP');
 end;
 
 
@@ -1050,7 +1112,8 @@ procedure HandleOnBeforeSendingMQTT_DISCONNECT(ClientInstance: DWord;  //The low
                                                var ADisconnectProperties: TMQTTDisconnectProperties;
                                                ACallbackID: Word);
 begin
-  AddToLog('Sending DISCONNECT');
+  if VerbLevel < 1 then
+    AddToLog('Sending DISCONNECT');
   //ADisconnectFields.EnabledProperties := CMQTTDisconnect_EnSessionExpiryInterval;   //uncomment if needed
   //ADisconnectProperties.SessionExpiryInterval := 1;
 
@@ -1070,15 +1133,18 @@ procedure HandleOnAfterReceivingMQTT_DISCONNECT(ClientInstance: DWord;  //The lo
                                                 var ADisconnectFields: TMQTTDisconnectFields;
                                                 var ADisconnectProperties: TMQTTDisconnectProperties);
 begin
-  AddToLog('Received DISCONNECT');
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Received DISCONNECT');
 
-  AddToLog('ADisconnectFields.EnabledProperties' + IntToStr(ADisconnectFields.EnabledProperties));
-  AddToLog('ADisconnectFields.DisconnectReasonCode' + IntToStr(ADisconnectFields.DisconnectReasonCode));
+    AddToLog('ADisconnectFields.EnabledProperties' + IntToStr(ADisconnectFields.EnabledProperties));
+    AddToLog('ADisconnectFields.DisconnectReasonCode' + IntToStr(ADisconnectFields.DisconnectReasonCode));
 
-  AddToLog('ADisconnectProperties.SessionExpiryInterval' + IntToStr(ADisconnectProperties.SessionExpiryInterval));
-  AddToLog('ADisconnectProperties.ReasonString' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  AddToLog('ADisconnectProperties.ServerReference' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ServerReference), #0, '#0', [rfReplaceAll]));
-  AddToLog('ADisconnectProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(ADisconnectProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    AddToLog('ADisconnectProperties.SessionExpiryInterval' + IntToStr(ADisconnectProperties.SessionExpiryInterval));
+    AddToLog('ADisconnectProperties.ReasonString' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    AddToLog('ADisconnectProperties.ServerReference' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ServerReference), #0, '#0', [rfReplaceAll]));
+    AddToLog('ADisconnectProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(ADisconnectProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+  end;
 end;
 
 
@@ -1087,7 +1153,9 @@ procedure HandleOnBeforeSendingMQTT_AUTH(ClientInstance: DWord;  //The lower wor
                                          var AAuthProperties: TMQTTAuthProperties;
                                          ACallbackID: Word);
 begin
-  AddToLog('Sending AUTH');
+  if VerbLevel < 1 then
+    AddToLog('Sending AUTH');
+
   AAuthFields.AuthReasonCode := $19; //Example: reauth   - see spec, pag 108.
 
   StringToDynArrayOfByte('SCRAM-SHA-1', AAuthProperties.AuthenticationMethod);       //some example from spec, pag 108
@@ -1099,15 +1167,18 @@ procedure HandleOnAfterReceivingMQTT_AUTH(ClientInstance: DWord;  //The lower wo
                                           var AAuthFields: TMQTTAuthFields;
                                           var AAuthProperties: TMQTTAuthProperties);
 begin
-  AddToLog('Received AUTH');
+  if VerbLevel < 1 then
+  begin
+    AddToLog('Received AUTH');
 
-  AddToLog('AAuthFields.EnabledProperties' + IntToStr(AAuthFields.EnabledProperties));
-  AddToLog('AAuthFields.AuthReasonCode' + IntToStr(AAuthFields.AuthReasonCode));
+    AddToLog('AAuthFields.EnabledProperties' + IntToStr(AAuthFields.EnabledProperties));
+    AddToLog('AAuthFields.AuthReasonCode' + IntToStr(AAuthFields.AuthReasonCode));
 
-  AddToLog('AAuthProperties.ReasonString' + StringReplace(DynArrayOfByteToString(AAuthProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
-  AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
-  AddToLog('AAuthProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(AAuthProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    AddToLog('AAuthProperties.ReasonString' + StringReplace(DynArrayOfByteToString(AAuthProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
+    AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
+    AddToLog('AAuthProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(AAuthProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+  end;
 end;
 
 
@@ -1252,8 +1323,12 @@ begin
             if SuccessfullyDecoded then
             begin
               MQTTPacketToString(TempReadBuf.Content^[0], PacketName);
-              AddToLog('done receiving packet');
-              AddToLog('Buffer size: ' + IntToStr(TempReadBuf.Len) + '  Packet header: $' + IntToHex(TempReadBuf.Content^[0]) + ' (' + PacketName + ')');
+
+              if VerbLevel < 1 then
+              begin
+                AddToLog('done receiving packet');
+                AddToLog('Buffer size: ' + IntToStr(TempReadBuf.Len) + '  Packet header: $' + IntToHex(TempReadBuf.Content^[0]) + ' (' + PacketName + ')');
+              end;
 
               if PacketSize <> TempReadBuf.Len then
               begin
@@ -1615,7 +1690,9 @@ begin
 
     SConnectToBroker:
     begin
-      AddToLog('Connecting to broker.');
+      if VerbLevel < 2 then
+        AddToLog('Connecting to broker.');
+
       ConnectedSucessfully := DoConnectToBroker;
 
       if ConnectedSucessfully then
@@ -1690,7 +1767,9 @@ begin
       AtLeastOneWorkerFoundTheSubControl := False;
       WorkerRespondedCount := 0;
 
-      AddToLog('Sending background image to broker...');
+      if VerbLevel < 2 then
+        AddToLog('Sending background image to broker...');
+
       if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
       begin
         FSMError := 'Can''t send background image to all workers.';
@@ -1698,7 +1777,9 @@ begin
       end
       else
         tk := GetTickCount64;
-      AddToLog('Done sending background image.');
+
+      if VerbLevel < 2 then
+        AddToLog('Done sending background image.');
     end;
 
     SWaitForBackgroundImageResults:
@@ -1711,7 +1792,9 @@ begin
       AtLeastOneWorkerFoundTheSubControl := False;
       WorkerRespondedCount := 0;
 
-      AddToLog('Sending FindSubControl settings to broker...');
+      if VerbLevel < 2 then
+        AddToLog('Sending FindSubControl settings to broker...');
+
       for i := 0 to Length(AllWorkers) - 1 do
       begin
         if not MQTT_PUBLISH(0, CCallbackID_SendFindSubControl or (i shl 8), WorkerQoS) then   //notice CallbackID = 3     (i.e. 'FindSubControl')
@@ -1722,7 +1805,9 @@ begin
         else
           tk := GetTickCount64;
       end;
-      AddToLog('Done sending FindSubControl settings.');
+
+      if VerbLevel < 2 then
+        AddToLog('Done sending FindSubControl settings.');
     end;
 
     SWaitForFindSubControlResults:
@@ -1753,7 +1838,9 @@ begin
 
     SUpdateCache:
     begin
-      AddToLog('Updating plugin cache..');
+      if VerbLevel < 2 then
+        AddToLog('Updating plugin cache..');
+
       if UpdateCacheActionName = '' then
       begin
         FSMError := 'There is no configured action for updating plugin cache.';
@@ -1767,7 +1854,9 @@ begin
 
     SLoadCache:
     begin
-      AddToLog('Loading plugin cache..');
+      if VerbLevel < 2 then
+        AddToLog('Loading plugin cache..');
+
       if LoadCacheActionName = '' then
       begin
         FSMError := 'There is no configured action for loading plugin cache.';
@@ -1909,7 +1998,9 @@ begin
         if WorkerRespondedCount >= Length(AllWorkers) then
         begin
           NextState := SPublishFindSubControlToAllWorkers;
-          AddToLog('All workers responded after having the background image in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
+
+          if VerbLevel < 2 then
+            AddToLog('All workers responded after having the background image in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
         end;
       end;
 
@@ -2275,15 +2366,22 @@ var
 
     if AImageSource = '0' then  //isScreenshot
     begin
-      AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
+      if VerbLevel < 2 then
+        AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
+
       AOnActionPlugin_Screenshot(APluginReference, @string(PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
-      AddToLog('----------- The screenshot should be found in in-mem FS, as ' + CScreenshotFilename);
+
+      if VerbLevel < 2 then
+        AddToLog('----------- The screenshot should be found in in-mem FS, as ' + CScreenshotFilename);
+
       ASourceFileName := CScreenshotFilename;
     end;
 
     BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
 
-    AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
+    if VerbLevel < 2 then
+      AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
+
     TempBk := TMemoryStream.Create;
     try
       if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
@@ -2300,7 +2398,9 @@ var
           TempBmp.LoadFromStream(TempBk);
           ABackgroundWidth := TempBmp.Width;
           ABackgroundHeight := TempBmp.Height;
-          AddToLog('----------- Background size: ' + IntToStr(TempBmp.Width) + ' : ' + IntToStr(TempBmp.Height));
+
+          if VerbLevel < 2 then
+            AddToLog('----------- Background size: ' + IntToStr(TempBmp.Width) + ' : ' + IntToStr(TempBmp.Height));
         finally
           TempBmp.Free;
         end;
@@ -2394,7 +2494,8 @@ var
         begin
           TempMemFile := TMemoryStream.Create;
           try
-            AddToLog('----------- Loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
+            if VerbLevel < 2 then
+              AddToLog('----------- Loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
 
             if Pos(CExtBmp_PrefixUpperCase, UpperCase(TempFilesToSend.Strings[j])) = 1 then
               FileLoc := isflMem
@@ -2424,7 +2525,8 @@ var
                     begin
                       UsedBmpTempMemFile := TMemoryStream.Create;
                       try
-                        AddToLog('----------- Loading bitmap (used by pmtv) as stream: "' + BmpsInPmtv.Strings[k] + '" and adding it to archive.');
+                        if VerbLevel < 2 then
+                          AddToLog('----------- Loading bitmap (used by pmtv) as stream: "' + BmpsInPmtv.Strings[k] + '" and adding it to archive.');
 
                         if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpsInPmtv.Strings[k])) = 1 then
                           FileLoc := isflMem
@@ -2444,7 +2546,10 @@ var
                           if EvaluateFileNameBeforeSending then
                           begin
                             FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
-                            AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+
+                            if VerbLevel < 2 then
+                              AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+
                             try
                               if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
                                 AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
@@ -2457,7 +2562,10 @@ var
                           else
                           begin
                             FnmForArchive := BmpsInPmtv.Strings[k];
-                            AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+
+                            if VerbLevel < 2 then
+                              AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+
                             try
                               if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
                                 AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
@@ -2468,7 +2576,8 @@ var
                             end;
                           end;
 
-                          AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
+                          if VerbLevel < 2 then
+                            AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
                         end
                         else
                         begin
@@ -2482,7 +2591,9 @@ var
 
                       if EvaluateFileNameBeforeSending then
                       begin
-                        AddToLog('--------------- Updating "' + BmpsInPmtv.Strings[k] + '" to "' + FnmForArchive + '" in pmtv.  Initial pmtv file size: ' + IntToStr(TempMemFile.Size));
+                        if VerbLevel < 2 then
+                          AddToLog('--------------- Updating "' + BmpsInPmtv.Strings[k] + '" to "' + FnmForArchive + '" in pmtv.  Initial pmtv file size: ' + IntToStr(TempMemFile.Size));
+
                         BmpsInPmtv.Strings[k] := FnmForArchive;
                       end;
                     end;  //for k
@@ -2492,7 +2603,9 @@ var
                       SetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
                       //PmtvIni.WriteString('[NewSection]', 'For debugging', 'Increased size.');
                       PmtvIni.UpdateStream; //this updates TempMemFile to the new content of PmtvIni
-                      AddToLog('--------------- Updated bmp file names in pmtv.  Updated pmtv file size: ' + IntToStr(TempMemFile.Size));
+
+                      if VerbLevel < 2 then
+                        AddToLog('--------------- Updated bmp file names in pmtv.  Updated pmtv file size: ' + IntToStr(TempMemFile.Size));
                     end;
                   finally
                     BmpsInPmtv.Free;
@@ -2506,7 +2619,10 @@ var
               if EvaluateFileNameBeforeSending then    //moved from before "UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV'", because the pmtv may be modified here, to have evaluated paths to bmps
               begin
                 FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
-                AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+
+                if VerbLevel < 2 then
+                  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+
                 try
                   if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
                     AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
@@ -2519,7 +2635,10 @@ var
               else
               begin
                 FnmForArchive := TempFilesToSend.Strings[j];
-                AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+
+                if VerbLevel < 2 then
+                  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+
                 try
                   if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
                     AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
@@ -2530,8 +2649,8 @@ var
                 end;
               end;
 
-              AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
-
+              if VerbLevel < 2 then
+                AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
             end
             else
             begin
@@ -2847,7 +2966,8 @@ var
 
     if Length(AllWorkers) > 0 then
     begin
-      AddToLog('Splitting work from ' + IntToStr(AMaxSplitActionsCount) + ' (max) task(s).');
+      if VerbLevel < 3 then
+        AddToLog('Splitting work from ' + IntToStr(AMaxSplitActionsCount) + ' (max) task(s).');
 
       //Filter, based on RequestedTextRenderingOS.  - property at CTextRenderingOSPropertyIndex index
       SetLength(WorkersMatchingOS, 0);
@@ -2915,7 +3035,9 @@ var
       //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
       if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
       begin
-        AddToLog('Loading pmtv files, to get the list of used fonts.');
+        if VerbLevel < 2 then
+          AddToLog('Loading pmtv files, to get the list of used fonts.');
+
         GetFontsUsedByPmtvs(AListOfAllVars, AFindSubControlOptions, FontsUsedByPmtvs);   //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
 
         SetLength(SortedByDuplicatedFont, Length(FontsUsedByPmtvs));
@@ -2951,14 +3073,17 @@ var
         end;
       end;  //WillMatchPrimitiveFiles
 
-      AddToLog('Worker allocation on ' + IntToStr(Length(AllWorkers)) + ' available worker(s):');
-      for i := 0 to Length(AllWorkers) - 1 do
+      if VerbLevel < 3 then
       begin
-        AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
-                                            'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
-                                            'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
-                                            AllWorkers[i].WorkerSpecificTask;
-        AddToLog('  Worker[' + IntToStr(i) + '] = ' + AllWorkers[i].WorkerSpecificTask + '  Files to send: ' + FastReplace_ReturnTo45(AllWorkers[i].FilesToSend));
+        AddToLog('Worker allocation on ' + IntToStr(Length(AllWorkers)) + ' available worker(s):');
+        for i := 0 to Length(AllWorkers) - 1 do
+        begin
+          AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
+                                              'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
+                                              'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
+                                              AllWorkers[i].WorkerSpecificTask;
+          AddToLog('  Worker[' + IntToStr(i) + '] = ' + AllWorkers[i].WorkerSpecificTask + '  Files to send: ' + FastReplace_ReturnTo45(AllWorkers[i].FilesToSend));
+        end;
       end;
     end; //Length(AllWorkers) > 0
   end;
@@ -3101,16 +3226,22 @@ var
 
         if UsingCustomFontProfiles then
         begin
-          AddToLog('Loading custom font profiles from ' + CustomProfilesFnm);
+          if VerbLevel < 2 then
+            AddToLog('Loading custom font profiles from ' + CustomProfilesFnm);
 
           if Pos('MEM:', UpperCase(CustomProfilesFnm)) = 0 then
             if not FileExists(CustomProfilesFnm) then
               raise Exception.Create('File not found: ' + CustomProfilesFnm);
 
           LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, CustomProfilesFnm, CustomProfiles);
-          AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
+
+          if VerbLevel < 2 then
+            AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
+
           UpdateFindSubControlActionWithNewProfiles(DecodedAction, CustomProfiles);
-          AddToLog('Found ' + IntToStr(Length(DecodedAction.MatchBitmapText)) + ' custom font profile(s).');
+
+          if VerbLevel < 2 then
+            AddToLog('Found ' + IntToStr(Length(DecodedAction.MatchBitmapText)) + ' custom font profile(s).');
 
           TxtCount := Length(DecodedAction.MatchBitmapText);
           MaxSplitActionsCount := Max(MaxSplitActionsCount, TxtCount);
@@ -3167,10 +3298,13 @@ var
             DecodedAction.InitialRectangle.Right := IntToStr(BackgroundWidth);        //This fixes one problem and creates another.
             DecodedAction.InitialRectangle.Bottom := IntToStr(BackgroundHeight);      //HandleOnScreenshotByActionName , from UIClicker does extra cropping, based on InitialRectangle.<##>Offset fields.
             ActionContentStr := GetFindSubControlActionProperties(DecodedAction);     //The screenshot should not be cropped.
-            AddToLog('Updated the search limits from the initial request, to fit the screenshot.  BackgroundWidth = ' + IntToStr(BackgroundWidth) + '  BackgroundHeight = ' + IntToStr(BackgroundHeight));
+
+            if VerbLevel < 2 then
+              AddToLog('Updated the search limits from the initial request, to fit the screenshot.  BackgroundWidth = ' + IntToStr(BackgroundWidth) + '  BackgroundHeight = ' + IntToStr(BackgroundHeight));
           end
           else
-            AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
+            if VerbLevel < 2 then
+              AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
 
           for WorkersIndex := 0 to Length(AllWorkers) - 1 do
           begin
@@ -3179,7 +3313,9 @@ var
 
             if EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
             begin
-              AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
+              if VerbLevel < 2 then
+                AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
+
               for i := 0 to ListOfBmps.Count - 1 do
               begin
                 Fnm := ListOfBmps.Strings[i];
@@ -3189,7 +3325,10 @@ var
                   //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
                   begin
                     Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-                    AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
+
+                    if VerbLevel < 2 then
+                      AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
+
                     ListOfBmps.Strings[i] := Fnm;
                   end;
               end;
@@ -3203,7 +3342,10 @@ var
                   //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
                   begin
                     Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-                    AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
+
+                    if VerbLevel < 2 then
+                      AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
+
                     ListOfPmtvs.Strings[i] := Fnm;
                   end;
               end;
@@ -3216,20 +3358,25 @@ var
             end; //if EvaluateFileNameBeforeSending
           end; //for WorkersIndex
 
-          AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
+          if VerbLevel < 2 then
+            AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
+
           AddBitmapsToWorkerArchives(AListOfAllVars);
         finally
           CloseWorkerArchives;
         end;
 
-        if UsingCompression then
+        if VerbLevel < 2 then
         begin
-          AddToLog('-----------');
-          AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
-          AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
-        end
-        else
-          AddToLog('----------- Not using compression. Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size));
+          if UsingCompression then
+          begin
+            AddToLog('-----------');
+            AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
+            AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
+          end
+          else
+            AddToLog('----------- Not using compression. Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size));
+        end;
 
         if Length(AllWorkers) > 0 then
         begin
@@ -3292,7 +3439,9 @@ var
       end;
     finally
       ListOfFindSubControlProperties.Free;
-      AddToLog('----------- Exiting GetFindSubControlContent with ' + BoolToStr(Result, 'True', 'False') + '.');
+
+      if VerbLevel < 2 then
+        AddToLog('----------- Exiting GetFindSubControlContent with ' + BoolToStr(Result, 'True', 'False') + '.');
     end;
   end;  //GetFindSubControlContent
 
@@ -3309,6 +3458,7 @@ begin
   FLatestMsg := 'Error message not set.';
   SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
   WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
+  VerbLevel := 2;
 
   try
     IdTCPClient1 := TIdTCPClient.Create;
@@ -3367,7 +3517,9 @@ begin
       for i := 0 to ActionCount - 1 do
       begin
         GetActionInfoByIndex(i, s, ActionTypeDWord);
-        AddToLog('Found action [' + IntToStr(i) + ']: ' + s);
+
+        if VerbLevel < 2 then
+          AddToLog('Found action [' + IntToStr(i) + ']: ' + s);
 
         if ActionTypeDWord <> $FFFFFFFF then
         begin
@@ -3412,7 +3564,8 @@ begin
       UsingCustomFontProfiles := PluginSettings.ValueFromIndex[CUseFontProfilesPropertyIndex] = CUseFontProfiles_FromCustom;
       CustomProfilesFnm := PluginSettings.ValueFromIndex[CCustomFontProfilesPropertyIndex];
 
-      AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
+      if VerbLevel < 2 then
+        AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
 
       Application.Initialize;
       FExHandler := TExHandler.Create;
@@ -3467,11 +3620,16 @@ begin
             Sleep(1);
           until FSMDone;
 
-          AddToLog('-----------  Exiting FSM');
+          if VerbLevel < 2 then
+            AddToLog('-----------  Exiting FSM');
         finally
-          AddToLog('Last FSM state: ' + CFSMStr[State]);
+          if VerbLevel < 2 then
+            AddToLog('Last FSM state: ' + CFSMStr[State]);
+
           MQTT_DestroyClient(0);
-          AddToLog('Client module destroyed successfully...');
+
+          if VerbLevel < 2 then
+            AddToLog('Client module destroyed successfully...');
         end;
       end
       else
@@ -3482,7 +3640,9 @@ begin
       end;
 
       TempPluginMQTTClientHandlers.tmrProcessRecData.Enabled := False;
-      AddToLog('Stopped MQTT timer...');
+
+      if VerbLevel < 2 then
+        AddToLog('Stopped MQTT timer...');
 
       Result := DisconnectedSuccessfully;
 
@@ -3629,7 +3789,10 @@ begin
               if AllWorkers[i].FindSubControlFound then
               begin
                 AOnActionPlugin_SetResultImg(APluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
-                AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+
+                if VerbLevel < 2 then
+                  AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+
                 Break;
               end;
           end
@@ -3640,7 +3803,10 @@ begin
                  (AllWorkers[i].WorkerSpecificTask <> 'TxtCnt=0&BmpCnt=0&PmtvCnt=0&') then  //Find a worker which received something to work on.
               begin
                 AOnActionPlugin_SetResultImg(APluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
-                AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+
+                if VerbLevel < 2 then
+                  AddToLog('Result image set from worker[' + IntToStr(i) + '].');
+
                 Break;
               end;
           end;
@@ -3699,6 +3865,7 @@ function EditProperty(APluginReference: Pointer;
 var
   CurrentValue, NewValue: string;
 begin
+  VerbLevel := 2;
   SetPointedContentToString(ACurrentValue, CurrentValue);
 
   NewValue := CurrentValue;
