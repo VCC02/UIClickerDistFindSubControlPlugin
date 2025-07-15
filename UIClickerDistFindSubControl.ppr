@@ -2951,7 +2951,7 @@ var
         end;
       end;  //WillMatchPrimitiveFiles
 
-      AddToLog('Worker allocation:');
+      AddToLog('Worker allocation on ' + IntToStr(Length(AllWorkers)) + ' available worker(s):');
       for i := 0 to Length(AllWorkers) - 1 do
       begin
         AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +

@@ -47,6 +47,7 @@ type
     btnConnection: TButton;
     btnGetListOfFonts: TButton;
     btnBrowseUIClickerPath: TButton;
+    chkCacheFonts: TCheckBox;
     chkExtServerKeepAlive: TCheckBox;
     chkExtServerActive: TCheckBox;
     grpExtServer: TGroupBox;
@@ -115,6 +116,7 @@ type
     FReportedOS: string;
     FReportedFonts: string;   //this is used only if <> ''
     FPollForMissingServerFilesTh: TPollForMissingServerFiles;
+    FChachedFonts: string;
 
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
@@ -1326,7 +1328,15 @@ begin
     if frmFindSubControlWorkerMain.FReportedFonts <> '' then
       ProcResponse := frmFindSubControlWorkerMain.FReportedFonts
     else
-      ProcResponse := GetListOfFontsFromUIClicker;
+      if frmFindSubControlWorkerMain.chkCacheFonts.Checked then
+      begin
+        if frmFindSubControlWorkerMain.FChachedFonts = '' then  //not cached yet
+          frmFindSubControlWorkerMain.FChachedFonts := GetListOfFontsFromUIClicker; //cache now
+
+        ProcResponse := frmFindSubControlWorkerMain.FChachedFonts;
+      end
+      else
+        ProcResponse := GetListOfFontsFromUIClicker;
 
     ResponseIndex := AddItemToResponses(ProcResponse);
     if not MQTT_PUBLISH(ClientInstance, 4 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
@@ -1793,6 +1803,7 @@ begin
   {$ENDIF}
 
   FReportedFonts := '';
+  FChachedFonts := '';
 
   tmrStartup.Enabled := True;
 end;
@@ -1874,6 +1885,7 @@ begin
     lbePort.Text := IntToStr(Ini.ReadInteger('Settings', 'Port', 1883));
     lbeUIClickerPort.Text := IntToStr(Ini.ReadInteger('Settings', 'UIClickerPort', 33444));
     lbeUIClickerPath.Text := Ini.ReadString('Settings', 'UIClickerPath', '');
+    chkCacheFonts.Checked := Ini.ReadBool('Settings', 'CacheFonts', True);
   finally
     Ini.Free;
   end;
@@ -1895,6 +1907,7 @@ begin
     Ini.WriteInteger('Settings', 'Port', StrToIntDef(lbePort.Text, 1833));
     Ini.WriteInteger('Settings', 'UIClickerPort', StrToIntDef(lbeUIClickerPort.Text, 33444));
     Ini.WriteString('Settings', 'UIClickerPath', lbeUIClickerPath.Text);
+    Ini.WriteBool('Settings', 'CacheFonts', chkCacheFonts.Checked);
 
     Ini.UpdateFile;
   finally

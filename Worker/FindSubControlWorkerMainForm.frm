@@ -245,6 +245,15 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     TabOrder = 7
     OnClick = btnBrowseUIClickerPathClick
   end
+  object chkCacheFonts: TCheckBox
+    Left = 813
+    Height = 19
+    Top = 184
+    Width = 81
+    Anchors = [akLeft, akBottom]
+    Caption = 'Cache fonts'
+    TabOrder = 8
+  end
   object tmrStartup: TTimer
     Enabled = False
     Interval = 10
