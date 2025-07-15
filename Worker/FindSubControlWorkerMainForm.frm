@@ -352,6 +352,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   end
   object IdHTTPServer2: TIdHTTPServer
     Bindings = <>
+    DefaultPort = 8880
     OnConnect = IdHTTPServer2Connect
     OnException = IdHTTPServer2Exception
     OnCommandGet = IdHTTPServer2CommandGet

@@ -181,6 +181,9 @@ var
   AssignedClientID, TopicWithWorkerName_Background, TopicWithWorkerName_FindSubControl: string;
   Responses: TResponseArr;
 
+  VerbLevel: Integer;        //0 = low-level MQTT logging, 1 = Dist worker general logging, 2 = Dist worker important logging.
+                             //error messages are displayed regardless of this value
+
 const
   CBrokerIsConnectedStatus = 'Status: connected';
   CBrokerIsDisconnectedStatus = 'Status: disconnected';
@@ -264,7 +267,9 @@ var
   PacketName: string;
 begin
   MQTTPacketToString(APacketType, PacketName);
-  frmFindSubControlWorkerMain.AddToLog('Sending ' + PacketName + ' packet...');
+
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Sending ' + PacketName + ' packet...');
 
   try
     frmFindSubControlWorkerMain.SendPacketToServer(ClientInstance);
@@ -289,7 +294,8 @@ var
 begin
   Result := True;
 
-  frmFindSubControlWorkerMain.AddToLog('Preparing CONNECT data..');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Preparing CONNECT data..');
 
   //Id := Chr((ClientInstance and $FF) + 48);
   //ClientId := 'MyClient' + Id;
@@ -347,14 +353,18 @@ begin
   StringToDynArrayOfByte('SCRAM-SHA-1', AConnectProperties.AuthenticationMethod);       //some example from spec, pag 108   the server may add to its log: "bad AUTH method"
   StringToDynArrayOfByte('client-first-data', AConnectProperties.AuthenticationData);   //some example from spec, pag 108
 
-  frmFindSubControlWorkerMain.AddToLog('Done preparing CONNECT data..');
-  frmFindSubControlWorkerMain.AddToLog('');
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Done preparing CONNECT data..');
+    frmFindSubControlWorkerMain.AddToLog('');
+  end;
 end;
 
 
 procedure HandleOnAfterMQTT_CONNACK(ClientInstance: DWord; var AConnAckFields: TMQTTConnAckFields; var AConnAckProperties: TMQTTConnAckProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received CONNACK');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Received CONNACK');
 
   AssignedClientID := StringReplace(DynArrayOfByteToString(AConnAckProperties.AssignedClientIdentifier), #0, '#0', [rfReplaceAll]);
   frmFindSubControlWorkerMain.lbeClientID.Text := AssignedClientID;
@@ -362,33 +372,36 @@ begin
   TopicWithWorkerName_Background := CTopicName_AppToWorker_SendBackground + '_' + AssignedClientID;
   TopicWithWorkerName_FindSubControl := CTopicName_AppToWorker_FindSubControl + '_' + AssignedClientID;
 
-  frmFindSubControlWorkerMain.AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
-  frmFindSubControlWorkerMain.AddToLog('ConnAckFields.ConnectReasonCode: ' + IntToStr(AConnAckFields.ConnectReasonCode));  //should be 0
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('ConnAckFields.EnabledProperties: ' + IntToStr(AConnAckFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('ConnAckFields.SessionPresentFlag: ' + IntToStr(AConnAckFields.SessionPresentFlag));
+    frmFindSubControlWorkerMain.AddToLog('ConnAckFields.ConnectReasonCode: ' + IntToStr(AConnAckFields.ConnectReasonCode));  //should be 0
 
-  frmFindSubControlWorkerMain.AddToLog('SessionExpiryInterval: ' + IntToStr(AConnAckProperties.SessionExpiryInterval));
-  frmFindSubControlWorkerMain.AddToLog('ReceiveMaximum: ' + IntToStr(AConnAckProperties.ReceiveMaximum));
-  frmFindSubControlWorkerMain.AddToLog('MaximumQoS: ' + IntToStr(AConnAckProperties.MaximumQoS));
-  frmFindSubControlWorkerMain.AddToLog('RetainAvailable: ' + IntToStr(AConnAckProperties.RetainAvailable));
-  frmFindSubControlWorkerMain.AddToLog('MaximumPacketSize: ' + IntToStr(AConnAckProperties.MaximumPacketSize));
-  frmFindSubControlWorkerMain.AddToLog('AssignedClientIdentifier: ' + AssignedClientID);
-  frmFindSubControlWorkerMain.AddToLog('TopicAliasMaximum: ' + IntToStr(AConnAckProperties.TopicAliasMaximum));
-  frmFindSubControlWorkerMain.AddToLog('ReasonString: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('SessionExpiryInterval: ' + IntToStr(AConnAckProperties.SessionExpiryInterval));
+    frmFindSubControlWorkerMain.AddToLog('ReceiveMaximum: ' + IntToStr(AConnAckProperties.ReceiveMaximum));
+    frmFindSubControlWorkerMain.AddToLog('MaximumQoS: ' + IntToStr(AConnAckProperties.MaximumQoS));
+    frmFindSubControlWorkerMain.AddToLog('RetainAvailable: ' + IntToStr(AConnAckProperties.RetainAvailable));
+    frmFindSubControlWorkerMain.AddToLog('MaximumPacketSize: ' + IntToStr(AConnAckProperties.MaximumPacketSize));
+    frmFindSubControlWorkerMain.AddToLog('AssignedClientIdentifier: ' + AssignedClientID);
+    frmFindSubControlWorkerMain.AddToLog('TopicAliasMaximum: ' + IntToStr(AConnAckProperties.TopicAliasMaximum));
+    frmFindSubControlWorkerMain.AddToLog('ReasonString: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AConnAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AConnAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
 
-  frmFindSubControlWorkerMain.AddToLog('WildcardSubscriptionAvailable: ' + IntToStr(AConnAckProperties.WildcardSubscriptionAvailable));
-  frmFindSubControlWorkerMain.AddToLog('SubscriptionIdentifierAvailable: ' + IntToStr(AConnAckProperties.SubscriptionIdentifierAvailable));
-  frmFindSubControlWorkerMain.AddToLog('SharedSubscriptionAvailable: ' + IntToStr(AConnAckProperties.SharedSubscriptionAvailable));
-  frmFindSubControlWorkerMain.AddToLog('ServerKeepAlive: ' + IntToStr(AConnAckProperties.ServerKeepAlive));
-  frmFindSubControlWorkerMain.AddToLog('ResponseInformation: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ResponseInformation), #0, '#0', [rfReplaceAll]));
-  frmFindSubControlWorkerMain.AddToLog('ServerReference: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ServerReference), #0, '#0', [rfReplaceAll]));
-  frmFindSubControlWorkerMain.AddToLog('AuthenticationMethod: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
-  frmFindSubControlWorkerMain.AddToLog('AuthenticationData: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('WildcardSubscriptionAvailable: ' + IntToStr(AConnAckProperties.WildcardSubscriptionAvailable));
+    frmFindSubControlWorkerMain.AddToLog('SubscriptionIdentifierAvailable: ' + IntToStr(AConnAckProperties.SubscriptionIdentifierAvailable));
+    frmFindSubControlWorkerMain.AddToLog('SharedSubscriptionAvailable: ' + IntToStr(AConnAckProperties.SharedSubscriptionAvailable));
+    frmFindSubControlWorkerMain.AddToLog('ServerKeepAlive: ' + IntToStr(AConnAckProperties.ServerKeepAlive));
+    frmFindSubControlWorkerMain.AddToLog('ResponseInformation: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ResponseInformation), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('ServerReference: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.ServerReference), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('AuthenticationMethod: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('AuthenticationData: ' + StringReplace(DynArrayOfByteToString(AConnAckProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
 
-  frmFindSubControlWorkerMain.AddToLog('');
+    frmFindSubControlWorkerMain.AddToLog('');
+  end;
 
   ///////////////////////////////////////// when the server returns SessionPresentFlag set to 1, the library resends unacknowledged Publish and PubRel packets.
   //AConnAckFields.SessionPresentFlag := 1;
@@ -416,7 +429,9 @@ begin
   SubId := MQTT_CreateClientToServerSubscriptionIdentifier(ClientInstance); //This function has to be called here, in this handler only. The library does not call this function other than for init purposes.
                                                                             //If SubscriptionIdentifiers are used, then user code should free them when resubscribing or when unsubscribing.
   ASubscribeProperties.SubscriptionIdentifier := SubId;  //For now, the user code should keep track of these identifiers and free them on resubscribing or unsubscribing.
-  frmFindSubControlWorkerMain.AddToLog('Subscribing with new SubscriptionIdentifier: ' + IntToStr(SubId));
+
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Subscribing with new SubscriptionIdentifier: ' + IntToStr(SubId));
 
   Result := FillIn_SubscribePayload(CTopicName_AppToWorker_GetCapabilities, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   if not Result then
@@ -473,10 +488,13 @@ begin
   //A subscription is allowed to be made without a SubscriptionIdentifier.
   ASubscribeFields.EnabledProperties := CMQTTSubscribe_EnSubscriptionIdentifier {or CMQTTSubscribe_EnUserProperty};
 
-  frmFindSubControlWorkerMain.AddToLog('Subscribing with PacketIdentifier: ' + IntToStr(ASubscribeFields.PacketIdentifier));
-  frmFindSubControlWorkerMain.AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Subscribing with PacketIdentifier: ' + IntToStr(ASubscribeFields.PacketIdentifier));
+    frmFindSubControlWorkerMain.AddToLog('Subscribing to: ' + StringReplace(DynArrayOfByteToString(ASubscribeFields.TopicFilters), #0, '#0', [rfReplaceAll]));
 
-  frmFindSubControlWorkerMain.AddToLog('');
+    frmFindSubControlWorkerMain.AddToLog('');
+  end;
 end;
 
 
@@ -484,27 +502,31 @@ procedure HandleOnAfterReceivingMQTT_SUBACK(ClientInstance: DWord; var ASubAckFi
 var
   i: Integer;
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received SUBACK');
-  //frmFindSubControlWorkerMain.AddToLog('ASubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
-  //frmFindSubControlWorkerMain.AddToLog('ASubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
-  frmFindSubControlWorkerMain.AddToLog('ASubAckFields.EnabledProperties: ' + IntToStr(ASubAckFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('ASubAckFields.PacketIdentifier: ' + IntToStr(ASubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Received SUBACK');
+    //frmFindSubControlWorkerMain.AddToLog('ASubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
+    //frmFindSubControlWorkerMain.AddToLog('ASubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
+    frmFindSubControlWorkerMain.AddToLog('ASubAckFields.EnabledProperties: ' + IntToStr(ASubAckFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('ASubAckFields.PacketIdentifier: ' + IntToStr(ASubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
 
-  frmFindSubControlWorkerMain.AddToLog('ASubAckFields.Payload.Len: ' + IntToStr(ASubAckFields.SrcPayload.Len));
+    frmFindSubControlWorkerMain.AddToLog('ASubAckFields.Payload.Len: ' + IntToStr(ASubAckFields.SrcPayload.Len));
 
-  for i := 0 to ASubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
-    frmFindSubControlWorkerMain.AddToLog('ASubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(ASubAckFields.SrcPayload.Content^[i]));
+    for i := 0 to ASubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
+      frmFindSubControlWorkerMain.AddToLog('ASubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(ASubAckFields.SrcPayload.Content^[i]));
 
-  frmFindSubControlWorkerMain.AddToLog('ASubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(ASubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('ASubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(ASubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('ASubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(ASubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('ASubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(ASubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
+  end;
 
   frmFindSubControlWorkerMain.tmrSubscribe.Enabled := False;
-
   frmFindSubControlWorkerMain.ShowBrokerIsConnected('SUBACK');
-  frmFindSubControlWorkerMain.AddToLog('');
+
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('');
 end;
 
 
@@ -548,7 +570,8 @@ begin
     Exit;
   end;
 
-  frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + CTopicName_AppToWorker_SendBackground + '" and "' + TopicWithWorkerName_Background + '" and "' + TopicWithWorkerName_FindSubControl + '"...');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + CTopicName_AppToWorker_SendBackground + '" and "' + TopicWithWorkerName_Background + '" and "' + TopicWithWorkerName_FindSubControl + '"...');
 
   //the user code should call RemoveClientToServerSubscriptionIdentifier to remove the allocate identifier.
 end;
@@ -558,25 +581,30 @@ procedure HandleOnAfterReceivingMQTT_UNSUBACK(ClientInstance: DWord; var AUnsubA
 var
   i: Integer;
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received UNSUBACK');
-  //frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
-  //frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
-  frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.EnabledProperties: ' + IntToStr(AUnsubAckFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.PacketIdentifier: ' + IntToStr(AUnsubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Received UNSUBACK');
+    //frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.IncludeReasonCode: ' + IntToStr(ASubAckFields.IncludeReasonCode));  //not used
+    //frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.ReasonCode: ' + IntToStr(ASubAckFields.ReasonCode));              //not used
+    frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.EnabledProperties: ' + IntToStr(AUnsubAckFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.PacketIdentifier: ' + IntToStr(AUnsubAckFields.PacketIdentifier));  //This must be the same as sent in SUBSCRIBE packet.
 
-  frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.Payload.Len: ' + IntToStr(AUnsubAckFields.SrcPayload.Len));
+    frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.Payload.Len: ' + IntToStr(AUnsubAckFields.SrcPayload.Len));
 
-  for i := 0 to AUnsubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
-    frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(AUnsubAckFields.SrcPayload.Content^[i]));
+    for i := 0 to AUnsubAckFields.SrcPayload.Len - 1 do         //these are QoS values for each TopicFilter (if ok), or error codes (if not ok).
+      frmFindSubControlWorkerMain.AddToLog('AUnsubAckFields.ReasonCodes[' + IntToStr(i) + ']: ' + IntToStr(AUnsubAckFields.SrcPayload.Content^[i]));
 
-  frmFindSubControlWorkerMain.AddToLog('AUnsubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(AUnsubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('AUnsubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(AUnsubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('AUnsubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AUnsubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('AUnsubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(AUnsubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
+  end;
 
   frmFindSubControlWorkerMain.ShowBrokerIsDisconnected('UNSUBACK');
-  frmFindSubControlWorkerMain.AddToLog('');
+
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('');
 end;
 
 
@@ -636,7 +664,8 @@ begin
       Result := Result and StringToDynArrayOfByte(CMQTT_Worker_UnhandledRequest, APublishFields.TopicName);
   end;
 
-  frmFindSubControlWorkerMain.AddToLog('');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('');
   //QoS can be overriden here. If users override QoS in this handler, then a a different PacketIdentifier might be allocated (depending on what is available)
 end;
 
@@ -644,38 +673,44 @@ end;
 //This handler is used when this client publishes a message to broker and the broker responds with PUBACK.
 procedure HandleOnBeforeSendingMQTT_PUBACK(ClientInstance: DWord; var APubAckFields: TMQTTPubAckFields; var APubAckProperties: TMQTTPubAckProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBACK');
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBACK');
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
 
-  frmFindSubControlWorkerMain.AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
 
-  frmFindSubControlWorkerMain.AddToLog('');
-  //This handler can be used to override what is being sent to server as a reply to PUBLISH
+    frmFindSubControlWorkerMain.AddToLog('');
+    //This handler can be used to override what is being sent to server as a reply to PUBLISH
+  end;
 end;
 
 
 procedure HandleOnAfterReceivingMQTT_PUBACK(ClientInstance: DWord; var APubAckFields: TMQTTPubAckFields; var APubAckProperties: TMQTTPubAckProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received PUBACK');
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
-  frmFindSubControlWorkerMain.AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Received PUBACK');
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.EnabledProperties: ' + IntToStr(APubAckFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.IncludeReasonCode: ' + IntToStr(APubAckFields.IncludeReasonCode));
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.PacketIdentifier: ' + IntToStr(APubAckFields.PacketIdentifier));
+    frmFindSubControlWorkerMain.AddToLog('APubAckFields.ReasonCode: ' + IntToStr(APubAckFields.ReasonCode));
 
-  frmFindSubControlWorkerMain.AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('APubAckProperties.ReasonString: ' + StringReplace(DynArrayOfByteToString(APubAckProperties.ReasonString), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('APubAckProperties.UserProperty: ' + StringReplace(DynOfDynArrayOfByteToString(APubAckProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
 
-  frmFindSubControlWorkerMain.AddToLog('');
+    frmFindSubControlWorkerMain.AddToLog('');
+  end;
 end;
 
 
@@ -768,12 +803,15 @@ begin
       if WorkerTask.IndexOf(CWorkerTask_TxtPrefix + IntToStr(i) + '=1') = -1 then
         RemoveFontProfileByIndex(i, AFindSubControl); //delete from that index
 
-    AddToLog('Remaining font profiles after filtering:');
-    for i := 0 to Length(AFindSubControl.MatchBitmapText) - 1 do
-      AddToLog('    ' + AFindSubControl.MatchBitmapText[i].ProfileName + ' (' + AFindSubControl.MatchBitmapText[i].FontName + ' ' + IntToStr(AFindSubControl.MatchBitmapText[i].FontSize) + ')');
+    if VerbLevel < 2 then
+    begin
+      AddToLog('Remaining font profiles after filtering:');
+      for i := 0 to Length(AFindSubControl.MatchBitmapText) - 1 do
+        AddToLog('    ' + AFindSubControl.MatchBitmapText[i].ProfileName + ' (' + AFindSubControl.MatchBitmapText[i].FontName + ' ' + IntToStr(AFindSubControl.MatchBitmapText[i].FontSize) + ')');
 
-    if Length(AFindSubControl.MatchBitmapText) = 0 then
-      AddToLog('');
+      if Length(AFindSubControl.MatchBitmapText) = 0 then
+        AddToLog('');
+    end;
 
     MatchingFiles.Text := AFindSubControl.MatchBitmapFiles;
     for i := MatchingFiles.Count - 1 downto 0 do
@@ -781,12 +819,15 @@ begin
         MatchingFiles.Delete(i); //delete from that index
     AFindSubControl.MatchBitmapFiles := MatchingFiles.Text;
 
-    AddToLog('Remaining bitmap files after filtering:');
-    for i := 0 to MatchingFiles.Count - 1 do
-      AddToLog('    ' + MatchingFiles.Strings[i]);
+    if VerbLevel < 2 then
+    begin
+      AddToLog('Remaining bitmap files after filtering:');
+      for i := 0 to MatchingFiles.Count - 1 do
+        AddToLog('    ' + MatchingFiles.Strings[i]);
 
-    if MatchingFiles.Count = 0 then
-      AddToLog('');
+      if MatchingFiles.Count = 0 then
+        AddToLog('');
+    end;
 
     MatchingFiles.Text := AFindSubControl.MatchPrimitiveFiles;
     for i := MatchingFiles.Count - 1 downto 0 do
@@ -794,12 +835,15 @@ begin
         MatchingFiles.Delete(i); //delete from that index
     AFindSubControl.MatchPrimitiveFiles := MatchingFiles.Text;
 
-    AddToLog('Remaining pmtv files after filtering:');
-    for i := 0 to MatchingFiles.Count - 1 do
-      AddToLog('    ' + MatchingFiles.Strings[i]);
+    if VerbLevel < 2 then
+    begin
+      AddToLog('Remaining pmtv files after filtering:');
+      for i := 0 to MatchingFiles.Count - 1 do
+        AddToLog('    ' + MatchingFiles.Strings[i]);
 
-    if MatchingFiles.Count = 0 then
-      AddToLog('');
+      if MatchingFiles.Count = 0 then
+        AddToLog('');
+    end;
   finally
     WorkerTask.Free;
     MatchingFiles.Free;
@@ -830,7 +874,9 @@ begin
     ConversionResult := SetFindSubControlActionProperties(ActionContentList, @frmFindSubControlWorkerMain.AddToLog, TempFindSubControl, TempActionOptions);
     if ConversionResult <> '' then
     begin
-      frmFindSubControlWorkerMain.AddToLog('ConversionResult: ' + ConversionResult);
+      if VerbLevel < 2 then
+        frmFindSubControlWorkerMain.AddToLog('ConversionResult: ' + ConversionResult);
+
       Result := ConversionResult;
       Exit;
     end;
@@ -879,7 +925,8 @@ begin
 
     if TempStream.Size > 0 then
     begin
-      AddToLog('Archiving the result image.');
+      if VerbLevel < 2 then
+        AddToLog('Archiving the result image.');
 
       MemArchive := TMemArchive.Create;
       ArchiveStream := TMemoryStream.Create;
@@ -921,8 +968,11 @@ begin
             MemArchive.CloseArchive;
           end;
 
-          AddToLog('Computing Archive hash.. Size = ' + IntToStr(ArchiveStream.Size));
-          AddToLog('Archive hash: ' + ClickerExtraUtils.ComputeHash(ArchiveStream.Memory, ArchiveStream.Size));
+          if VerbLevel < 2 then
+          begin
+            AddToLog('Computing Archive hash.. Size = ' + IntToStr(ArchiveStream.Size));
+            AddToLog('Archive hash: ' + ClickerExtraUtils.ComputeHash(ArchiveStream.Memory, ArchiveStream.Size));
+          end;
         except
           on E: Exception do
             AddToLog('----------- Ex on archiving result image: "' + E.Message + '"  CompressionAlgorithm = ' + IntToStr(Ord(TempArchiveHandlers.CompressionAlgorithm)) + '  CompressionLevel = ' + IntToStr(MemArchive.CompressionLevel));
@@ -1018,9 +1068,12 @@ begin
 
   AAppMsg := Copy(AAppMsg, 1, PosImageSourceRawContent - 1); //discard archive
 
-  //frmFindSubControlWorkerMain.AddToLog('ABmpStr: ' + FastReplace_0To1(ABmpStr));
-  //frmFindSubControlWorkerMain.AddToLog('=============== UsingCompression: ' + BoolToStr(AUsingCompression, 'True', 'False'));
-  //frmFindSubControlWorkerMain.AddToLog('=============== CompressionAlgorithm: ' + ACompressionAlgorithm);
+  //if VerbLevel < 2 then
+  //begin
+    //frmFindSubControlWorkerMain.AddToLog('ABmpStr: ' + FastReplace_0To1(ABmpStr));
+    //frmFindSubControlWorkerMain.AddToLog('=============== UsingCompression: ' + BoolToStr(AUsingCompression, 'True', 'False'));
+    //frmFindSubControlWorkerMain.AddToLog('=============== CompressionAlgorithm: ' + ACompressionAlgorithm);
+  //end;
 end;
 
 
@@ -1071,7 +1124,9 @@ begin
         tk := GetTickCount64 - tk;
         try
           TempMemArchive.ExtractToStream(CBackgroundFileNameInArchive, DecompressedStream);
-          AddToLog('Decompressed archive with background in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size) + '  Background decompressed size: ' + IntToStr(DecompressedStream.Size));
+
+          if VerbLevel < 2 then
+            AddToLog('Decompressed archive with background in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size) + '  Background decompressed size: ' + IntToStr(DecompressedStream.Size));
 
           SaveBackgroundBmpToInMemFS(DecompressedStream);
 
@@ -1079,7 +1134,10 @@ begin
           frmFindSubControlWorkerMain.imgFindSubControlBackground.Picture.Bitmap.LoadFromStream(DecompressedStream);
 
           CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, CBackgroundFileNameForUIClicker);
-          frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
+
+          if VerbLevel < 2 then
+            frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
+
           DecompressedStream.Clear;
 
           if CmdResult = 'Client exception: Connect timed out.' then
@@ -1159,10 +1217,13 @@ begin
         TempMemArchive.OpenArchive(MemStream, False);
         tk := GetTickCount64 - tk;
         try
-          AddToLog('Decompressed archive with bitmaps in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size));
+          if VerbLevel < 2 then
+            AddToLog('Decompressed archive with bitmaps in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size));
 
           CmdResult := SendVarsToWorkers(TempMemArchive);
-          frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker. Response: ' + CmdResult);
+
+          if VerbLevel < 2 then
+            frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker. Response: ' + CmdResult);
 
           if CmdResult = 'Client exception: Connect timed out.' then
           begin
@@ -1193,7 +1254,8 @@ begin
                 else
                   CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
 
-                frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
+                if VerbLevel < 1 then
+                  frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
 
                 if CmdResult = 'Client exception: Connect timed out.' then
                 begin
@@ -1226,18 +1288,31 @@ begin
   end;
 
   //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
-  frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
-  AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg, AThisWorkerTask));
-  frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + AResponse);
 
-  AddToLog('Compressing result image = ' + BoolToStr(UsingCompression, 'True', 'False'));
+  if VerbLevel < 2 then
+    frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
+
+  AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg, AThisWorkerTask));
+
+  if VerbLevel < 2 then
+    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + AResponse);
+
+  if VerbLevel < 2 then
+    AddToLog('Compressing result image = ' + BoolToStr(UsingCompression, 'True', 'False'));
+
   TempResponseArchiveStr := SendGetDebugImageFromServer(AAppMsg, UsingCompression, CompressionAlgorithm);
-  AddToLog('Resulted archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
-  //AddToLog('First 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, 1, 10)));
-  //AddToLog('Last 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, Length(TempResponseArchiveStr) - 9, 10)));
+
+  if VerbLevel < 2 then
+  begin
+    AddToLog('Resulted archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
+    //AddToLog('First 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, 1, 10)));
+    //AddToLog('Last 10 archive bytes: "' + FastReplace_0To1(Copy(TempResponseArchiveStr, Length(TempResponseArchiveStr) - 9, 10)));
+  end;
 
   TempResponseArchiveStr := StringToHex(TempResponseArchiveStr);
-  AddToLog('Resulted hex archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
+
+  if VerbLevel < 2 then
+    AddToLog('Resulted hex archive size: ' + IntToStr(Length(TempResponseArchiveStr)));
 
   AResponse := AResponse + CProtocolParam_ResponseArchiveSize + '=' + IntToStr(Length(TempResponseArchiveStr)) + #13#10;
   AResponse := AResponse {+ #8#7} + CProtocolParam_ResultImageArchive + '=' + TempResponseArchiveStr;
@@ -1266,18 +1341,22 @@ begin
   frmFindSubControlWorkerMain.lbeLatestWork.Hint := 'Updated at ' + DateTimeToStr(Now);
   frmFindSubControlWorkerMain.FThisWorkerTask := ThisWorkerTask;
 
-  frmFindSubControlWorkerMain.AddToLog('Received PUBLISH' + #13#10 +
-                                       '  ServerPacketIdentifier: ' + IntToStr(ID) + #13#10 +
-                                       '  Msg: ' + Copy(StringReplace(Msg, #0, #1, [rfReplaceAll]), 1, 100) + #13#10 +   //Do not display entire content. It may be a bitmap
-                                       '  QoS: ' + IntToStr(QoS) + #13#10 +
-                                       '  TopicName: ' + Topic + #13#10 +
-                                       '  WorkerSpecificTask: ' + TempWorkerSpecificTask + #13#10 +
-                                       '  PublishCtrlFlags: ' + IntToStr(APublishFields.PublishCtrlFlags));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Received PUBLISH' + #13#10 +
+                                         '  ServerPacketIdentifier: ' + IntToStr(ID) + #13#10 +
+                                         '  Msg: ' + Copy(StringReplace(Msg, #0, #1, [rfReplaceAll]), 1, 100) + #13#10 +   //Do not display entire content. It may be a bitmap
+                                         '  QoS: ' + IntToStr(QoS) + #13#10 +
+                                         '  TopicName: ' + Topic + #13#10 +
+                                         '  WorkerSpecificTask: ' + TempWorkerSpecificTask + #13#10 +
+                                         '  PublishCtrlFlags: ' + IntToStr(APublishFields.PublishCtrlFlags));
 
-  s := '';
-  for i := 0 to APublishProperties.SubscriptionIdentifier.Len - 1 do
-    s := s + IntToStr(APublishProperties.SubscriptionIdentifier.Content^[i]) + ', ';
-  frmFindSubControlWorkerMain.AddToLog('SubscriptionIdentifier(s): ' + s);
+  if VerbLevel < 1 then
+  begin
+    s := '';
+    for i := 0 to APublishProperties.SubscriptionIdentifier.Len - 1 do
+      s := s + IntToStr(APublishProperties.SubscriptionIdentifier.Content^[i]) + ', ';
+    frmFindSubControlWorkerMain.AddToLog('SubscriptionIdentifier(s): ' + s);
+  end;
 
   if Topic = CTopicName_AppToWorker_GetCapabilities then
   begin
@@ -1288,10 +1367,13 @@ begin
 
   if (Topic = TopicWithWorkerName_Background) or (Topic = CTopicName_AppToWorker_SendBackground) then  //common and individual subscriptions
   begin
-    frmFindSubControlWorkerMain.AddToLog('Sending background image');
+    if VerbLevel < 2 then
+      frmFindSubControlWorkerMain.AddToLog('Sending background image');
+
     ProcessSendBackgroundRequest(Msg, ProcResponse, ProcErrMsg);
 
-    frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+    if VerbLevel < 2 then
+      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
 
     ResponseIndex := AddItemToResponses(ProcResponse);
     if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
@@ -1306,7 +1388,9 @@ begin
   if Topic = TopicWithWorkerName_FindSubControl then
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)    //////////////////// start rendering
-    frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
+
+    if VerbLevel < 2 then
+      frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
 
     ProcessFindSubControlRequest(Msg, frmFindSubControlWorkerMain.FThisWorkerTask, TempFindSubControlResponse, ProcErrMsg);
     ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
@@ -1323,7 +1407,8 @@ begin
 
   if Topic = CTopicName_AppToWorker_GetListOfFonts then
   begin
-    frmFindSubControlWorkerMain.AddToLog('Getting the list of fonts.');
+    if VerbLevel < 2 then
+      frmFindSubControlWorkerMain.AddToLog('Getting the list of fonts.');
 
     if frmFindSubControlWorkerMain.FReportedFonts <> '' then
       ProcResponse := frmFindSubControlWorkerMain.FReportedFonts
@@ -1348,50 +1433,58 @@ begin
     end;
   end;
 
-  frmFindSubControlWorkerMain.AddToLog('');
+  if VerbLevel < 2 then
+    frmFindSubControlWorkerMain.AddToLog('');
 end;
 
 
 procedure HandleOnBeforeSending_MQTT_PUBREC(ClientInstance: DWord; var ATempPubRecFields: TMQTTPubRecFields; var ATempPubRecProperties: TMQTTPubRecProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBREC for ServerPacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBREC for ServerPacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceiving_MQTT_PUBREC(ClientInstance: DWord; var ATempPubRecFields: TMQTTPubRecFields; var ATempPubRecProperties: TMQTTPubRecProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received PUBREC for PacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Received PUBREC for PacketID: ' + IntToStr(ATempPubRecFields.PacketIdentifier));
 end;
 
 
 //Sending PUBREL after the PUBREC response from server, after the client has sent a PUBLISH packet with QoS=2.
 procedure HandleOnBeforeSending_MQTT_PUBREL(ClientInstance: DWord; var ATempPubRelFields: TMQTTPubRelFields; var ATempPubRelProperties: TMQTTPubRelProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBREL for PacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBREL for PacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceiving_MQTT_PUBREL(ClientInstance: DWord; var ATempPubRelFields: TMQTTPubRelFields; var ATempPubRelProperties: TMQTTPubRelProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received PUBREL for ServerPacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Received PUBREL for ServerPacketID: ' + IntToStr(ATempPubRelFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnBeforeSending_MQTT_PUBCOMP(ClientInstance: DWord; var ATempPubCompFields: TMQTTPubCompFields; var ATempPubCompProperties: TMQTTPubCompProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBCOMP for PacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Acknowledging with PUBCOMP for PacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceiving_MQTT_PUBCOMP(ClientInstance: DWord; var ATempPubCompFields: TMQTTPubCompFields; var ATempPubCompProperties: TMQTTPubCompProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received PUBCOMP for ServerPacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Received PUBCOMP for ServerPacketID: ' + IntToStr(ATempPubCompFields.PacketIdentifier));
 end;
 
 
 procedure HandleOnAfterReceivingMQTT_PINGRESP(ClientInstance: DWord);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received PINGRESP');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Received PINGRESP');
 end;
 
 
@@ -1400,7 +1493,8 @@ procedure HandleOnBeforeSendingMQTT_DISCONNECT(ClientInstance: DWord;  //The low
                                                var ADisconnectProperties: TMQTTDisconnectProperties;
                                                ACallbackID: Word);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Sending DISCONNECT');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Sending DISCONNECT');
   //ADisconnectFields.EnabledProperties := CMQTTDisconnect_EnSessionExpiryInterval;   //uncomment if needed
   //ADisconnectProperties.SessionExpiryInterval := 1;
 
@@ -1420,18 +1514,21 @@ procedure HandleOnAfterReceivingMQTT_DISCONNECT(ClientInstance: DWord;  //The lo
                                                 var ADisconnectFields: TMQTTDisconnectFields;
                                                 var ADisconnectProperties: TMQTTDisconnectProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received DISCONNECT');
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Received DISCONNECT');
 
-  frmFindSubControlWorkerMain.AddToLog('ADisconnectFields.EnabledProperties' + IntToStr(ADisconnectFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('ADisconnectFields.DisconnectReasonCode' + IntToStr(ADisconnectFields.DisconnectReasonCode));
+    frmFindSubControlWorkerMain.AddToLog('ADisconnectFields.EnabledProperties' + IntToStr(ADisconnectFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('ADisconnectFields.DisconnectReasonCode' + IntToStr(ADisconnectFields.DisconnectReasonCode));
 
-  frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.SessionExpiryInterval' + IntToStr(ADisconnectProperties.SessionExpiryInterval));
-  frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.ReasonString' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.ServerReference' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ServerReference), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.SessionExpiryInterval' + IntToStr(ADisconnectProperties.SessionExpiryInterval));
+    frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.ReasonString' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.ServerReference' + StringReplace(DynArrayOfByteToString(ADisconnectProperties.ServerReference), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(ADisconnectProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('ADisconnectProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(ADisconnectProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
+  end;
 end;
 
 
@@ -1440,7 +1537,9 @@ procedure HandleOnBeforeSendingMQTT_AUTH(ClientInstance: DWord;  //The lower wor
                                          var AAuthProperties: TMQTTAuthProperties;
                                          ACallbackID: Word);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Sending AUTH');
+  if VerbLevel < 1 then
+    frmFindSubControlWorkerMain.AddToLog('Sending AUTH');
+
   AAuthFields.AuthReasonCode := $19; //Example: reauth   - see spec, pag 108.
 
   StringToDynArrayOfByte('SCRAM-SHA-1', AAuthProperties.AuthenticationMethod);       //some example from spec, pag 108
@@ -1452,18 +1551,21 @@ procedure HandleOnAfterReceivingMQTT_AUTH(ClientInstance: DWord;  //The lower wo
                                           var AAuthFields: TMQTTAuthFields;
                                           var AAuthProperties: TMQTTAuthProperties);
 begin
-  frmFindSubControlWorkerMain.AddToLog('Received AUTH');
+  if VerbLevel < 1 then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('Received AUTH');
 
-  frmFindSubControlWorkerMain.AddToLog('AAuthFields.EnabledProperties' + IntToStr(AAuthFields.EnabledProperties));
-  frmFindSubControlWorkerMain.AddToLog('AAuthFields.AuthReasonCode' + IntToStr(AAuthFields.AuthReasonCode));
+    frmFindSubControlWorkerMain.AddToLog('AAuthFields.EnabledProperties' + IntToStr(AAuthFields.EnabledProperties));
+    frmFindSubControlWorkerMain.AddToLog('AAuthFields.AuthReasonCode' + IntToStr(AAuthFields.AuthReasonCode));
 
-  frmFindSubControlWorkerMain.AddToLog('AAuthProperties.ReasonString' + StringReplace(DynArrayOfByteToString(AAuthProperties.ReasonString), #0, '#0', [rfReplaceAll]));
-  frmFindSubControlWorkerMain.AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
-  frmFindSubControlWorkerMain.AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('AAuthProperties.ReasonString' + StringReplace(DynArrayOfByteToString(AAuthProperties.ReasonString), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationMethod), #0, '#0', [rfReplaceAll]));
+    frmFindSubControlWorkerMain.AddToLog('AAuthProperties.ServerReference' + StringReplace(DynArrayOfByteToString(AAuthProperties.AuthenticationData), #0, '#0', [rfReplaceAll]));
 
-  {$IFDEF EnUserProperty}
-    frmFindSubControlWorkerMain.AddToLog('AAuthProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(AAuthProperties.UserProperty), #0, '#0', [rfReplaceAll]));
-  {$ENDIF}
+    {$IFDEF EnUserProperty}
+      frmFindSubControlWorkerMain.AddToLog('AAuthProperties.UserProperty' + StringReplace(DynOfDynArrayOfByteToString(AAuthProperties.UserProperty), #0, '#0', [rfReplaceAll]));
+    {$ENDIF}
+  end;
 end;
 
 { TfrmFindSubControlWorkerMain }
@@ -1696,7 +1798,7 @@ begin
           begin
             HandleOnMQTTError(0, CMQTT_UserError, CMQTT_UNDEFINED);
             AddToLog('Cannot allocate buffer when reading. TempReadBuf.Len = ' + IntToStr(TempReadBuf.Len));
-            MessageBoxFunction('Cannot allocate buffer when reading.', 'th_', 0);
+            //MessageBoxFunction('Cannot allocate buffer when reading.', 'th_', 0);
             FreeDynArray(TempReadBuf);
           end
           else
@@ -1723,7 +1825,7 @@ begin
                   if not AddBufferToDynArrayOfByte(@TempArr[0], Length(TempArr), TempReadBuf) then
                   begin
                     AddToLog('Out of memory on allocating TempReadBuf, for multiple bytes.');
-                    MessageBoxFunction('Cannot allocate buffer when reading multiple bytes.', 'th_', 0);
+                    //MessageBoxFunction('Cannot allocate buffer when reading multiple bytes.', 'th_', 0);
                     FreeDynArray(TempReadBuf);
                   end
                   else
@@ -1741,8 +1843,12 @@ begin
             if SuccessfullyDecoded then
             begin
               MQTTPacketToString(TempReadBuf.Content^[0], PacketName);
-              AddToLog('done receiving packet');
-              AddToLog('Buffer size: ' + IntToStr(TempReadBuf.Len) + '  Packet header: $' + IntToHex(TempReadBuf.Content^[0]) + ' (' + PacketName + ')');
+
+              if VerbLevel < 1 then
+              begin
+                AddToLog('done receiving packet');
+                AddToLog('Buffer size: ' + IntToStr(TempReadBuf.Len) + '  Packet header: $' + IntToHex(TempReadBuf.Content^[0]) + ' (' + PacketName + ')');
+              end;
 
               if PacketSize <> TempReadBuf.Len then
               begin
@@ -1804,6 +1910,7 @@ begin
 
   FReportedFonts := '';
   FChachedFonts := '';
+  VerbLevel := 2;
 
   tmrStartup.Enabled := True;
 end;
@@ -2373,7 +2480,9 @@ procedure TfrmFindSubControlWorkerMain.tmrConnectTimer(Sender: TObject);
 var
   tk: QWord;
 begin
-  AddToLog('Connecting to broker...');
+  if VerbLevel < 2 then
+    AddToLog('Connecting to broker...');
+
   IdTCPClient1.OnConnected := @HandleClientOnConnected;
   IdTCPClient1.OnDisconnected := @HandleClientOnDisconnected;
 
@@ -2489,7 +2598,9 @@ end;
 
 procedure TfrmFindSubControlWorkerMain.InitFileProvider;
 begin
-  AddToLog('Starting file provider...');
+  if VerbLevel < 2 then
+    AddToLog('Starting file provider...');
+
   FPollForMissingServerFilesTh := TPollForMissingServerFiles.Create(True);
   FPollForMissingServerFilesTh.RemoteAddress := GetUIClickerAddr;
 
@@ -2510,7 +2621,9 @@ begin
 
   FPollForMissingServerFilesTh.ConnectTimeout := 500;
   FPollForMissingServerFilesTh.Start;
-  AddToLog('File provider is initialized. Remote address is set to ' + GetUIClickerAddr);
+
+  if VerbLevel < 2 then
+    AddToLog('File provider is initialized. Remote address is set to ' + GetUIClickerAddr);
 end;
 
 
