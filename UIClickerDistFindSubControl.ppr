@@ -1985,11 +1985,12 @@ begin
         if WorkerRespondedCount = 0 then
           FSMError := 'Timeout waiting for workers to send the background image to their local UIClicker.'
         else
-          FSMError := 'Some of the responding workers could not send the the background image to their local UIClicker.';
+          FSMError := 'Some of the responding workers could not send the background image to their local UIClicker.';
 
         FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
 
         AddToLog(FSMError);
+        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - tk) + 'ms.');
       end
       else
       begin

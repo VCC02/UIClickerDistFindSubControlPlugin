@@ -1133,10 +1133,13 @@ begin
           DecompressedStream.Position := 0;
           frmFindSubControlWorkerMain.imgFindSubControlBackground.Picture.Bitmap.LoadFromStream(DecompressedStream);
 
+          //if VerbLevel < 2 then
+            frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker..');
+
           CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, CBackgroundFileNameForUIClicker);
 
-          if VerbLevel < 2 then
-            frmFindSubControlWorkerMain.AddToLog('Sending "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
+          //if VerbLevel < 2 then
+            frmFindSubControlWorkerMain.AddToLog('Sent "' + CBackgroundFileNameInArchive + '" to UIClicker. Response: ' + CmdResult);
 
           DecompressedStream.Clear;
 
@@ -1220,10 +1223,15 @@ begin
           if VerbLevel < 2 then
             AddToLog('Decompressed archive with bitmaps in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size));
 
+          //if VerbLevel < 2 then
+            frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker...');
+
           CmdResult := SendVarsToWorkers(TempMemArchive);
 
           if VerbLevel < 2 then
-            frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker. Response: ' + CmdResult);
+            frmFindSubControlWorkerMain.AddToLog('Sent vars to UIClicker. Response: ' + CmdResult)
+          else
+            frmFindSubControlWorkerMain.AddToLog('Sent vars to UIClicker.');
 
           if CmdResult = 'Client exception: Connect timed out.' then
           begin
@@ -1289,10 +1297,12 @@ begin
 
   //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
 
-  if VerbLevel < 2 then
+  //if VerbLevel < 2 then
     frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
 
   AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg, AThisWorkerTask));
+
+  frmFindSubControlWorkerMain.AddToLog('Received response from FindSubControl request...');
 
   if VerbLevel < 2 then
     frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + AResponse);
