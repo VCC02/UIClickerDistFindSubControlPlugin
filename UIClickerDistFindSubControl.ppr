@@ -3682,7 +3682,7 @@ begin
           begin
             FoundMatchingOS := False;
             for i := 0 to Length(AllWorkers) - 1 do
-              if AllWorkers[i].OS = RequestedTextRenderingOS then
+              if Pos(AllWorkers[i].OS, RequestedTextRenderingOS) > 0 then    //RequestedTextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
               begin
                 FoundMatchingOS := True;
                 Break;

@@ -627,7 +627,10 @@ begin
   if ToBeAdded then
   begin
     if Integer(vstMachines.RootNodeCount) < spnedtMaxWorkerMachineCount.Value then
-      Node := vstMachines.AddChild(vstMachines.RootNode)
+    begin
+      Node := vstMachines.AddChild(vstMachines.RootNode);
+      vstMachines.Repaint;
+    end
     else
     begin
       Result := CTooManyWorkerMachines;
@@ -1496,7 +1499,7 @@ begin
 
     try
       Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run passwd for worker[' + IntToStr(j) + ']', 5000, False);
-      AddToLog('Creating pp file for worker: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
+      AddToLog('Creating pp file for worker[' + IntToStr(j) + ']: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
     except
       on E: Exception do
         AddToLog('Ex on creating pp file for worker: ' + E.Message);

@@ -31,6 +31,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     Top = 104
     Width = 737
     Anchors = [akTop, akLeft, akRight]
+    Colors.UnfocusedSelectionColor = clGradientInactiveCaption
     DefaultText = 'Node'
     Header.AutoSizeIndex = 0
     Header.Columns = <    
