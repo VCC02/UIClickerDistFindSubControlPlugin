@@ -400,6 +400,24 @@ end;
 
 
 function TfrmWorkerPoolManagerMain.GetBrokerInfoForClient(APoolClientUserName, APoolClientPassword: string; AIncludeCredentials: Boolean): string;
+  function GetErrorContent(AErr: string): string;
+  begin
+    Result := CBrokerAddressKeyName + '=' + CErrPrefix + AErr + #13#10 +
+              CBrokerPortKeyName + '=' + '0' + #13#10;
+
+    if AIncludeCredentials then
+      Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
+  end;
+
+  function GetValidContent(var APool: TAppPool): string;
+  begin
+    Result := CBrokerAddressKeyName + '=' + APool.Broker.Address + #13#10 +
+              CBrokerPortKeyName + '=' + APool.Broker.Port + #13#10;
+
+    if AIncludeCredentials then
+      Result := Result + CCredentialsFileKeyName + '=' + GetCredentialsFile(APool);
+  end;
+
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
@@ -409,12 +427,7 @@ begin
   Node := vstMachines.GetFirst;
   if Node = nil then
   begin
-    Result := CBrokerAddressKeyName + '=' + CErrPrefix + CUserNotFound + #13#10 +
-              CBrokerPortKeyName + '=' + '0' + #13#10;
-
-    if AIncludeCredentials then
-      Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
-
+    Result := GetErrorContent(CUserNotFound);
     Exit;
   end;
 
@@ -428,36 +441,21 @@ begin
           UserNameFound := True;
 
           if NodeData^.AppsToBeRunning[i].PoolPassWord = APoolClientPassword then
-          begin
-            Result := CBrokerAddressKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Address + #13#10 +
-                      CBrokerPortKeyName + '=' + NodeData^.AppsToBeRunning[i].Broker.Port + #13#10;
-
-            if AIncludeCredentials then
-              Result := Result + CCredentialsFileKeyName + '=' + GetCredentialsFile(NodeData^.AppsToBeRunning[i]);
-          end
+            Result := GetValidContent(NodeData^.AppsToBeRunning[i])
           else
-          begin
-            Result := CBrokerAddressKeyName + '=' + CErrPrefix + CWrongPassword + #13#10 +
-              CBrokerPortKeyName + '=' + '0' + #13#10;
-
-            if AIncludeCredentials then
-              Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
-          end;
+            Result := GetErrorContent(CWrongPassword);
 
           Break;
         end;
+
+    if UserNameFound then
+      Break;
 
     Node := Node^.NextSibling;
   until Node = nil;
 
   if not UserNameFound then
-  begin                        //ToDo: - refactoring
-    Result := CBrokerAddressKeyName + '=' + CErrPrefix + CUserNotFound + #13#10 +
-              CBrokerPortKeyName + '=' + '0' + #13#10;
-
-    if AIncludeCredentials then
-      Result := Result + CCredentialsFileKeyName + '=' + GetDummyCredentialsFile;
-  end;
+    Result := GetErrorContent(CUserNotFound);
 end;
 
 
@@ -781,7 +779,7 @@ begin
       AddToLog('No pools are allocated.');
   end //ToBeAdded
   else
-  begin //the function may be called with an existing worker machine address, but a new dist machine address to be assigned to this worker machine address
+  begin //the function may be called with an existing worker machine address, but a new dist machine address has to be assigned to this worker machine address
     for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
       if NodeData^.AppsToBeRunning[i].DistAddress = '' then //find an available slot
       begin
