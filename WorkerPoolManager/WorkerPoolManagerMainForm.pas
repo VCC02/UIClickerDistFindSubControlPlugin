@@ -190,6 +190,7 @@ type
     function ProcessPluginCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
     function ProcessResourceCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
+    function IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort: string): string;
     function StartMQTTBrokerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
     function StartWorkerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
@@ -1380,6 +1381,37 @@ begin
 end;
 
 
+function TfrmWorkerPoolManagerMain.IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort: string): string;
+const
+  CPathToWPM = '$PathToWPM$';
+var
+  SetVarOptions: TClkSetVarOptions;
+  Response, VarPath: string;
+  ListOfResponses: TStringList;
+begin
+  SetVarOptions.ListOfVarNames := CPathToWPM + #13#10;
+  SetVarOptions.ListOfVarValues := '$AppDir$\..\UIClickerDistFindSubControlPlugin\WorkerPoolManager\WorkerPoolManager.exe' + #13#10;
+  SetVarOptions.ListOfVarEvalBefore := '1' + #13#10;
+
+  SetVarOptions.FailOnException := False;
+  try
+    Response := ExecuteSetVarAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', SetVarOptions, False);
+
+    ListOfResponses := TStringList.Create;
+    try
+      ListOfResponses.Text := FastReplace_87ToReturn(Response);
+      VarPath := ExpandFileName(ListOfResponses.Values[CPathToWPM], ExtractFilePath(ParamStr(0)));
+      Result := BoolToStr(UpperCase(VarPath) = UpperCase(ParamStr(0)), 'OK.', 'not OK. It causes a mismatch on: "' + VarPath + '" vs. "' + ParamStr(0) + '".');
+    finally
+      ListOfResponses.Free;
+    end;
+  except
+    on E: Exception do
+      AddToLog('Ex on setting broker params before starting broker: ' + E.Message);
+  end;
+end;
+
+
 function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
 var
   SetVarOptions: TClkSetVarOptions;
@@ -1387,6 +1419,7 @@ var
   PluginOptions: TClkPluginOptions;
   j: Integer;
   ExecResults: TStringList;
+  ErrPos1, ErrPos2: Integer;
 begin
   Result := '';
 
@@ -1455,9 +1488,19 @@ begin
   ExecAppOptions.UseInheritHandles := uihYes;
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
+  AddToLog('Service UIClicker path: ' + IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort));
+
   try
     Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run passwd for plugin', 5000, False);
     AddToLog('Creating pp file for plugin: ' + Copy(Result, Pos('$ExecAction_StdOut$', Result), MaxInt));
+
+    ErrPos1 := Pos('$ExecAction_StdOut$=Error: Unable to open file', Result);
+    if ErrPos1 > 0 then
+    begin
+      ErrPos2 := Pos('for writing. No such file or directory.', Result);
+      if ErrPos2 > ErrPos1 then
+        AddToLog('The "Service UIClicker" has to be run from its default directory, not from TestDriver, because the path to pp_' + ABrokerPort + '.txt is derived from it.');
+    end;
   except
     on E: Exception do
       AddToLog('Ex on creating pp file for plugin: ' + E.Message);
