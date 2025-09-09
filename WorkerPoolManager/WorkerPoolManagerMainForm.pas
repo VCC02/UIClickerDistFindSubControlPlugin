@@ -222,6 +222,7 @@ type
     function SetMachineOnline(AWorkerMachineAddress, AWorkerMachineOS, ADistMachineAddress: string): string;
     function RemoveWorkerMachine(AWorkerMachineAddress: string): string;
     function RemoveDistMachine(AWorkerMachineAddress, ADistMachineAddress: string): string;
+    function GetAppsStatus(AWorkerMachineAddress: string): string;
 
     procedure AddToLog(s: string);
   end;
@@ -293,6 +294,12 @@ begin
   begin
     FResult := frmWorkerPoolManagerMain.RemoveDistMachine(FParams.Values[CWorkerMachineAddress],
                                                           FParams.Values[CDistPluginMachineAddress]);
+    Exit;
+  end;
+
+  if Pos('/' + CGetAppsStatus, FCmd) = 1 then
+  begin
+    FResult := frmWorkerPoolManagerMain.GetAppsStatus(FParams.Values[CWorkerMachineAddress]);
     Exit;
   end;
 end;
@@ -878,6 +885,86 @@ begin
     if not DistFound then
       Result := CDistMachineNotFound;
   end;
+end;
+
+
+function GetAppsRunningCountFromPoll(var APoll: TAppPool): Integer;
+var
+  j: Integer;
+begin
+  Result := 0;
+  if APoll.HasBroker then
+  begin
+    if (APoll.Broker.State = SMonitorStatus) and
+       (APoll.Broker.StartedCount > 0) then
+      Inc(Result);
+  end;
+
+  for j := 0 to Length(APoll.WorkerClickerPairs) - 1 do
+  begin
+    if (APoll.WorkerClickerPairs[j].Worker.State = SMonitorStatus) and
+       (APoll.WorkerClickerPairs[j].Worker.StartedCount > 0) and
+       (APoll.WorkerClickerPairs[j].UIClicker.State = SMonitorStatus) and
+       (APoll.WorkerClickerPairs[j].UIClicker.StartedCount > 0) then
+      Inc(Result);
+  end;
+end;
+
+
+function GetAppsRunningCountFromAllPoll(var AAllPolls: TAppPoolArr): Integer;
+var
+  i: Integer;
+  FoundCountPerPool: TIntArr;
+begin
+  SetLength(FoundCountPerPool, Length(AAllPolls));
+  for i := 0 to Length(AAllPolls) - 1 do
+    FoundCountPerPool[i] := GetAppsRunningCountFromPoll(AAllPolls[i]);
+
+  Result := 0;
+  for i := 0 to Length(AAllPolls) - 1 do
+    Inc(Result, FoundCountPerPool[i]);
+end;
+
+
+function GetTargetAppCountFromMachine(AMachine: PMachineRec): Integer;
+begin
+  case AMachine^.MachineOS of
+    mosWin:
+      Result := AMachine^.TargetBrokerCountPerWinMachine * (AMachine^.TargetWorkerCountPerWinMachine + 1);
+    mosLin:
+      Result := AMachine^.TargetBrokerCountPerLinMachine * AMachine^.TargetWorkerCountPerLinMachine;
+    mosUnknown:
+      Result := 0;
+  end;
+end;
+
+
+function TfrmWorkerPoolManagerMain.GetAppsStatus(AWorkerMachineAddress: string): string;
+var
+  Node: PVirtualNode;
+  NodeData: PMachineRec;
+  TotalFoundCount, TargetCountPerMachine: Integer;
+begin
+  Result := CWorkerMachineNotFound;
+
+  Node := GetMachineByAddress(AWorkerMachineAddress);
+  if Node = nil then
+    Exit;
+
+  NodeData := vstMachines.GetNodeData(Node);
+  if NodeData = nil then
+    Exit;
+
+  TotalFoundCount := GetAppsRunningCountFromAllPoll(NodeData^.AppsToBeRunning);
+  TargetCountPerMachine := GetTargetAppCountFromMachine(NodeData);
+
+  if TotalFoundCount = 0 then
+    Result := CNoAppRunning
+  else
+    if TotalFoundCount < TargetCountPerMachine then
+      Result := CSomeAppsRunning
+    else
+      Result := CAllAppsRunning;    //If there are Lin workers, connecting to a Win broker, then the number of apps is greater than TargetCount.
 end;
 
 

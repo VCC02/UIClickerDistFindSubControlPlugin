@@ -42,6 +42,7 @@ const
   CMachineOnline = 'MachineOnline'; //a machine, with broker(s) and workers, is online. Also, a dist machine is online.
   CRemoveWorkerMachine = 'RemoveWorkerMachine';
   CRemoveDistMachine = 'RemoveDistMachine';
+  CGetAppsStatus = 'GetAppsStatus';
 
   //Command parameters
   CIncludeCredentialsParam = 'IncludeCredentials'; //When set to 1, the Pool manager returs an additional content, which is the "Credentials File" for connecting to broker.
@@ -66,6 +67,10 @@ const
   CMachineRemoved = 'MachineRemoved';
   CTooManyWorkerMachines = 'TooManyWorkerMachines';
   CTooManyDistMachines = 'TooManyDistMachines';
+
+  CNoAppRunning = 'NoAppRunning';
+  CAllAppsRunning = 'AllAppsRunning';
+  CSomeAppsRunning = 'SomeAppsRunning';  //not all
 
   //Other:
   CWinParam = 'Win';
