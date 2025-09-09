@@ -282,6 +282,16 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     TabOrder = 6
     OnClick = btnGetListeningProcessesClick
   end
+  object chkAllowCheckingForWorkerStatus: TCheckBox
+    Left = 531
+    Height = 19
+    Top = 435
+    Width = 190
+    Caption = 'Allow checking for worker status'
+    Checked = True
+    State = cbChecked
+    TabOrder = 7
+  end
   object IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool
     MaxThreads = 30
     PoolSize = 10

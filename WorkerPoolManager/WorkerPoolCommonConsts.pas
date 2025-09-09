@@ -43,6 +43,7 @@ const
   CRemoveWorkerMachine = 'RemoveWorkerMachine';
   CRemoveDistMachine = 'RemoveDistMachine';
   CGetAppsStatus = 'GetAppsStatus';
+  CSendPoolCredentials = 'SendPoolCredentials'; //resend on demand, in case of a UIClicker crash
 
   //Command parameters
   CIncludeCredentialsParam = 'IncludeCredentials'; //When set to 1, the Pool manager returs an additional content, which is the "Credentials File" for connecting to broker.

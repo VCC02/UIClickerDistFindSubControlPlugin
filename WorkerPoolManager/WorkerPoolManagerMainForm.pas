@@ -37,7 +37,7 @@ uses
 type
   TMachineType = (mtBroker, mtWorker, mtBrokerAndWorker); //Not sure if it's a good idea of running both broker and worker on the same machine, but from the network's perspective, it should be better.
   TAppType = (atBroker, atWorker, atUIClicker);
-  //TAppRunning = (arJustStarted, arConnecting, arFullyRunning, arUnknown);
+  TAppRunning = (arJustStarted, arConnecting, arFullyRunning, arUnknown);
   //               //arJustStarted - the Pool manager just sent the running command.
   //               //arConnecting - might be used for workers, between arJustStarted and fully connected to UIClicker.
   //               //arFullyRunning - the app is running and it is fully connected.
@@ -53,7 +53,8 @@ type
     Address: string; //Broker address (usually local address, but can be another address, if the worker is connected to a different machine).
     Port: string; //Brokers (server mode) and workers (client mode) have to use the same port. UIClicker will have different ports (server mode).
     StartedAt: QWord; //Timestamp used for waiting for the app to get into a responding/connected state.
-    //State: TAppRunning;
+    CheckStatusTick: DWord;
+    RunningState: TAppRunning;
     StartCmdResponse: string;
     StartedCount: Integer;
 
@@ -136,6 +137,7 @@ type
     btnAddMachine: TButton;
     btnSendPoolCredentialsToLocal: TButton;
     btnGetListeningProcesses: TButton;
+    chkAllowCheckingForWorkerStatus: TCheckBox;
     grpSettings: TGroupBox;
     IdHTTPServerPlugins: TIdHTTPServer;
     IdHTTPServerResources: TIdHTTPServer;
@@ -223,6 +225,7 @@ type
     function RemoveWorkerMachine(AWorkerMachineAddress: string): string;
     function RemoveDistMachine(AWorkerMachineAddress, ADistMachineAddress: string): string;
     function GetAppsStatus(AWorkerMachineAddress: string): string;
+    function SendPoolCredentialsOnDemand(AWorkerMachineAddress: string): string;
 
     procedure AddToLog(s: string);
   end;
@@ -300,6 +303,12 @@ begin
   if Pos('/' + CGetAppsStatus, FCmd) = 1 then
   begin
     FResult := frmWorkerPoolManagerMain.GetAppsStatus(FParams.Values[CWorkerMachineAddress]);
+    Exit;
+  end;
+
+  if Pos('/' + CSendPoolCredentials, FCmd) = 1 then
+  begin
+    FResult := frmWorkerPoolManagerMain.SendPoolCredentialsOnDemand(FParams.Values[CWorkerMachineAddress]);
     Exit;
   end;
 end;
@@ -543,6 +552,7 @@ begin
     AMachineNodeData^.AppsToBeRunning[i].Broker.Address := AMachineNodeData^.Address;
     AMachineNodeData^.AppsToBeRunning[i].Broker.State := SInit;//arUnknown;
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedAt := 0;
+    AMachineNodeData^.AppsToBeRunning[i].Broker.CheckStatusTick := 0;
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedCount := 0;
   end;
 end;
@@ -593,6 +603,7 @@ begin
 
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.State := SInit;//arUnknown;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedAt := 0;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.CheckStatusTick := i shl 1 + j shl 1;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount := 0;
     end; //j
   end;  //i
@@ -610,6 +621,7 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Address := AMachineNodeData^.AppsToBeRunning[i].Broker.Address;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.State := SInit;//arUnknown;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedAt := 0;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.CheckStatusTick := i shl 1 + j shl 1 + 3;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount := 0;
     end;
 end;
@@ -895,16 +907,16 @@ begin
   Result := 0;
   if APoll.HasBroker then
   begin
-    if (APoll.Broker.State = SMonitorStatus) and
+    if (APoll.Broker.RunningState = arFullyRunning) and
        (APoll.Broker.StartedCount > 0) then
       Inc(Result);
   end;
 
   for j := 0 to Length(APoll.WorkerClickerPairs) - 1 do
   begin
-    if (APoll.WorkerClickerPairs[j].Worker.State = SMonitorStatus) and
+    if (APoll.WorkerClickerPairs[j].Worker.RunningState = arFullyRunning) and
        (APoll.WorkerClickerPairs[j].Worker.StartedCount > 0) and
-       (APoll.WorkerClickerPairs[j].UIClicker.State = SMonitorStatus) and
+       (APoll.WorkerClickerPairs[j].UIClicker.RunningState = arFullyRunning) and
        (APoll.WorkerClickerPairs[j].UIClicker.StartedCount > 0) then
       Inc(Result);
   end;
@@ -968,6 +980,36 @@ begin
 end;
 
 
+function TfrmWorkerPoolManagerMain.SendPoolCredentialsOnDemand(AWorkerMachineAddress: string): string;
+var
+  Node: PVirtualNode;
+  NodeData: PMachineRec;
+  i: Integer;
+  Res: string;
+begin
+  Result := CWorkerMachineNotFound;
+
+  Node := GetMachineByAddress(AWorkerMachineAddress);
+  if Node = nil then
+    Exit;
+
+  NodeData := vstMachines.GetNodeData(Node);
+  if NodeData = nil then
+    Exit;
+
+  Result := 'PoolCount: ' + IntToStr(Length(NodeData^.AppsToBeRunning)) + #13#10;//'';
+  for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+  begin
+    Res := SendPoolCredentials(NodeData^.AppsToBeRunning[i].DistAddress,
+                               FDistUIClickerCmdPortNumber,
+                               NodeData^.AppsToBeRunning[i].PoolUserName,
+                               NodeData^.AppsToBeRunning[i].PoolPassWord);
+    AddToLog('Sending pool credentials result for dist machine ' + NodeData^.AppsToBeRunning[i].DistAddress + ': ' + Res);
+    Result := Result + 'Res[' + IntToStr(i) + ']=' + Res + #13#10;
+  end;  //for
+end;
+
+
 function TfrmWorkerPoolManagerMain.ProcessPluginCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 var
   SyncObj: TPluginSyncObj;
@@ -1010,7 +1052,7 @@ begin
   AResponseInfo.ContentType := 'text/plain';
   AResponseInfo.CharSet := 'US-ASCII';
 
-  AResponseInfo.ResponseText := ProcessPluginCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
+  AResponseInfo.ContentText := ProcessPluginCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
   Sleep(10);
 end;
 
@@ -1023,7 +1065,7 @@ begin
   AResponseInfo.ContentType := 'text/plain';
   AResponseInfo.CharSet := 'US-ASCII';
 
-  AResponseInfo.ResponseText := ProcessResourceCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
+  AResponseInfo.ContentText := ProcessResourceCommand(ARequestInfo.Document, ARequestInfo.Params, AContext.Binding.PeerIP);
   Sleep(10);
 end;
 
@@ -1144,7 +1186,23 @@ begin
 
     SMonitorStatus:
     begin
+      if (AApp.StartedCount >= 1) and (GetTickCount64 - AApp.StartedAt > 30000) then
+        if AApp.CheckStatusTick and 31 = 0 then //every 32 seconds
+          case AAppType of
+            atBroker:
+              AApp.RunningState := arFullyRunning;  //ToDo implement something to veryify broker connection
 
+            atWorker:
+              if chkAllowCheckingForWorkerStatus.Checked and FindWorkerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, CWinParam, AWorkerExtraCaption) then
+                AApp.RunningState := arFullyRunning
+              else
+                AApp.RunningState := arUnknown; //A smart check would be to use FindWorkerStatusConnected to also check for the label, saying "not connected".
+
+            atUIClicker:
+              AApp.RunningState := arFullyRunning;   //ToDo implement something to veryify UIClicker connection
+          end;
+
+      Inc(AApp.CheckStatusTick);
     end;
 
     SStartRemoteApps:
@@ -1162,6 +1220,8 @@ begin
           if AApp.StartedCount < 3 then
             StartUIClickerApp(AApp, AMachineAddress);
       end;
+
+      AApp.RunningState := arJustStarted;
     end;
 
     SAfterStarting:
@@ -1172,6 +1232,7 @@ begin
     SWaitForRemoteApps:
     begin
       //get "connected" status of workers etc.
+      AApp.RunningState := arConnecting;
     end;
   end;
 
@@ -1900,7 +1961,7 @@ begin
   FindControl_FindWorker.MatchCriteria.SearchForControlMode := sfcmEnumWindows;
   FindControl_FindWorker.MatchText := 'FindSubControl Worker - ' + AWorkerExtraCaption;   // $ExtraWorkerName$
   FindControl_FindWorker.MatchClassName := 'Window';
-  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker', 5000, CREParam_FileLocation_ValueDisk);
+  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker', 1000, CREParam_FileLocation_ValueDisk);
 
   ResultStr := TStringList.Create;
   try
@@ -1941,7 +2002,7 @@ begin
   FindControl_FindMQTTGroupBox.InitialRectangle.RightOffset := '121';
   FindControl_FindMQTTGroupBox.InitialRectangle.BottomOffset :='289';
   FindControl_FindMQTTGroupBox.UseWholeScreen := False;
-  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find MQTT GroupBox', 3000, CREParam_FileLocation_ValueDisk);
+  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindMQTTGroupBox, 'Find MQTT GroupBox', 1000, CREParam_FileLocation_ValueDisk);
 
   ResultStr := TStringList.Create;
   try
@@ -2002,7 +2063,8 @@ begin
   FindSubControl_FindStatusConnected.CachedControlLeft := '';
   FindSubControl_FindStatusConnected.CachedControlTop := '';
   FindSubControl_FindStatusConnected.MatchPrimitiveFiles := '';
-  Response := ExecuteFindSubControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindSubControl_FindStatusConnected, 'Find status "Connected"', 10000, CREParam_FileLocation_ValueDisk);
+  FindSubControl_FindStatusConnected.SleepySearch := True;
+  Response := ExecuteFindSubControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindSubControl_FindStatusConnected, 'Find status "Connected"', 500, CREParam_FileLocation_ValueDisk);
 
   ResultStr := TStringList.Create;
   try
