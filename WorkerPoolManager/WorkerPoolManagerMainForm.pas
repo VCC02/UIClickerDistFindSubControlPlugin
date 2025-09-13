@@ -55,6 +55,7 @@ type
     StartedAt: QWord; //Timestamp used for waiting for the app to get into a responding/connected state.
     CheckStatusTick: DWord;
     RunningState: TAppRunning;
+    NotRunningCount: Integer; //Number of measurements of "not running" state. It is reset to 0 when a "running" state is found.
     StartCmdResponse: string;
     StartedCount: Integer;
 
@@ -209,6 +210,7 @@ type
     function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
     function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string): Boolean;
+    function FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
     function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
     procedure UpdateServiceUIClickerCmdPortNumber;
@@ -554,6 +556,8 @@ begin
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedAt := 0;
     AMachineNodeData^.AppsToBeRunning[i].Broker.CheckStatusTick := 0;
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedCount := 0;
+    AMachineNodeData^.AppsToBeRunning[i].Broker.RunningState := arUnknown;
+    AMachineNodeData^.AppsToBeRunning[i].Broker.NotRunningCount := 0;
   end;
 end;
 
@@ -605,6 +609,8 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedAt := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.CheckStatusTick := i shl 1 + j shl 1;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount := 0;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState := arUnknown;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount := 0;
     end; //j
   end;  //i
 end;
@@ -623,6 +629,8 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedAt := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.CheckStatusTick := i shl 1 + j shl 1 + 3;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount := 0;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState := arUnknown;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.NotRunningCount := 0;
     end;
 end;
 
@@ -1176,6 +1184,19 @@ begin
 end;
 
 
+function AllWorkersAreDisconnected(var AWorkerClickerPairs: TWorkerClickerAppPairArr): Boolean;
+var
+  j, DisconnectedCount: Integer;
+begin
+  DisconnectedCount := 0;
+  for j := 0 to Length(AWorkerClickerPairs) - 1 do
+    if AWorkerClickerPairs[j].Worker.RunningState = arUnknown then
+      Inc(DisconnectedCount);
+
+  Result := DisconnectedCount = Length(AWorkerClickerPairs);
+end;
+
+
 procedure TfrmWorkerPoolManagerMain.RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
 begin
   case AApp.State of
@@ -1190,16 +1211,36 @@ begin
         if AApp.CheckStatusTick and 31 = 0 then //every 32 seconds
           case AAppType of
             atBroker:
-              AApp.RunningState := arFullyRunning;  //ToDo implement something to veryify broker connection
+              if AllWorkersAreDisconnected(AWorkerClickerPairs) then
+                AApp.RunningState := arUnknown  //Unknown and not certainly "bad state" / "not running" is because it might none of these, but the workers still can't connect.
+              else
+                AApp.RunningState := arFullyRunning;
 
             atWorker:
               if chkAllowCheckingForWorkerStatus.Checked and FindWorkerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, CWinParam, AWorkerExtraCaption) then
-                AApp.RunningState := arFullyRunning
+              begin
+                AApp.RunningState := arFullyRunning;
+                AApp.NotRunningCount := 0;
+              end
               else
-                AApp.RunningState := arUnknown; //A smart check would be to use FindWorkerStatusConnected to also check for the label, saying "not connected".
+              begin
+                Inc(AApp.NotRunningCount);
+                if AApp.NotRunningCount >= 3 then
+                  AApp.RunningState := arUnknown; //A smart check would be to use FindWorkerStatusConnected to also check for the label, saying "not connected".
+              end;
 
             atUIClicker:
-              AApp.RunningState := arFullyRunning;   //ToDo implement something to veryify UIClicker connection
+              if FindUIClickerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Address, AApp.Port) then
+              begin
+                AApp.RunningState := arFullyRunning;
+                AApp.NotRunningCount := 0;
+              end
+              else
+              begin
+                Inc(AApp.NotRunningCount);
+                if AApp.NotRunningCount >= 3 then
+                  AApp.RunningState := arUnknown;
+              end;
           end;
 
       Inc(AApp.CheckStatusTick);
@@ -2079,6 +2120,20 @@ begin
     ResultStr.Free;
   end;
 end;
+
+
+function TfrmWorkerPoolManagerMain.FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
+var
+  Response: string;
+begin
+  Response := SetVariable('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/',
+                          '$IsOnlyine$',
+                          'http://' + AWorkerUIClickerAddress + ':' + AWorkerUIClickerPort + '/TestConnection',
+                          0);
+  Result := Response = CREResp_Done;
+end;
+
+
 
 
 end.
