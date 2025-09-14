@@ -67,6 +67,12 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
       item
         MinWidth = 300
         Position = 5
+        Text = 'Running State'
+        Width = 300
+      end    
+      item
+        MinWidth = 300
+        Position = 6
         Text = 'State'
         Width = 300
       end>

@@ -37,11 +37,12 @@ uses
 type
   TMachineType = (mtBroker, mtWorker, mtBrokerAndWorker); //Not sure if it's a good idea of running both broker and worker on the same machine, but from the network's perspective, it should be better.
   TAppType = (atBroker, atWorker, atUIClicker);
-  TAppRunning = (arJustStarted, arConnecting, arFullyRunning, arUnknown);
+  TAppRunning = (arJustStarted, arConnecting, arFullyRunning, arUnknown, arNotFound);
   //               //arJustStarted - the Pool manager just sent the running command.
   //               //arConnecting - might be used for workers, between arJustStarted and fully connected to UIClicker.
   //               //arFullyRunning - the app is running and it is fully connected.
   //               //arUnknown - the app is either not running or not connected (bad state).
+  //               //arNotFound - a state between arFullyRunning and arUnknown
 
 
   TMachineOS = (mosWin, mosLin, mosUnknown);
@@ -209,7 +210,7 @@ type
 
     function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
-    function FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string): Boolean;
+    procedure FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; out AFoundState: TAppRunning);
     function FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
     function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
@@ -237,6 +238,7 @@ const
   CMachineTypeStr: array[TMachineType] of string = ('Broker', 'Worker', 'BrokerAndWorker');
   CMachineOSStr: array[TMachineOS] of string = (CWinParam, CLinParam, '???');
   CFSMStr: array[TFSM] of string = ('Init', 'MonitorStatus', 'StartRemoteApps', 'AfterStarting', 'WaitForRemoteApps');
+  CAppRunningStr: array[TAppRunning] of string = ('JustStarted', 'Connecting', 'FullyRunning', 'Unknown', 'NotFound');
 
   CUIClickerPortOffset = 20000; //This value is added to a worker port, to get the port UIClicker is listening on.
                                 //For example, if a worker listens on 12345, its UIClicker listens on 32345.
@@ -1198,6 +1200,8 @@ end;
 
 
 procedure TfrmWorkerPoolManagerMain.RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
+var
+  TempAppState: TAppRunning;
 begin
   case AApp.State of
     SInit:
@@ -1217,7 +1221,9 @@ begin
                 AApp.RunningState := arFullyRunning;
 
             atWorker:
-              if chkAllowCheckingForWorkerStatus.Checked and FindWorkerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, CWinParam, AWorkerExtraCaption) then
+            begin
+              FindWorkerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, CWinParam, AWorkerExtraCaption, TempAppState);
+              if chkAllowCheckingForWorkerStatus.Checked and (TempAppState = arFullyRunning) then
               begin
                 AApp.RunningState := arFullyRunning;
                 AApp.NotRunningCount := 0;
@@ -1226,8 +1232,11 @@ begin
               begin
                 Inc(AApp.NotRunningCount);
                 if AApp.NotRunningCount >= 3 then
-                  AApp.RunningState := arUnknown; //A smart check would be to use FindWorkerStatusConnected to also check for the label, saying "not connected".
+                  AApp.RunningState := arUnknown //A smart check would be to use FindWorkerStatusConnected to also check for the label, saying "not connected".
+                else
+                  AApp.RunningState := arNotFound;
               end;
+            end;
 
             atUIClicker:
               if FindUIClickerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Address, AApp.Port) then
@@ -1239,7 +1248,9 @@ begin
               begin
                 Inc(AApp.NotRunningCount);
                 if AApp.NotRunningCount >= 3 then
-                  AApp.RunningState := arUnknown;
+                  AApp.RunningState := arUnknown
+                else
+                  AApp.RunningState := arNotFound;
               end;
           end;
 
@@ -1282,7 +1293,7 @@ begin
       AApp.NextState := SMonitorStatus;
 
     SMonitorStatus:
-      if AApp.StartedCount < 1 then         //a new logic is required
+      if (AApp.StartedCount < 3) and (AApp.RunningState = arUnknown) then         //a new logic is required
       begin
         case AAppType of                    //Call a function, to get the list of running processes. If this app is not running, then run it.
           atBroker:
@@ -1453,6 +1464,33 @@ begin
       end;
 
       5:
+      begin
+        CellText := 'Broker: ';
+        for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+        begin
+          CellText := CellText + CAppRunningStr[NodeData^.AppsToBeRunning[i].Broker.RunningState] + '  ';
+
+          CellText := CellText + '  Workers: ';
+          for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+          begin
+            CellText := CellText + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState];
+            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState = arNotFound then
+              CellText := CellText + '_' + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount);
+            CellText := CellText +  '  ';
+          end;
+
+          CellText := CellText + '  UIClickers: ';
+          for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+          begin
+            CellText := CellText + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState];
+            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState = arNotFound then
+              CellText := CellText + '_' + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount);
+            CellText := CellText +  '  ';
+          end;
+        end;
+      end;
+
+      6:
       begin
         CellText := 'Broker: ';
         for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
@@ -1953,7 +1991,7 @@ begin
     ListOfVars.Free;
   end;
 
-  //The ideal output would be a list of "ProcessName"="ProcessID", or "PortNumber"="ProcessID",, both for brokers and workers
+  //The ideal output would be a list of "ProcessName"="ProcessID", or "PortNumber"="ProcessID", both for brokers and workers
   ListOfProcesses := TStringList.Create;
   FilteredListOfProcesses := TStringList.Create;
   try
@@ -1988,7 +2026,7 @@ end;
 
 
 //It works on Win only machines, because of the UIClicker interaction. Eventually, this may be replaced by a client-server approach.
-function TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string): Boolean;  //code version of FindWorkerStatusConnected.clktmpl
+procedure TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; out AFoundState: TAppRunning);  //code version of FindWorkerStatusConnected.clktmpl
 var
   FindControl_FindWorker: TClkFindControlOptions;
   WindowOperations_BringToFront: TClkWindowOperationsOptions;
@@ -1997,22 +2035,27 @@ var
 
   Response: string;
   ResultStr: TStringList;
+  Res: Boolean;
 begin
+  AFoundState := arConnecting;
   GetDefaultPropertyValues_FindControl(FindControl_FindWorker);
   FindControl_FindWorker.MatchCriteria.SearchForControlMode := sfcmEnumWindows;
   FindControl_FindWorker.MatchText := 'FindSubControl Worker - ' + AWorkerExtraCaption;   // $ExtraWorkerName$
   FindControl_FindWorker.MatchClassName := 'Window';
-  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker', 1000, CREParam_FileLocation_ValueDisk);
+  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker Window', 10, CREParam_FileLocation_ValueDisk);
 
   ResultStr := TStringList.Create;
   try
     ResultStr.Text := FastReplace_87ToReturn(Response);
-    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Result then
+    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Res then
     begin
+      AFoundState := arNotFound;
       AddToLog('Find Worker: ' + ResultStr.Values['$ExecAction_Err$']);
       Exit;
     end;
+
+    AFoundState := arConnecting;  //so far, the window is there
   finally
     ResultStr.Free;
   end;
@@ -2023,9 +2066,10 @@ begin
   ResultStr := TStringList.Create;
   try
     ResultStr.Text := FastReplace_87ToReturn(Response);
-    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Result then
+    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Res then
     begin
+      AFoundState := arNotFound;
       AddToLog('Bring to front: ' + ResultStr.Values['$ExecAction_Err$']);
       Exit;
     end;
@@ -2048,9 +2092,10 @@ begin
   ResultStr := TStringList.Create;
   try
     ResultStr.Text := FastReplace_87ToReturn(Response);
-    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Result then
+    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Res then
     begin
+      AFoundState := arNotFound;
       AddToLog('Find MQTT GroupBox: ' + ResultStr.Values['$ExecAction_Err$']);
       Exit;
     end;
@@ -2110,27 +2155,45 @@ begin
   ResultStr := TStringList.Create;
   try
     ResultStr.Text := FastReplace_87ToReturn(Response);
-    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Result then
+    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Res then
     begin
+      AFoundState := arNotFound;
       AddToLog('Find status "Connected": ' + ResultStr.Values['$ExecAction_Err$']);
       Exit;
     end;
+
+    AFoundState := arFullyRunning;
   finally
     ResultStr.Free;
   end;
 end;
 
 
+//ToDo: add a FindControl state, which searches for the existence of the main window, before calling SetVar.
+//SetVar can freeze this application, if the service UIClicker freezes, while waiting for TestConnection on a non-existent app.
 function TfrmWorkerPoolManagerMain.FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
+const
+  CVarName = '$IsOnline$';
 var
   Response: string;
+  ResultStr: TStringList;
+  SetVar_FindStatusConnected: TClkSetVarOptions;
 begin
-  Response := SetVariable('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/',
-                          '$IsOnlyine$',
-                          'http://' + AWorkerUIClickerAddress + ':' + AWorkerUIClickerPort + '/TestConnection',
-                          0);
-  Result := Response = CREResp_Done;
+  GetDefaultPropertyValues_SetVar(SetVar_FindStatusConnected);
+  SetVar_FindStatusConnected.ListOfVarNames := CVarName;
+  SetVar_FindStatusConnected.ListOfVarValues := '$http://' + AWorkerUIClickerAddress + ':' + AWorkerUIClickerPort + '/TestConnection$';
+  SetVar_FindStatusConnected.ListOfVarEvalBefore := '1';
+
+  Response := ExecuteSetVarAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), SetVar_FindStatusConnected);
+
+  ResultStr := TStringList.Create;
+  try
+    ResultStr.Text := FastReplace_87ToReturn(Response);
+    Result := ResultStr.Values[CVarName] = CREResp_ConnectionOK;
+  finally
+    ResultStr.Free;
+  end;
 end;
 
 
