@@ -49,6 +49,7 @@ type
 
   TFSM = (SInit, SMonitorStatus, SStartRemoteApps, SAfterStarting, SWaitForRemoteApps);
 
+  PRunningApp = ^TRunningApp;
   TRunningApp = record
     //Path: string;       //paths will be different between Win and Lin
     Address: string; //Broker address (usually local address, but can be another address, if the worker is connected to a different machine).
@@ -59,16 +60,17 @@ type
     NotRunningCount: Integer; //Number of measurements of "not running" state. It is reset to 0 when a "running" state is found.
     StartCmdResponse: string;
     StartedCount: Integer;
+    SuccessfullyStarted: Boolean; //set after starting at least once
 
     BrokerUserName: string; //workers may use different user and password
     BrokerPassword: string; //these are set for broker apps
+    BrokerApp: PRunningApp;  //This field should be nil if the structure is already a broker. Should point to the broker where this Worker/UIClicker belongs to.
 
     State: TFSM;
     NextState: TFSM;
     //Please update procedures and functions for deleting this type of item, if adding array fields.
   end;
 
-  PRunningApp = ^TRunningApp;
   TRunningAppArr = array of TRunningApp;   //should not be needed anymore
 
   TWorkerClickerAppPair = record
@@ -195,6 +197,8 @@ type
     function ProcessResourceCommand(ACmd: string; AParams: TStrings; APeerIP: string): string;
 
     function IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort: string): string;
+    function TerminateProcess(AMachineAddress, ACmdUIClickerPort: string; AProcessID: Integer): string;
+    function GetBrokerProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, AMachineOS: string): Integer;
     function StartMQTTBrokerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
     function StartWorkerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
@@ -208,7 +212,8 @@ type
     procedure InitUIClickersToBeRunning(AMachineNodeData: PMachineRec);
     function SendPoolCredentials(AMachineAddress, ACmdUIClickerPort, APoolUserName, APoolPassWord: string): string;
 
-    function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //returns exec result
+    procedure GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string; AListOfProcesses: TStringList); overload;
+    function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; overload; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
     procedure FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; out AFoundState: TAppRunning);
     function FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
@@ -560,6 +565,8 @@ begin
     AMachineNodeData^.AppsToBeRunning[i].Broker.StartedCount := 0;
     AMachineNodeData^.AppsToBeRunning[i].Broker.RunningState := arUnknown;
     AMachineNodeData^.AppsToBeRunning[i].Broker.NotRunningCount := 0;
+    AMachineNodeData^.AppsToBeRunning[i].Broker.BrokerApp := nil;
+    AMachineNodeData^.AppsToBeRunning[i].Broker.SuccessfullyStarted := False;
   end;
 end;
 
@@ -613,6 +620,8 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState := arUnknown;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount := 0;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerApp := @AMachineNodeData^.AppsToBeRunning[i].Broker;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.SuccessfullyStarted := False;
     end; //j
   end;  //i
 end;
@@ -633,6 +642,8 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState := arUnknown;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.NotRunningCount := 0;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.BrokerApp := @AMachineNodeData^.AppsToBeRunning[i].Broker;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.SuccessfullyStarted := False;
     end;
 end;
 
@@ -1145,9 +1156,12 @@ end;
 procedure TfrmWorkerPoolManagerMain.StartBrokerApp(var AApp: TRunningApp; AMachineAddress: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
 begin
   Inc(AApp.StartedCount);
+  AddToLog('Starting broker at ' + AApp.Port + '...');
   AApp.StartedAt := GetTickCount64;
   AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
+  AddToLog('Started broker at ' + AApp.Port + '.  StartedCount = ' + IntToStr(AApp.StartedCount) + '.');
   Sleep(250);
+  AApp.SuccessfullyStarted := True;
 end;
 
 
@@ -1167,6 +1181,7 @@ begin
                                                        AApp.BrokerPassword);
 
     Sleep(250);
+    AApp.SuccessfullyStarted := True;
   end
   //else
   //begin
@@ -1183,6 +1198,7 @@ begin
   AApp.StartedAt := GetTickCount64;
   AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, StrToIntDef(AApp.Port, 1183)); //UIClicker will listen on BrokerPort+20000
   Sleep(250);
+  AApp.SuccessfullyStarted := True;
 end;
 
 
@@ -1278,15 +1294,15 @@ begin
     begin
       case AAppType of
         atBroker:
-          if AApp.StartedCount < 3 then
+          if AApp.StartedCount < 1 then
             StartBrokerApp(AApp, AMachineAddress, AWorkerClickerPairs);
 
         atWorker:
-          if AApp.StartedCount < 3 then
+          if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
             StartWorkerApp(AApp, AMachineAddress, AWorkerExtraCaption, AUIClickerPort);
 
         atUIClicker:
-          if AApp.StartedCount < 3 then
+          if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
             StartUIClickerApp(AApp, AMachineAddress);
       end;
 
@@ -1656,6 +1672,69 @@ begin
 end;
 
 
+function TfrmWorkerPoolManagerMain.TerminateProcess(AMachineAddress, ACmdUIClickerPort: string; AProcessID: Integer): string;
+var
+  ExecAppOptions: TClkExecAppOptions;
+  ExecResults: TStringList;
+begin
+  GetDefaultPropertyValues_ExecApp(ExecAppOptions);
+
+  ExecAppOptions.PathToApp := 'taskkill';
+  ExecAppOptions.ListOfParams := '/PID' + #4#5 +
+                                 IntToStr(AProcessID) + #4#5 +  //this is needed only for the first call, to clear the file
+                                 '/F' + #4#5;
+  ExecAppOptions.WaitForApp := True;
+  ExecAppOptions.AppStdIn := '';
+  ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);
+  ExecAppOptions.UseInheritHandles := uihYes;
+  ExecAppOptions.NoConsole := True; //True means do not display a console
+  ExecAppOptions.VerifyFileExistence := False;
+
+  try
+    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Terminate process', 5000, False);
+  except
+    on E: Exception do
+      AddToLog('Ex on starting broker: ' + E.Message);
+  end;
+
+  ExecResults := TStringList.Create;
+  try
+    ExecResults.Text := FastReplace_87ToReturn(Result);
+    if ExecResults.Values['$ExecAction_Err$'] <> '' then
+    begin
+      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
+    begin
+      Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
+      Exit;
+    end;
+  finally
+    ExecResults.Free;
+  end;
+
+  Result := 'OK';
+end;
+
+
+function TfrmWorkerPoolManagerMain.GetBrokerProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, AMachineOS: string): Integer;
+var
+  FilteredListOfProcesses: TStringList;
+begin
+  Result := -1;
+
+  FilteredListOfProcesses := TStringList.Create;
+  try
+    GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS, FilteredListOfProcesses);
+    Result := StrToIntDef(FilteredListOfProcesses.Values[ABrokerPort], -1);
+  finally
+    FilteredListOfProcesses.Free;
+  end;
+end;
+
+
 function TfrmWorkerPoolManagerMain.StartMQTTBrokerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
 var
   SetVarOptions: TClkSetVarOptions;
@@ -1664,6 +1743,7 @@ var
   j: Integer;
   ExecResults: TStringList;
   ErrPos1, ErrPos2: Integer;
+  ProcessIDToTerminate: Integer;
 begin
   Result := '';
 
@@ -1718,8 +1798,15 @@ begin
       AddToLog('Ex on setting broker params before starting broker: ' + E.Message);
   end;
 
+  //Terminate process if already exists:
+  ProcessIDToTerminate := GetBrokerProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, CWinParam);
+  if ProcessIDToTerminate > -1 then
+    AddToLog('Terminating old broker, listening on port ' + ABrokerPort + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate))
+  else
+    AddToLog('No broker has to be terminted for port ' + ABrokerPort);
 
   //generate pp file
+  GetDefaultPropertyValues_ExecApp(ExecAppOptions);
   ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto_passwd.exe';
   ExecAppOptions.ListOfParams := '-b' + #4#5 +
                                  '-c' + #4#5 +  //this is needed only for the first call, to clear the file
@@ -1844,6 +1931,7 @@ begin
     ExecResults.Free;
   end;
 
+  //Run the new broker:
   ExecAppOptions.PathToApp := 'C:\Program Files\mosquitto\mosquitto.exe';
   ExecAppOptions.ListOfParams := '-c' + #4#5 +
                                  '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\mosquitto' + ABrokerPort + '.conf';
@@ -1955,12 +2043,13 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //list of listening processes  Port=PID
+procedure TfrmWorkerPoolManagerMain.GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string; AListOfProcesses: TStringList);
 var
   ExecAppOptions: TClkExecAppOptions;
-  ListOfVars, ListOfProcesses, FilteredListOfProcesses: TStringList;
+  ListOfVars, RawListOfProcesses: TStringList;
   i: Integer;
   s, Port, PID: string;
+  Res: string;
 begin
   if AMachineOS = CWinParam then
   begin
@@ -1986,11 +2075,7 @@ begin
       //To get list of connections:   ss -tlnp       //ToDo  find a way to display the PID
     end
     else
-    begin
-      Result := '';
       Exit;
-    end;
-
 
   ExecAppOptions.WaitForApp := True;
   ExecAppOptions.AppStdIn := '';
@@ -1998,45 +2083,63 @@ begin
   ExecAppOptions.UseInheritHandles := uihYes;
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
-  Result := ExecuteExecAppAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), ExecAppOptions, 'Run PS', 5000);
+  Res := ExecuteExecAppAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), ExecAppOptions, 'Run PS', 5000);
   ListOfVars := TStringList.Create;
   try
-    ListOfVars.Text := FastReplace_87ToReturn(Result);
-    Result := ListOfVars.Values['$ExecAction_StdOut$'];
-    Result := FastReplace_45ToReturn(Result);
+    ListOfVars.Text := FastReplace_87ToReturn(Res);
+    Res := ListOfVars.Values['$ExecAction_StdOut$'];
+    Res := FastReplace_45ToReturn(Res);
   finally
     ListOfVars.Free;
   end;
 
   //The ideal output would be a list of "ProcessName"="ProcessID", or "PortNumber"="ProcessID", both for brokers and workers
-  ListOfProcesses := TStringList.Create;
-  FilteredListOfProcesses := TStringList.Create;
+  RawListOfProcesses := TStringList.Create;
   try
-    //ListOfProcesses.LineBreak:=; //do not set, in case WorkerPoolManager is running on Lin
-    ListOfProcesses.Text := Result;
+    //RawListOfProcesses.LineBreak:=; //do not set, in case WorkerPoolManager is running on Lin
+    RawListOfProcesses.Text := Res;
 
     if AMachineOS = CWinParam then
     begin
-      for i := 0 to ListOfProcesses.Count - 1 do
+      for i := 0 to RawListOfProcesses.Count - 1 do
       begin
-        s := ListOfProcesses.Strings[i];
+        s := RawListOfProcesses.Strings[i];
         if (Pos('TCP    0.0.0.0:', s) > 0) and (Pos(' LISTENING ', s) > 0) then
         begin
           s := Copy(s, Pos(':', s) + 1, MaxInt);
           Port := Copy(s, 1, Pos(' ', s) - 1);
           PID := Copy(s, Pos('LISTENING', s) + Length('LISTENING') + 1, MaxInt);
           PID := Trim(PID);
-          FilteredListOfProcesses.Add(Port + '=' + PID);
+          AListOfProcesses.Add(Port + '=' + PID);
         end;
-
-        Result := FilteredListOfProcesses.Text;
       end;
     end
     else
       if AMachineOS = CLinParam then
-        Result := 'Not implemented yet.';
+      begin
+
+      end;
   finally
-    ListOfProcesses.Free;
+    RawListOfProcesses.Free;
+  end;
+end;
+
+
+function TfrmWorkerPoolManagerMain.GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; //list of listening processes  Port=PID
+var
+  FilteredListOfProcesses: TStringList;
+begin
+  Result := '';
+
+  FilteredListOfProcesses := TStringList.Create;
+  try
+    GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS, FilteredListOfProcesses);
+
+    if AMachineOS = CWinParam then
+      Result := FilteredListOfProcesses.Text
+    else
+      Result := 'Not implemented yet.';
+  finally
     FilteredListOfProcesses.Free;
   end;
 end;
@@ -2176,7 +2279,7 @@ begin
     if not Res then
     begin
       AFoundState := arNotFound;
-      AddToLog('Find status "Connected": ' + ResultStr.Values['$ExecAction_Err$']);
+      AddToLog('Find status "Connected" at worker "' + AWorkerExtraCaption + '": ' + ResultStr.Values['$ExecAction_Err$']);
       Exit;
     end;
 
