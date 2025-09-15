@@ -1199,6 +1199,20 @@ begin
 end;
 
 
+function AtLeastOneWorkerIsConnected(var AWorkerClickerPairs: TWorkerClickerAppPairArr): Boolean;
+var
+  j: Integer;
+begin
+  Result := False;
+  for j := 0 to Length(AWorkerClickerPairs) - 1 do
+    if AWorkerClickerPairs[j].Worker.RunningState = arFullyRunning then
+    begin
+      Result := True;
+      Break;
+    end;
+end;
+
+
 procedure TfrmWorkerPoolManagerMain.RunFSM(var AApp: TRunningApp; AAppType: TAppType; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word; var AWorkerClickerPairs: TWorkerClickerAppPairArr);
 var
   TempAppState: TAppRunning;
@@ -1218,7 +1232,10 @@ begin
               if AllWorkersAreDisconnected(AWorkerClickerPairs) then
                 AApp.RunningState := arUnknown  //Unknown and not certainly "bad state" / "not running" is because it might none of these, but the workers still can't connect.
               else
-                AApp.RunningState := arFullyRunning;
+                if AtLeastOneWorkerIsConnected(AWorkerClickerPairs) then
+                  AApp.RunningState := arFullyRunning
+                else
+                  AApp.RunningState := arNotFound; //This has to be redefined.
 
             atWorker:
             begin
@@ -1483,8 +1500,8 @@ begin
           for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
           begin
             CellText := CellText + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState];
-            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState = arNotFound then
-              CellText := CellText + '_' + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount);
+            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState = arNotFound then
+              CellText := CellText + '_' + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.NotRunningCount);
             CellText := CellText +  '  ';
           end;
         end;
@@ -2170,7 +2187,6 @@ begin
 end;
 
 
-//ToDo: add a FindControl state, which searches for the existence of the main window, before calling SetVar.
 //SetVar can freeze this application, if the service UIClicker freezes, while waiting for TestConnection on a non-existent app.
 function TfrmWorkerPoolManagerMain.FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
 const
@@ -2178,8 +2194,28 @@ const
 var
   Response: string;
   ResultStr: TStringList;
+  FindControl_FindUIClicker: TClkFindControlOptions;
   SetVar_FindStatusConnected: TClkSetVarOptions;
 begin
+  GetDefaultPropertyValues_FindControl(FindControl_FindUIClicker);
+  FindControl_FindUIClicker.MatchCriteria.SearchForControlMode := sfcmEnumWindows;
+  FindControl_FindUIClicker.MatchText := 'UI Clicker Main - ' + AWorkerUIClickerPort;   // maybe this should contain $Admin$ on Wine.
+  FindControl_FindUIClicker.MatchClassName := 'Window';
+  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindUIClicker, 'Find UIClicker Window', 10, CREParam_FileLocation_ValueDisk);
+
+  ResultStr := TStringList.Create;
+  try
+    ResultStr.Text := FastReplace_87ToReturn(Response);
+    Result := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+    if not Result then
+    begin
+      AddToLog('Find UIClicker: ' + ResultStr.Values['$ExecAction_Err$']);
+      Exit;
+    end;
+  finally
+    ResultStr.Free;
+  end;
+
   GetDefaultPropertyValues_SetVar(SetVar_FindStatusConnected);
   SetVar_FindStatusConnected.ListOfVarNames := CVarName;
   SetVar_FindStatusConnected.ListOfVarValues := '$http://' + AWorkerUIClickerAddress + ':' + AWorkerUIClickerPort + '/TestConnection$';
