@@ -1181,61 +1181,61 @@ end;
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfOneFontProfile_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneFontProfile.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneFontProfile.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfFourFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfSixFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfEightFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightFontProfiles.clktmpl');
 end;
 
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfNineFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineFontProfiles.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineFontProfiles.clktmpl');
 end;
 
 
@@ -2195,61 +2195,61 @@ end;
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfZeroFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfOneFontProfile_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneFontProfileFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneFontProfileFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfTwoFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfThreeFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfFourFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfFiveFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfSixFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfSevenFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfEightFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightFontProfilesFromExtMem.clktmpl');
 end;
 
 
 procedure TTestDistPluginExtBmpFullOSes.Test_AllocationOfNineFontProfiles_WinFontsOnly;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineFontProfilesFromExtMem.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineFontProfilesFromExtMem.clktmpl');
 end;
 
 
@@ -2780,61 +2780,61 @@ end;
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfZeroBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateZeroBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfOneBitmap;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneBitmapFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneBitmapFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfTwoBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwoBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfThreeBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateThreeBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfFourBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFourBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfFiveBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateFiveBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfSixBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSixBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfSevenBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfEightBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateEightBitmapsFromDisk.clktmpl');
 end;
 
 
 procedure TTestDistPluginDiskBmpFullOSes.Test_AllocationOfNineBitmaps;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineBitmapsFromDisk.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineBitmapsFromDisk.clktmpl');
 end;
 
 
@@ -3366,119 +3366,119 @@ end;
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_FindEmpty;
 begin
   FCalledAction := 'Find_Empty';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts;
 begin
   FCalledAction := 'Find_NoFonts';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
 begin
   FCalledAction := 'Find_WinOnly';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
 begin
   FCalledAction := 'Find_LinOnly';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinLinFonts;
 begin
   FCalledAction := 'Find_WinLin';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
 begin
   FCalledAction := 'Find_WinOnly_LinOnly';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
 begin
   FCalledAction := 'Find_WinOnly_WinLin';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
 begin
   FCalledAction := 'Find_LinOnly_WinLin';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
 begin
   FCalledAction := 'Find_WinOnly_LinOnly_WinLin';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly;
 begin
   FCalledAction := 'Find_NoFonts_WinOnly';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly;
 begin
   FCalledAction := 'Find_NoFonts_LinOnly';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts;
 begin
   FCalledAction := 'Find_NoFonts_WinLin';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinAndLinFonts;  //one pmtv with two SetFont calls
 begin
   FCalledAction := 'Find_Win_And_Lin';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithDiskBmp;
 begin
   FCalledAction := 'Find_DiskBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithExtBmp;
 begin
   FCalledAction := 'Find_ExtBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
 begin
   FCalledAction := 'DoNotFind_DiskBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithExtBmp_NotFound;
 begin
   FCalledAction := 'DoNotFind_ExtBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
@@ -3934,112 +3934,112 @@ end;
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts;
 begin
   FCalledAction := 'Find_NoFonts_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
 begin
   FCalledAction := 'Find_WinOnly_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
 begin
   FCalledAction := 'Find_LinOnly_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinLinFonts;
 begin
   FCalledAction := 'Find_WinLin_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
 begin
   FCalledAction := 'Find_WinOnly_LinOnly_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
 begin
   FCalledAction := 'Find_WinOnly_WinLin_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
 begin
   FCalledAction := 'Find_LinOnly_WinLin_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
 begin
   FCalledAction := 'Find_WinOnly_LinOnly_WinLin_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly;
 begin
   FCalledAction := 'Find_NoFonts_WinOnly_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly;
 begin
   FCalledAction := 'Find_NoFonts_LinOnly_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts;
 begin
   FCalledAction := 'Find_NoFonts_WinLin_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinAndLinFonts;  //one pmtv with two SetFont calls
 begin
   FCalledAction := 'Find_Win_And_Lin_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithDiskBmp;
 begin
   FCalledAction := 'Find_DiskBmp_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithExtBmp;
 begin
   FCalledAction := 'Find_ExtBmp_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
 begin
   FCalledAction := 'DoNotFind_DiskBmp_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithExtBmp_NotFound;
 begin
   FCalledAction := 'DoNotFind_ExtBmp_OneBmp';
-  ExecutePluginTestTemplate_FullPath('..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 

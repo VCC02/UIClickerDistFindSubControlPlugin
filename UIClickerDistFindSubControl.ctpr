@@ -135,9 +135,14 @@
     <PathDelim Value="\"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\UIClicker\ClickerUtils;..\UIClicker\ClickerClient;..\MiscUtils;..\MQTTClient\Lib;..\UIClicker\"/>
+      <OtherUnitFiles Value="..\UIClicker\ClickerUtils;..\UIClicker\ClickerClient;..\MiscUtils;..\MQTTClient\Lib;..\UIClicker"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
+    <Parsing>
+      <SyntaxOptions>
+        <SyntaxMode Value="Delphi"/>
+      </SyntaxOptions>
+    </Parsing>
     <CodeGeneration>
       <RelocatableUnit Value="True"/>
       <Optimizations>
