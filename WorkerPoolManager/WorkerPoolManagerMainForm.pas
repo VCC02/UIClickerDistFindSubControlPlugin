@@ -61,6 +61,7 @@ type
     StartCmdResponse: string;
     StartedCount: Integer;
     SuccessfullyStarted: Boolean; //set after starting at least once
+    ProcID: Integer;
 
     BrokerUserName: string; //workers may use different user and password
     BrokerPassword: string; //these are set for broker apps
@@ -198,7 +199,7 @@ type
 
     function IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort: string): string;
     function TerminateProcess(AMachineAddress, ACmdUIClickerPort: string; AProcessID: Integer): string;
-    function GetBrokerProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, AMachineOS: string): Integer;
+    function GetProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, AAppPort, AMachineOS: string): Integer;
     function StartMQTTBrokerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, ABrokerPort, ABrokerUsername, ABrokerPassword: string; var AWorkerClickerPairs: TWorkerClickerAppPairArr): string; //returns exec result
     function StartUIClickerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
     function StartWorkerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
@@ -567,6 +568,7 @@ begin
     AMachineNodeData^.AppsToBeRunning[i].Broker.NotRunningCount := 0;
     AMachineNodeData^.AppsToBeRunning[i].Broker.BrokerApp := nil;
     AMachineNodeData^.AppsToBeRunning[i].Broker.SuccessfullyStarted := False;
+    AMachineNodeData^.AppsToBeRunning[i].Broker.ProcID := -2;
   end;
 end;
 
@@ -622,6 +624,7 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.BrokerApp := @AMachineNodeData^.AppsToBeRunning[i].Broker;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.SuccessfullyStarted := False;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.ProcID := -2;
     end; //j
   end;  //i
 end;
@@ -644,6 +647,7 @@ begin
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.NotRunningCount := 0;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.BrokerApp := @AMachineNodeData^.AppsToBeRunning[i].Broker;
       AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.SuccessfullyStarted := False;
+      AMachineNodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.ProcID := -2;
     end;
 end;
 
@@ -1160,6 +1164,7 @@ begin
   AApp.StartedAt := GetTickCount64;
   AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
   AddToLog('Started broker at ' + AApp.Port + '.  StartedCount = ' + IntToStr(AApp.StartedCount) + '.');
+  AApp.ProcID := GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, CWinParam);
   Sleep(250);
   AApp.SuccessfullyStarted := True;
 end;
@@ -1208,7 +1213,7 @@ var
 begin
   DisconnectedCount := 0;
   for j := 0 to Length(AWorkerClickerPairs) - 1 do
-    if AWorkerClickerPairs[j].Worker.RunningState = arUnknown then
+    if (AWorkerClickerPairs[j].Worker.RunningState = arUnknown) and AWorkerClickerPairs[j].Worker.SuccessfullyStarted then
       Inc(DisconnectedCount);
 
   Result := DisconnectedCount = Length(AWorkerClickerPairs);
@@ -1221,7 +1226,7 @@ var
 begin
   Result := False;
   for j := 0 to Length(AWorkerClickerPairs) - 1 do
-    if AWorkerClickerPairs[j].Worker.RunningState = arFullyRunning then
+    if (AWorkerClickerPairs[j].Worker.RunningState = arFullyRunning) and AWorkerClickerPairs[j].Worker.SuccessfullyStarted then
     begin
       Result := True;
       Break;
@@ -1245,6 +1250,7 @@ begin
         if AApp.CheckStatusTick and 31 = 0 then //every 32 seconds
           case AAppType of
             atBroker:
+            begin
               if AllWorkersAreDisconnected(AWorkerClickerPairs) then
                 AApp.RunningState := arUnknown  //Unknown and not certainly "bad state" / "not running" is because it might none of these, but the workers still can't connect.
               else
@@ -1252,6 +1258,7 @@ begin
                   AApp.RunningState := arFullyRunning
                 else
                   AApp.RunningState := arNotFound; //This has to be redefined.
+            end;
 
             atWorker:
             begin
@@ -1294,19 +1301,26 @@ begin
     begin
       case AAppType of
         atBroker:
-          if AApp.StartedCount < 1 then
+          if (AApp.StartedCount < 3) and (AApp.RunningState = arUnknown) then  //The broker can be in arNotFound state (see above) and because of that, it won't start. ToDo: fix.
+          begin
             StartBrokerApp(AApp, AMachineAddress, AWorkerClickerPairs);
+            AApp.RunningState := arJustStarted;
+          end;
 
         atWorker:
           if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
+          begin
             StartWorkerApp(AApp, AMachineAddress, AWorkerExtraCaption, AUIClickerPort);
+            AApp.RunningState := arJustStarted;
+          end;
 
         atUIClicker:
           if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
+          begin
             StartUIClickerApp(AApp, AMachineAddress);
+            AApp.RunningState := arJustStarted;
+          end;
       end;
-
-      AApp.RunningState := arJustStarted;
     end;
 
     SAfterStarting:
@@ -1346,7 +1360,10 @@ begin
       AApp.NextState := SAfterStarting;
 
     SAfterStarting:
-      AApp.NextState := SWaitForRemoteApps;
+      if AApp.SuccessfullyStarted then
+        AApp.NextState := SWaitForRemoteApps
+      else
+        AApp.NextState := SStartRemoteApps;  //go back and attempt to start
 
     SWaitForRemoteApps:
       if GetTickCount64 - AApp.StartedAt > 10000 then
@@ -1377,53 +1394,16 @@ begin
   if Node = nil then
     Exit;
 
-  repeat
-    NodeData := vstMachines.GetNodeData(Node);
+  tmrFSM.Enabled := False;    //There is an App.ProcMsg call (maybe the http requests), which causes this timer to reenter, while another call is still in progress, so better pause the timer.
+  try
+    repeat
+      NodeData := vstMachines.GetNodeData(Node);
 
-    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
-    begin
-      CurrentApp := @NodeData^.AppsToBeRunning[i].Broker;
-      RunFSM(CurrentApp^,
-             atBroker,
-             NodeData^.Address,
-             '',
-             0,
-             NodeData^.AppsToBeRunning[i].WorkerClickerPairs);
-
-      if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
+      for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
       begin
-        if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
-          AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
-        else
-          AddToLog('Error starting broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);;
-      end;
-
-      for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
-      begin
-        WorkerExtraCaption := IntToStr(i * Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) + j);
-        CurrentApp := @NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker;
-        RunFSM(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker,
-               atWorker,
-               NodeData^.Address,
-               WorkerExtraCaption,
-               StrToIntDef(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0),
-               NodeData^.AppsToBeRunning[i].WorkerClickerPairs);
-
-        if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
-        begin
-          if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
-            AddToLog('Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
-          else
-            AddToLog('Error starting worker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
-        end;
-      end;
-
-      for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
-      begin
-        CurrentApp := @NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker;
-        WorkerExtraCaption := IntToStr(i * Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) + j);
-        RunFSM(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker,
-               atUIClicker,
+        CurrentApp := @NodeData^.AppsToBeRunning[i].Broker;
+        RunFSM(CurrentApp^,
+               atBroker,
                NodeData^.Address,
                '',
                0,
@@ -1432,17 +1412,59 @@ begin
         if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
         begin
           if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
-            AddToLog('Successfully started UIClicker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
+            AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
           else
-            AddToLog('Error starting UIClicker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
+            AddToLog('Error starting broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);;
+        end;
+
+        for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+        begin
+          WorkerExtraCaption := IntToStr(i * Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) + j);
+          CurrentApp := @NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker;
+          RunFSM(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker,
+                 atWorker,
+                 NodeData^.Address,
+                 WorkerExtraCaption,
+                 StrToIntDef(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0),
+                 NodeData^.AppsToBeRunning[i].WorkerClickerPairs);
+
+          if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
+          begin
+            if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
+              AddToLog('Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
+            else
+              AddToLog('Error starting worker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
+          end;
+        end;
+
+        for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+        begin
+          CurrentApp := @NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker;
+          WorkerExtraCaption := IntToStr(i * Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) + j);
+          RunFSM(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker,
+                 atUIClicker,
+                 NodeData^.Address,
+                 '',
+                 0,
+                 NodeData^.AppsToBeRunning[i].WorkerClickerPairs);
+
+          if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
+          begin
+            if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
+              AddToLog('Successfully started UIClicker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
+            else
+              AddToLog('Error starting UIClicker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
+          end;
         end;
       end;
-    end;
 
-    Node := Node^.NextSibling;
-  until Node = nil;
+      Node := Node^.NextSibling;
+    until Node = nil;
 
-  vstMachines.Repaint;
+    vstMachines.Repaint;
+  finally
+    tmrFSM.Enabled := True;
+  end;
 end;
 
 
@@ -1507,7 +1529,7 @@ begin
           for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
           begin
             CellText := CellText + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState];
-            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState = arNotFound then
+            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState in [arNotFound, arUnknown] then
               CellText := CellText + '_' + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.NotRunningCount);
             CellText := CellText +  '  ';
           end;
@@ -1516,7 +1538,7 @@ begin
           for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
           begin
             CellText := CellText + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState];
-            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState = arNotFound then
+            if NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState in [arNotFound, arUnknown] then
               CellText := CellText + '_' + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.NotRunningCount);
             CellText := CellText +  '  ';
           end;
@@ -1524,6 +1546,29 @@ begin
       end;
 
       6:
+      begin
+        CellText := 'Broker: ';
+        for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+        begin
+          CellText := CellText + IntToStr(NodeData^.AppsToBeRunning[i].Broker.StartedCount) + '  ';
+
+          CellText := CellText + '  Workers: ';
+          for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+          begin
+            CellText := CellText + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartedCount);
+            CellText := CellText +  '  ';
+          end;
+
+          CellText := CellText + '  UIClickers: ';
+          for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+          begin
+            CellText := CellText + IntToStr(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartedCount);
+            CellText := CellText +  '  ';
+          end;
+        end;
+      end;
+
+      7:
       begin
         CellText := 'Broker: ';
         for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
@@ -1719,7 +1764,7 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetBrokerProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, AMachineOS: string): Integer;
+function TfrmWorkerPoolManagerMain.GetProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, AAppPort, AMachineOS: string): Integer;
 var
   FilteredListOfProcesses: TStringList;
 begin
@@ -1728,7 +1773,7 @@ begin
   FilteredListOfProcesses := TStringList.Create;
   try
     GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS, FilteredListOfProcesses);
-    Result := StrToIntDef(FilteredListOfProcesses.Values[ABrokerPort], -1);
+    Result := StrToIntDef(FilteredListOfProcesses.Values[AAppPort], -1);
   finally
     FilteredListOfProcesses.Free;
   end;
@@ -1799,7 +1844,7 @@ begin
   end;
 
   //Terminate process if already exists:
-  ProcessIDToTerminate := GetBrokerProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, CWinParam);
+  ProcessIDToTerminate := GetProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, ABrokerPort, CWinParam);
   if ProcessIDToTerminate > -1 then
     AddToLog('Terminating old broker, listening on port ' + ABrokerPort + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate))
   else
