@@ -359,4 +359,11 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Left = 984
     Top = 144
   end
+  object tmrPing: TTimer
+    Enabled = False
+    Interval = 20000
+    OnTimer = tmrPingTimer
+    Left = 452
+    Top = 56
+  end
 end

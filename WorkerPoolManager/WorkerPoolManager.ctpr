@@ -82,7 +82,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils\;..\..\MiscUtils\"/>
+      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils;..\..\MiscUtils"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

@@ -71,6 +71,7 @@ type
     lblServerInfo: TLabel;
     memLog: TMemo;
     OpenDialog1: TOpenDialog;
+    tmrPing: TTimer;
     tmrReconnectFileProvider: TTimer;
     tmrConnect: TTimer;
     tmrSubscribe: TTimer;
@@ -96,6 +97,7 @@ type
       );
     procedure lbeUIClickerPortChange(Sender: TObject);
     procedure tmrConnectTimer(Sender: TObject);
+    procedure tmrPingTimer(Sender: TObject);
     procedure tmrProcessLogTimer(Sender: TObject);
     procedure tmrProcessRecDataTimer(Sender: TObject);
     procedure tmrReconnectFileProviderTimer(Sender: TObject);
@@ -117,6 +119,8 @@ type
     FReportedFonts: string;   //this is used only if <> ''
     FPollForMissingServerFilesTh: TPollForMissingServerFiles;
     FChachedFonts: string;
+    FGotPingResponse: Boolean;
+    FMissedPingResponseCount: Integer;
 
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
@@ -524,6 +528,7 @@ begin
 
   frmFindSubControlWorkerMain.tmrSubscribe.Enabled := False;
   frmFindSubControlWorkerMain.ShowBrokerIsConnected('SUBACK');
+  frmFindSubControlWorkerMain.tmrPing.Enabled := True;
 
   if VerbLevel < 1 then
     frmFindSubControlWorkerMain.AddToLog('');
@@ -602,6 +607,7 @@ begin
   end;
 
   frmFindSubControlWorkerMain.ShowBrokerIsDisconnected('UNSUBACK');
+  frmFindSubControlWorkerMain.tmrPing.Enabled := False;
 
   if VerbLevel < 1 then
     frmFindSubControlWorkerMain.AddToLog('');
@@ -1493,6 +1499,7 @@ end;
 
 procedure HandleOnAfterReceivingMQTT_PINGRESP(ClientInstance: DWord);
 begin
+  frmFindSubControlWorkerMain.FGotPingResponse := True;
   if VerbLevel < 1 then
     frmFindSubControlWorkerMain.AddToLog('Received PINGRESP');
 end;
@@ -1921,6 +1928,8 @@ begin
   FReportedFonts := '';
   FChachedFonts := '';
   VerbLevel := 2;
+  FGotPingResponse := False;
+  FMissedPingResponseCount := 0;
 
   tmrStartup.Enabled := True;
 end;
@@ -2276,6 +2285,11 @@ begin
 
       btnConnection.Tag := 1;
       btnConnection.Caption := 'Connect';
+
+      frmFindSubControlWorkerMain.tmrPing.Enabled := False;
+      if lblBrokerConnectionStatus.Caption = CBrokerIsDisconnectedStatus then
+        ShowBrokerIsDisconnected('button'); //in case the SUBACK response was not received (timeout)
+
       Exit;
     finally
       btnConnection.Enabled := True;
@@ -2533,6 +2547,50 @@ begin
   finally
     //btnConnect.Enabled := True;
     btnConnection.Enabled := True;
+  end;
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.tmrPingTimer(Sender: TObject);
+var
+  tk: DWord;
+  //ID: DWord;
+begin
+  //ID := GetTickCount64;
+  //AddToLog('Sending ping... ' + IntToStr(ID));
+  tmrPing.Enabled := False;
+  try
+    FGotPingResponse := False;
+    if not MQTT_PINGREQ(0) then
+    begin
+      AddToLog('Can''t prepare MQTT_PINGREQ packet.');
+      Exit;
+    end;
+
+    tk := GetTickCount64;
+    repeat
+      Application.ProcessMessages;
+
+      if FGotPingResponse then
+      begin
+        FMissedPingResponseCount := 0; //reset on first valid response
+        //AddToLog('Got ping response... ' + IntToStr(ID));
+        Break;
+      end;
+
+      if GetTickCount64 - tk > 5000 then   //waiting for a "long" time, in case the broker is busy
+      begin
+        AddToLog('Timeout waiting for ping response... ' {+ IntToStr(ID)} + '  MissedPingResponseCount = ' + IntToStr(FMissedPingResponseCount));
+        Inc(FMissedPingResponseCount);
+
+        if FMissedPingResponseCount >= 6 then  //found even 3 missed responses in a row
+          ShowBrokerIsDisconnected('ping');    //If ping turns out to be even more unreliable, then this constant has to be increased.
+
+        Break;
+      end;
+    until False;
+  finally
+    tmrPing.Enabled := True;
   end;
 end;
 

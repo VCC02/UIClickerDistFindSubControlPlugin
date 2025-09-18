@@ -154,6 +154,18 @@
       <Item>
         <Name Value="EIdReadTimeout"/>
       </Item>
+      <Item>
+        <Name Value="EIdConnClosedGracefully"/>
+      </Item>
+      <Item>
+        <Name Value="EIdSocketError"/>
+      </Item>
+      <Item>
+        <Name Value="EIdNotASocket"/>
+      </Item>
+      <Item>
+        <Name Value="EIdConnectTimeout"/>
+      </Item>
     </Exceptions>
   </Debugging>
 </CONFIG>
