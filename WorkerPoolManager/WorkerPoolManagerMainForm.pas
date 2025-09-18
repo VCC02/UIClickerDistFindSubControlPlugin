@@ -1251,8 +1251,8 @@ begin
           case AAppType of
             atBroker:
             begin
-              if AllWorkersAreDisconnected(AWorkerClickerPairs) then
-                AApp.RunningState := arUnknown  //Unknown and not certainly "bad state" / "not running" is because it might none of these, but the workers still can't connect.
+              if AllWorkersAreDisconnected(AWorkerClickerPairs) then  //Or the process does not exist. Also, the process may exist, but the workers can't connect (they are old instances).
+                AApp.RunningState := arUnknown  //Unknown and not certainly "bad state" / "not running" is because it might be none of these, but the workers still can't connect.
               else
                 if AtLeastOneWorkerIsConnected(AWorkerClickerPairs) then
                   AApp.RunningState := arFullyRunning
@@ -1309,10 +1309,11 @@ begin
 
         atWorker:
           if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
-          begin
-            StartWorkerApp(AApp, AMachineAddress, AWorkerExtraCaption, AUIClickerPort);
-            AApp.RunningState := arJustStarted;
-          end;
+            if GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.BrokerApp^.Port, CWinParam) > -1 then //Start the worker, only if the broker is in a good state. This should prevent starting new workers if there is no broker.
+            begin
+              StartWorkerApp(AApp, AMachineAddress, AWorkerExtraCaption, AUIClickerPort);
+              AApp.RunningState := arJustStarted;
+            end;
 
         atUIClicker:
           if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
@@ -1357,7 +1358,10 @@ begin
         AApp.NextState := SMonitorStatus;  //another state is required here, to wait (e.g. 10s) before the next call to GetListOfAppsWhichHaveToBeStarted
 
     SStartRemoteApps:
-      AApp.NextState := SAfterStarting;
+      if AApp.RunningState = arJustStarted then
+        AApp.NextState := SAfterStarting
+      else
+        AApp.NextState := SStartRemoteApps;
 
     SAfterStarting:
       if AApp.SuccessfullyStarted then
@@ -1848,7 +1852,7 @@ begin
   if ProcessIDToTerminate > -1 then
     AddToLog('Terminating old broker, listening on port ' + ABrokerPort + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate))
   else
-    AddToLog('No broker has to be terminted for port ' + ABrokerPort);
+    AddToLog('No broker has to be terminated for port ' + ABrokerPort + ' because nothing is listening on that port.');
 
   //generate pp file
   GetDefaultPropertyValues_ExecApp(ExecAppOptions);
@@ -2016,8 +2020,15 @@ end;
 function TfrmWorkerPoolManagerMain.StartUIClickerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort: string; AUIClickerPort: Word): string; //returns exec result
 var
   ExecAppOptions: TClkExecAppOptions;
+  ProcessIDToTerminate: Integer;
 begin
   Result := '';
+
+  //Terminate process if already exists:
+  ProcessIDToTerminate := GetProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, IntToStr(AUIClickerPort), CWinParam);
+  if ProcessIDToTerminate > -1 then
+    AddToLog('Terminating old UIClicker, listening on port ' + IntToStr(AUIClickerPort) + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate));
+
   ExecAppOptions.PathToApp := '$AppDir$\UIClicker.exe';
   ExecAppOptions.ListOfParams := '--ExtraCaption' + #4#5 +
                                  IntToStr(AUIClickerPort) + #4#5 +
@@ -2045,8 +2056,17 @@ end;
 function TfrmWorkerPoolManagerMain.StartWorkerOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AWorkerExtraCaption, ABrokerAddress: string; ABrokerPort, AUIClickerPort: Word; ABrokerUser, ABrokerPassword: string): string; //returns exec result
 var
   ExecAppOptions: TClkExecAppOptions;
+  ProcessIDToTerminate: Integer;
+  MonitoringPort: Integer;
 begin                                                                                          //ToDo: '--SetBrokerCredFile'
   Result := '';
+  MonitoringPort := AUIClickerPort + CWorkerMonitoringOffset;
+
+  //Terminate process if already exists:
+  ProcessIDToTerminate := GetProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, IntToStr(MonitoringPort), CWinParam);
+  if ProcessIDToTerminate > -1 then
+    AddToLog('Terminating old UIClicker, listening on port ' + IntToStr(MonitoringPort) + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate));
+
   ExecAppOptions.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\FindSubControlWorker.exe';
   ExecAppOptions.ListOfParams := '--SetBrokerAddress' + #4#5 +
                                  ABrokerAddress + #4#5 +
@@ -2055,7 +2075,7 @@ begin                                                                           
                                  '--SetUIClickerPort' + #4#5 +
                                  IntToStr(AUIClickerPort) + #4#5 +
                                  '--SetMonitoringPort' + #4#5 +
-                                 IntToStr(AUIClickerPort + CWorkerMonitoringOffset) + #4#5 +
+                                 IntToStr(MonitoringPort) + #4#5 +
                                  '--SetWorkerExtraCaption' + #4#5 +
                                  AWorkerExtraCaption + #4#5 +
                                  '--SkipSavingIni' + #4#5 +
