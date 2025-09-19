@@ -30,7 +30,7 @@ interface
 
 uses
   Classes, SysUtils, TestHTTPAPI, fpcunit, testregistry, //UIActionsStuff,
-  ClickerUtils;
+  ClickerUtils, AsyncProcess;
 
 type
   TStringArr = array of string;
@@ -42,7 +42,7 @@ type
     FPluginUsedOS: string; //TextRenderingOS property
     FCalledAction: string;
   protected
-    procedure StartMainUIClickerInstances;
+    procedure StartDriverUIClicker;
     procedure StartWorkerUIClickerInstances;
     procedure StartAllUIClickerInstances;
 
@@ -74,6 +74,8 @@ type
     procedure SetTextRenderingOSInPluginAction(AOSName: string);
     procedure SetTextRenderingPmtvActionInPluginAction(APmtvAction: string);
     procedure SetPluginUsedOS(AOSName: string);
+
+    procedure StartMainUIClicker(var AProcess: TAsyncProcess; AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string);
   end;
 
 
@@ -633,17 +635,20 @@ type
   end;
 
 
-implementation
-
-uses
-  UITestUtils, AsyncProcess, Forms, ClickerActionsClient, Expectations,
-  DistFindSubControlCommonConsts, ClickerActionProperties;
-
-
 const
   CTestDriver_ServerPort_ForClientUnderTest = '25444';
   CClientUnderTestServerPort = '35444'; //this is a temporary mode, while UIClickerUITest reads the test results, then sets it back to client mode
 
+
+implementation
+
+
+uses
+  UITestUtils, Forms, ClickerActionsClient, Expectations,
+  DistFindSubControlCommonConsts, ClickerActionProperties;
+
+
+const
   CWorkerClickerServerPort1 = '34444';
   CWorkerClickerServerPort2 = '44444';
   CWorkerClickerServerPort3 = '54444';
@@ -762,18 +767,16 @@ begin
 end;
 
 
-procedure TTestDistPlugin.StartMainUIClickerInstances;
 const
   CDisplayTabsOptions: string = ' --AutoSwitchToExecTab Yes --AutoEnableSwitchTabsOnDebugging Yes';
+
+
+procedure TTestDistPlugin.StartDriverUIClicker;
 var
-  PathToTestDriver, PathToAppUnderTest: string;
-  DriverParams, AppUnderTestClientParams: string;
+  PathToTestDriver, DriverParams: string;
 begin
   PathToTestDriver := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\UIClicker.exe'; //this should be a stable version of UIClicker
-  PathToAppUnderTest := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\UIClicker.exe';
-
   DriverParams := '--SetExecMode Server --ExtraCaption Driver.Client --ServerPort ' + CTestDriver_ServerPort_ForClientUnderTest + CDisplayTabsOptions;
-  AppUnderTestClientParams := '--SetExecMode Local --ExtraCaption ClientUnderTest' + CSkipSavingSettings + CDisplayTabsOptions;
 
   if FIsWine then
   begin
@@ -781,17 +784,32 @@ begin
     Sleep(100);
     FTestDriverForClient_Proc := CreateUIClickerProcess(PathToTestDriver, DriverParams + ' --UseWideStringsOnGetControlText Yes');
     Sleep(1000);
+  end
+  else
+    FTestDriverForClient_Proc := CreateUIClickerProcess(PathToTestDriver, DriverParams);
+end;
 
+
+procedure TTestDistPlugin.StartMainUIClicker(var AProcess: TAsyncProcess; AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string);
+var
+  PathToAppUnderTest: string;
+  AppUnderTestClientParams: string;
+begin
+  PathToAppUnderTest := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\UIClicker.exe';
+  AppUnderTestClientParams := '--SetExecMode ' + AMainUIClickerExecMode + ' --ExtraCaption ' + AMainUIClickerExtraCaption + CSkipSavingSettings + CDisplayTabsOptions;
+
+  if AMainUIClickerExecMode = 'Server' then
+    AppUnderTestClientParams := AppUnderTestClientParams + ' --ServerPort ' + AMainUIClickerServerPort;
+
+  if FIsWine then
+  begin
     SetUIClickerWindowPosition(ExtractFilePath(PathToAppUnderTest) + 'Clicker.ini', 360, 50, 30, 490);
     Sleep(100);
-    FClientAppUnderTest_Proc := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams + ' --UseWideStringsOnGetControlText Yes');
+    AProcess := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams + ' --UseWideStringsOnGetControlText Yes');
     Sleep(1000);
   end
   else
-  begin
-    FTestDriverForClient_Proc := CreateUIClickerProcess(PathToTestDriver, DriverParams);
-    FClientAppUnderTest_Proc := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams);
-  end;
+    AProcess := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams);
 end;
 
 
@@ -837,7 +855,9 @@ end;
 
 procedure TTestDistPlugin.StartAllUIClickerInstances;
 begin
-  StartMainUIClickerInstances;
+  StartDriverUIClicker;
+  StartMainUIClicker(FClientAppUnderTest_Proc, 'Local', CClientUnderTestServerPort, 'ClientUnderTest');
+
   StartWorkerUIClickerInstances;
 end;
 
