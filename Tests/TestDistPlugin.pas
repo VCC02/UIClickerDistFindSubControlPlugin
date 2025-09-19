@@ -41,13 +41,16 @@ type
     FReportedFonts: TStringArr;
     FPluginUsedOS: string; //TextRenderingOS property
     FCalledAction: string;
+
+    FIsWine: Boolean;
+    FTemplatesDir: string;
   protected
-    procedure StartDriverUIClicker;
+    function StartDriverUIClicker: TAsyncProcess;
     procedure StartWorkerUIClickerInstances;
     procedure StartAllUIClickerInstances;
 
     procedure StartAllWorkerInstances(const AReportedOSes, AReportedFonts: TStringArr);  //at least those from this machine
-    procedure StartTestUtilities;
+    function StartTestUtilities: TAsyncProcess;
     procedure ExecuteTemplateOnTestDriver(ATemplatePath, AFileLocation: string; AAdditionalExpectedVar: string = ''; AAdditionalExpectedValue: string = '');
     procedure ArrangeMainUIClickerWindows;
     procedure ArrangeUIClickerActionWindows;
@@ -75,7 +78,10 @@ type
     procedure SetTextRenderingPmtvActionInPluginAction(APmtvAction: string);
     procedure SetPluginUsedOS(AOSName: string);
 
-    procedure StartMainUIClicker(var AProcess: TAsyncProcess; AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string);
+    function StartMainUIClicker(AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string): TAsyncProcess;
+
+    property IsWine: Boolean read FIsWine;
+    property TemplatesDir: string read FTemplatesDir write FTemplatesDir;
   end;
 
 
@@ -635,9 +641,17 @@ type
   end;
 
 
+procedure WaitForDriverStartup;
+procedure SetVariableOnTestDriverClient(AVarName, AVarValue: string; AEvalVarBefore: Boolean = False);
+procedure SetVariableOnClickerUnderTest(AVarName, AVarValue: string; AEvalVarBefore: Boolean = False);
+
+
 const
   CTestDriver_ServerPort_ForClientUnderTest = '25444';
   CClientUnderTestServerPort = '35444'; //this is a temporary mode, while UIClickerUITest reads the test results, then sets it back to client mode
+
+  CTestClientAddress = 'http://127.0.0.1:' + CClientUnderTestServerPort + '/';                                //UIClicker-under-test client in server mode
+  CTestDriverServerAddress_Client = 'http://127.0.0.1:' + CTestDriver_ServerPort_ForClientUnderTest + '/';    //UIClicker driver
 
 
 implementation
@@ -654,9 +668,6 @@ const
   CWorkerClickerServerPort3 = '54444';
   CWorkerClickerServerPort4 = '24444';
 
-  CTestClientAddress = 'http://127.0.0.1:' + CClientUnderTestServerPort + '/';                                //UIClicker-under-test client in server mode
-  CTestDriverServerAddress_Client = 'http://127.0.0.1:' + CTestDriver_ServerPort_ForClientUnderTest + '/';    //UIClicker driver
-
   //CWorkerClickerServerAddress1 = 'http://127.0.0.1:' + CWorkerClickerServerPort1 + '/';
   //CWorkerClickerServerAddress2 = 'http://127.0.0.1:' + CWorkerClickerServerPort2 + '/';
   //CWorkerClickerServerAddress3 = 'http://127.0.0.1:' + CWorkerClickerServerPort3 + '/';
@@ -668,12 +679,10 @@ const
   CBmpNotFoundErr = 'None of the responding workers found the SubControl. ResponseCount = 4 / 4.';
 
 var
-  FIsWine: Boolean;
   FTestDriverForClient_Proc, FClientAppUnderTest_Proc: TAsyncProcess;
   FWorker1_Proc, FWorker2_Proc, FWorker3_Proc, FWorker4_Proc: TAsyncProcess;
   FServerForWorker1_Proc, FServerForWorker2_Proc, FServerForWorker3_Proc, FServerForWorker4_Proc: TAsyncProcess;
   CommonFonts_Proc: TAsyncProcess;
-  FTemplatesDir: string;
 
 
 constructor TTestDistPlugin.Create;
@@ -684,6 +693,7 @@ begin
   SetLength(FReportedFonts, 0);
   FPluginUsedOS := '';
   FCalledAction := '';
+  FTemplatesDir := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\ActionTemplates\';
 
   {$IFDEF UNIX}
     FIsWine := False;
@@ -771,7 +781,7 @@ const
   CDisplayTabsOptions: string = ' --AutoSwitchToExecTab Yes --AutoEnableSwitchTabsOnDebugging Yes';
 
 
-procedure TTestDistPlugin.StartDriverUIClicker;
+function TTestDistPlugin.StartDriverUIClicker: TAsyncProcess;
 var
   PathToTestDriver, DriverParams: string;
 begin
@@ -782,15 +792,15 @@ begin
   begin
     SetUIClickerWindowPosition(ExtractFilePath(PathToTestDriver) + 'Clicker.ini', 1040, 50, 1000, 300);
     Sleep(100);
-    FTestDriverForClient_Proc := CreateUIClickerProcess(PathToTestDriver, DriverParams + ' --UseWideStringsOnGetControlText Yes');
+    Result := CreateUIClickerProcess(PathToTestDriver, DriverParams + ' --UseWideStringsOnGetControlText Yes');
     Sleep(1000);
   end
   else
-    FTestDriverForClient_Proc := CreateUIClickerProcess(PathToTestDriver, DriverParams);
+    Result := CreateUIClickerProcess(PathToTestDriver, DriverParams);
 end;
 
 
-procedure TTestDistPlugin.StartMainUIClicker(var AProcess: TAsyncProcess; AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string);
+function TTestDistPlugin.StartMainUIClicker(AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string): TAsyncProcess;
 var
   PathToAppUnderTest: string;
   AppUnderTestClientParams: string;
@@ -805,11 +815,11 @@ begin
   begin
     SetUIClickerWindowPosition(ExtractFilePath(PathToAppUnderTest) + 'Clicker.ini', 360, 50, 30, 490);
     Sleep(100);
-    AProcess := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams + ' --UseWideStringsOnGetControlText Yes');
+    Result := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams + ' --UseWideStringsOnGetControlText Yes');
     Sleep(1000);
   end
   else
-    AProcess := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams);
+    Result := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams);
 end;
 
 
@@ -855,8 +865,8 @@ end;
 
 procedure TTestDistPlugin.StartAllUIClickerInstances;
 begin
-  StartDriverUIClicker;
-  StartMainUIClicker(FClientAppUnderTest_Proc, 'Local', CClientUnderTestServerPort, 'ClientUnderTest');
+  FTestDriverForClient_Proc := StartDriverUIClicker;
+  FClientAppUnderTest_Proc := StartMainUIClicker('Local', CClientUnderTestServerPort, 'ClientUnderTest');
 
   StartWorkerUIClickerInstances;
 end;
@@ -892,12 +902,12 @@ begin
 end;
 
 
-procedure TTestDistPlugin.StartTestUtilities;
+function TTestDistPlugin.StartTestUtilities: TAsyncProcess;
 var
   PathToCommonFonts: string;
 begin
   PathToCommonFonts := ExtractFilePath(ParamStr(0)) + 'CommonFonts\CommonFonts.exe';
-  CommonFonts_Proc := CreateUIClickerProcess(PathToCommonFonts, '');
+  Result := CreateUIClickerProcess(PathToCommonFonts, '');
   Sleep(500);
 end;
 
@@ -1132,7 +1142,7 @@ procedure TTestDistPlugin.BeforeAll(const AReportedOSes, AReportedFonts: TString
 begin
   StartAllUIClickerInstances;
   StartAllWorkerInstances(AReportedOSes, AReportedFonts);
-  StartTestUtilities;
+  CommonFonts_Proc := StartTestUtilities;
 
   WaitForDriverStartup;
 
@@ -1156,8 +1166,6 @@ begin
   Sleep(500);
   ArrangeWorkerWindows;
   Sleep(500);
-
-  FTemplatesDir := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\ActionTemplates\';
 
   PrepareClickerUnderTestToReadItsVars; //or write..
   SetVariableOnClickerUnderTest('$TestFilesDir$', ExpandFileName(ExtractFilePath(ParamStr(0)) + 'TestFiles'));

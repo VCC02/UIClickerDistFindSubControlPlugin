@@ -81,6 +81,14 @@
         <Filename Value="..\DistFindSubControlCommonConsts.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="TestWorkerPoolManager.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\WorkerPoolManager\WorkerPoolCommonConsts.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -91,7 +99,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\MiscUtils;..\..\UIClicker\Tests;..\..\UIClicker\ClickerUtils;..\..\UIClicker\Tests\UI;.."/>
+      <OtherUnitFiles Value="..\..\MiscUtils;..\..\UIClicker\Tests;..\..\UIClicker\ClickerUtils;..\..\UIClicker\Tests\UI;..;..\WorkerPoolManager"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\$(LCLWidgetType)"/>
     </SearchPaths>
     <Linking>

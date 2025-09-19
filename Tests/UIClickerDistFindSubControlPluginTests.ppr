@@ -29,7 +29,7 @@ program UIClickerDistFindSubControlPluginTests;
 uses
   Interfaces, Forms, GuiTestRunner, PitstopTestRunner, TestHTTPAPI, UITestUtils,
   ClickerFileProviderClient, ClickerUtils, TestDistPlugin,
-  DistFindSubControlCommonConsts;
+  DistFindSubControlCommonConsts, WorkerPoolCommonConsts, TestWorkerPoolManager;
 
 {$R *.res}
 
