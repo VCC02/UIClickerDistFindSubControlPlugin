@@ -42,7 +42,10 @@ type
     FPluginUsedOS: string; //TextRenderingOS property
     FCalledAction: string;
   protected
+    procedure StartMainUIClickerInstances;
+    procedure StartWorkerUIClickerInstances;
     procedure StartAllUIClickerInstances;
+
     procedure StartAllWorkerInstances(const AReportedOSes, AReportedFonts: TStringArr);  //at least those from this machine
     procedure StartTestUtilities;
     procedure ExecuteTemplateOnTestDriver(ATemplatePath, AFileLocation: string; AAdditionalExpectedVar: string = ''; AAdditionalExpectedValue: string = '');
@@ -676,6 +679,12 @@ begin
   SetLength(FReportedFonts, 0);
   FPluginUsedOS := '';
   FCalledAction := '';
+
+  {$IFDEF UNIX}
+    FIsWine := False;
+  {$ELSE}
+    FIsWine := {DirectoryExists('Z:\home') and} DirectoryExists('Z:\media') and DirectoryExists('Z:\etc'); //assume this is running on Wine
+  {$ENDIF}
 end;
 
 
@@ -753,25 +762,18 @@ begin
 end;
 
 
-procedure TTestDistPlugin.StartAllUIClickerInstances;
+procedure TTestDistPlugin.StartMainUIClickerInstances;
 const
   CDisplayTabsOptions: string = ' --AutoSwitchToExecTab Yes --AutoEnableSwitchTabsOnDebugging Yes';
 var
   PathToTestDriver, PathToAppUnderTest: string;
-  DriverParams, AppUnderTestClientParams, ServerForWorkerParams: string;
+  DriverParams, AppUnderTestClientParams: string;
 begin
   PathToTestDriver := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\UIClicker.exe'; //this should be a stable version of UIClicker
   PathToAppUnderTest := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\UIClicker.exe';
 
-  {$IFDEF UNIX}
-    FIsWine := False;
-  {$ELSE}
-    FIsWine := {DirectoryExists('Z:\home') and} DirectoryExists('Z:\media') and DirectoryExists('Z:\etc'); //assume this is running on Wine
-  {$ENDIF}
-
   DriverParams := '--SetExecMode Server --ExtraCaption Driver.Client --ServerPort ' + CTestDriver_ServerPort_ForClientUnderTest + CDisplayTabsOptions;
   AppUnderTestClientParams := '--SetExecMode Local --ExtraCaption ClientUnderTest' + CSkipSavingSettings + CDisplayTabsOptions;
-  ServerForWorkerParams := '--SetExecMode Server Worker --ServerPort ';
 
   if FIsWine then
   begin
@@ -789,12 +791,54 @@ begin
   begin
     FTestDriverForClient_Proc := CreateUIClickerProcess(PathToTestDriver, DriverParams);
     FClientAppUnderTest_Proc := CreateUIClickerProcess(PathToAppUnderTest, AppUnderTestClientParams);
-
-    FServerForWorker1_Proc := CreateUIClickerProcess(PathToAppUnderTest, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1');
-    FServerForWorker2_Proc := CreateUIClickerProcess(PathToAppUnderTest, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2');
-    FServerForWorker3_Proc := CreateUIClickerProcess(PathToAppUnderTest, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3');
-    FServerForWorker4_Proc := CreateUIClickerProcess(PathToAppUnderTest, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4');
   end;
+end;
+
+
+procedure TTestDistPlugin.StartWorkerUIClickerInstances;
+var
+  PathToWorkerUIClicker: string;
+  ServerForWorkerParams: string;
+begin
+  PathToWorkerUIClicker := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\UIClicker.exe'; //same as PathToAppUnderTest
+  ServerForWorkerParams := '--SetExecMode Server Worker --ServerPort ';
+
+  if FIsWine then
+  begin
+    SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 100, 50, 500, 200);
+    Sleep(100);
+    FServerForWorker1_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1' + ' --UseWideStringsOnGetControlText Yes');
+    Sleep(1000);
+
+    SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 110, 60, 500, 210);
+    Sleep(100);
+    FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2' + ' --UseWideStringsOnGetControlText Yes');
+    Sleep(1000);
+
+    SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 120, 70, 500, 220);
+    Sleep(100);
+    FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3' + ' --UseWideStringsOnGetControlText Yes');
+    Sleep(1000);
+
+    SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 130, 80, 500, 230);
+    Sleep(100);
+    FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4' + ' --UseWideStringsOnGetControlText Yes');
+    Sleep(1000);
+  end
+  else
+  begin
+    FServerForWorker1_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1');
+    FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2');
+    FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3');
+    FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4');
+  end;
+end;
+
+
+procedure TTestDistPlugin.StartAllUIClickerInstances;
+begin
+  StartMainUIClickerInstances;
+  StartWorkerUIClickerInstances;
 end;
 
 

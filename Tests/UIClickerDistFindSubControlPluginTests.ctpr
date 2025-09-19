@@ -91,7 +91,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\MiscUtils\;..\..\UIClicker\Tests\;..\..\UIClicker\ClickerUtils\;..\..\UIClicker\Tests\UI\;.."/>
+      <OtherUnitFiles Value="..\..\MiscUtils;..\..\UIClicker\Tests;..\..\UIClicker\ClickerUtils;..\..\UIClicker\Tests\UI;.."/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\$(LCLWidgetType)"/>
     </SearchPaths>
     <Linking>
