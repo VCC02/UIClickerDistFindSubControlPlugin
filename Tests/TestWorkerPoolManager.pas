@@ -38,6 +38,11 @@ type
     function StartWorkerPoolManager: TAsyncProcess;
     procedure ArrangeMainUIClickerWindowsForWorkerPoolManager;
     procedure SetDistUIClickerPortOnWorkerPoolManager;
+    procedure SetBrokerCountOnWorkerPoolManager(ACount: Integer);
+    procedure SetWorkerCountOnWorkerPoolManager(AWinCount, ALinCount: Integer);
+
+    procedure AddMachineToList(AWorkerMachineAddress, ADistUIClickerMachineAddress, AExpectedResponse: string);
+    procedure RemoveMachineFromList(AWorkerMachineAddress: string);
   public
     constructor Create; override;
     procedure BeforeAll;
@@ -108,6 +113,51 @@ begin
 end;
 
 
+procedure TTestWorkerPoolManager.SetBrokerCountOnWorkerPoolManager(ACount: Integer);
+begin
+  SetVariable(CTestDriverServerAddress_Client, '$BrokerCountPerMachine$', IntToStr(ACount), 0);
+  ExecuteTemplateOnTestDriver(ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\SetBrokerCountOnWorkerPoolManager.clktmpl', CREParam_FileLocation_ValueDisk);
+end;
+
+
+procedure TTestWorkerPoolManager.SetWorkerCountOnWorkerPoolManager(AWinCount, ALinCount: Integer);
+begin
+  SetVariable(CTestDriverServerAddress_Client, '$Win_WorkerCountPerMachine$', IntToStr(AWinCount), 0);
+  SetVariable(CTestDriverServerAddress_Client, '$Lin_WorkerCountPerMachine$', IntToStr(ALinCount), 0);
+  ExecuteTemplateOnTestDriver(ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\SetWorkerCountOnWorkerPoolManager.clktmpl', CREParam_FileLocation_ValueDisk);
+end;
+
+
+procedure TTestWorkerPoolManager.AddMachineToList(AWorkerMachineAddress, ADistUIClickerMachineAddress, AExpectedResponse: string);
+var
+  Link: string;
+begin
+  Link := 'http://127.0.0.1:11884/' + CMachineOnline +  //127.0.0.1 is the address of WorkerPoolManager
+          '?' + CWorkerMachineAddress + '=' + AWorkerMachineAddress +
+          '&' + CMachineOSParam + '=' + CWinParam +  //start workers on Win
+          '&' + CDistPluginMachineAddress + '=' + ADistUIClickerMachineAddress;
+
+  Expect(SendTextRequestToServer(Link)).ToBe(AExpectedResponse);
+end;
+
+
+procedure TTestWorkerPoolManager.RemoveMachineFromList(AWorkerMachineAddress: string);
+var
+  Link, Response: string;
+begin
+  Link := 'http://127.0.0.1:11884/' + CRemoveWorkerMachine +  //127.0.0.1 is the address of WorkerPoolManager
+          '?' + CWorkerMachineAddress + '=' + AWorkerMachineAddress;
+
+  Response := SendTextRequestToServer(Link);
+
+  try
+    Expect(Response).ToBe(CMachineRemoved);
+  except
+    Expect(Response).ToBe(CWorkerMachineNotFound);
+  end;
+end;
+
+
 procedure TTestWorkerPoolManager.BeforeAll;
 begin
   StartMainUIClickerInstances;
@@ -172,41 +222,26 @@ end;
 
 
 procedure TTestWorkerPoolManager.Test_AddSelfMachineToList;
-var
-  Link: string;
 begin
-  //Send a request to WorkerPoolManager, to add this machine to list
-  Link := 'http://127.0.0.1:11884/' + CMachineOnline +
-          '?' + CWorkerMachineAddress + '=' + '127.0.0.1' +
-          '&' + CMachineOSParam + '=' + CWinParam +  //start workers on Win
-          '&' + CDistPluginMachineAddress + '=' + '127.0.0.1';
+  SetBrokerCountOnWorkerPoolManager(1);
+  SetWorkerCountOnWorkerPoolManager(4, 3);
+  RemoveMachineFromList('127.0.0.1');
 
-  Expect(SendTextRequestToServer(Link)).ToBe('127.0.0.1');
+  AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
   //this will have to get the process IDs of all workers and worker-UIClickers and stop them when done
 end;
 
 
 procedure TTestWorkerPoolManager.Test_AddTwoDifferentMachinesToList;
-var
-  Link: string;
-begin                                               //maybe it should verify if there are already the following machines, then remove them
-  //Send a request to WorkerPoolManager, to add this machine to list
-  Link := 'http://127.0.0.1:11884/' + CMachineOnline +
-          '?' + CWorkerMachineAddress + '=' + '127.0.0.1' +
-          '&' + CMachineOSParam + '=' + CWinParam +  //start workers on Win
-          '&' + CDistPluginMachineAddress + '=' + '127.0.0.1';
+begin
+  SetBrokerCountOnWorkerPoolManager(2);
+  SetWorkerCountOnWorkerPoolManager(4, 3);
+  RemoveMachineFromList('127.0.0.1');
 
-  Expect(SendTextRequestToServer(Link)).ToBe('127.0.0.1');
+  AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
+  AddMachineToList('127.0.0.1', '192.168.1.100', CMachineSet);
 
-  ////////////////////// ToDo: set broker count / machine to 2
-  Link := 'http://127.0.0.1:11884/' + CMachineOnline +
-          '?' + CWorkerMachineAddress + '=' + '127.0.0.1' +
-          '&' + CMachineOSParam + '=' + CWinParam +  //start workers on Win
-          '&' + CDistPluginMachineAddress + '=' + '192.168.1.100';
-
-  Expect(SendTextRequestToServer(Link)).ToBe(CMachineSet);   //'192.168.1.100' ?
-
-  //this will have to get the process IDs of all workers and worker-UIClickers and stop them when done
+  //this will have to get the process IDs of all workers and worker-UIClickers, then stop them when done
 end;
 
 
