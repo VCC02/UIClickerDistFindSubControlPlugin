@@ -40,9 +40,13 @@ type
     procedure SetDistUIClickerPortOnWorkerPoolManager;
     procedure SetBrokerCountOnWorkerPoolManager(ACount: Integer);
     procedure SetWorkerCountOnWorkerPoolManager(AWinCount, ALinCount: Integer);
+    procedure CloseAllWorkers;
+    procedure CloseAllWorkerUIClickers;
 
     procedure AddMachineToList(AWorkerMachineAddress, ADistUIClickerMachineAddress, AExpectedResponse: string);
     procedure RemoveMachineFromList(AWorkerMachineAddress: string);
+
+    procedure ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 80000);
   public
     constructor Create; override;
     procedure BeforeAll;
@@ -128,6 +132,18 @@ begin
 end;
 
 
+procedure TTestWorkerPoolManager.CloseAllWorkers;
+begin
+  ExecuteTemplateOnTestDriver(ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseAllWorkers.clktmpl', CREParam_FileLocation_ValueDisk);
+end;
+
+
+procedure TTestWorkerPoolManager.CloseAllWorkerUIClickers;
+begin
+  ExecuteTemplateOnTestDriver(ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseAllWorkerUIClickers.clktmpl', CREParam_FileLocation_ValueDisk);
+end;
+
+
 procedure TTestWorkerPoolManager.AddMachineToList(AWorkerMachineAddress, ADistUIClickerMachineAddress, AExpectedResponse: string);
 var
   Link: string;
@@ -155,6 +171,34 @@ begin
   except
     Expect(Response).ToBe(CWorkerMachineNotFound);
   end;
+end;
+
+
+var
+  FWorkerMachineAddress: string;
+
+function GetAppsStatusCallback: string;
+var
+  Link: string;
+  i: Integer;
+begin
+  Link := 'http://127.0.0.1:11884/' + CGetAppsStatus +  //127.0.0.1 is the address of WorkerPoolManager
+          '?' + CWorkerMachineAddress + '=' + FWorkerMachineAddress;
+
+  Result := SendTextRequestToServer(Link);
+
+  for i := 1 to 40 do
+  begin
+    Sleep(25);
+    Application.ProcessMessages;
+  end;
+end;
+
+
+procedure TTestWorkerPoolManager.ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 80000);
+begin
+  FWorkerMachineAddress := AWorkerMachineAddress;
+  LoopedExpect(@GetAppsStatusCallback, ATimeout).ToBe(AExpectedStatus);
 end;
 
 
@@ -228,7 +272,10 @@ begin
   RemoveMachineFromList('127.0.0.1');
 
   AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
-  //this will have to get the process IDs of all workers and worker-UIClickers and stop them when done
+  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning);
+
+  CloseAllWorkers;
+  CloseAllWorkerUIClickers;
 end;
 
 
@@ -240,8 +287,10 @@ begin
 
   AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
   AddMachineToList('127.0.0.1', '192.168.1.100', CMachineSet);
+  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 130000);
 
-  //this will have to get the process IDs of all workers and worker-UIClickers, then stop them when done
+  CloseAllWorkers;
+  CloseAllWorkerUIClickers;
 end;
 
 
