@@ -52,13 +52,30 @@ type
     procedure BeforeAll;
     procedure AfterAll;
 
+  //published
+    procedure BeforeAll_AlwaysExecute; virtual;
+    procedure AfterAll_AlwaysExecute; virtual;
+  end;
+
+
+  TTestWorkerPoolManager_Resources = class(TTestWorkerPoolManager)
   published
-    procedure BeforeAll_AlwaysExecute;
+    procedure BeforeAll_AlwaysExecute; override;
 
     procedure Test_AddSelfMachineToList;
     procedure Test_AddTwoDifferentMachinesToList;
 
-    procedure AfterAll_AlwaysExecute;
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
+  TTestWorkerPoolManager_DistFindSubControl = class(TTestWorkerPoolManager)
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_HappyFlow;
+
+    procedure AfterAll_AlwaysExecute; override;
   end;
 
 
@@ -66,7 +83,8 @@ implementation
 
 
 uses
-  Forms, ClickerActionsClient, UITestUtils, Expectations, WorkerPoolCommonConsts;
+  Forms, ClickerActionsClient, UITestUtils, Expectations, WorkerPoolCommonConsts,
+  ClickerUtils, ClickerActionProperties;
 
 const
   CServiceUIClickerPort = '55444';
@@ -224,7 +242,7 @@ begin
       raise Exception.Create('Please verify if UIClicker is built for testing (including the test driver). ' + E.Message);
   end;
 
-  ArrangeMainUIClickerWindowsForWorkerPoolManager;;      //Setting window position from ini file, works on Wine. Setting from UIClicker does not (yet).
+  ArrangeMainUIClickerWindowsForWorkerPoolManager;      //Setting window position from ini file, works on Wine. Setting from UIClicker does not (yet).
   Sleep(500);                       //these sleep calls should be replaced by some waiting loops
   ArrangeUIClickerActionWindows;
   Sleep(500);
@@ -265,7 +283,19 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager.Test_AddSelfMachineToList;
+procedure TTestWorkerPoolManager.AfterAll_AlwaysExecute;
+begin
+  AfterAll;
+end;
+
+
+procedure TTestWorkerPoolManager_Resources.BeforeAll_AlwaysExecute;
+begin
+  inherited BeforeAll_AlwaysExecute;
+end;
+
+
+procedure TTestWorkerPoolManager_Resources.Test_AddSelfMachineToList;
 begin
   SetBrokerCountOnWorkerPoolManager(1);
   SetWorkerCountOnWorkerPoolManager(4, 3);
@@ -279,7 +309,7 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager.Test_AddTwoDifferentMachinesToList;
+procedure TTestWorkerPoolManager_Resources.Test_AddTwoDifferentMachinesToList;
 begin
   SetBrokerCountOnWorkerPoolManager(2);
   SetWorkerCountOnWorkerPoolManager(4, 3);
@@ -294,15 +324,162 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager.AfterAll_AlwaysExecute;
+procedure TTestWorkerPoolManager_Resources.AfterAll_AlwaysExecute;
 begin
-  AfterAll;
+  inherited AfterAll_AlwaysExecute;
 end;
+
+
+function SendPlugin(ASenderApp, APluginToBeSent, APluginToBeSentDir, ATXKey, ATXIV, ANextKey, ANextIV: string; ADecryptionPluginName: string = ''): string;
+var
+  ExecApp: TClkExecAppOptions;
+  DistPath: string;
+  ExecResults: TStringList;
+begin
+  DistPath := ExtractFilePath(ParamStr(0)) + '..\';
+  if (APluginToBeSentDir > '') and (APluginToBeSentDir[Length(APluginToBeSentDir)] <> '\') then
+    APluginToBeSentDir := APluginToBeSentDir + '\';
+
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := DistPath + ASenderApp + '\' + ASenderApp + '.exe';
+  ExecApp.ListOfParams := '--ClickerClient' + #4#5 + DistPath + '..\UIClicker\ClickerClient\ClickerClient.dll' + #4#5 +
+                          '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib\i386-win32\' + APluginToBeSent + '.dll' + #4#5 +
+                          '--PluginToBeSentDestName' + #4#5 + APluginToBeSent + '.dll' + #4#5 +
+                          '--UIClickerAddress' + #4#5 + '127.0.0.1' + #4#5 +
+                          '--UIClickerPort' + #4#5 + CClientUnderTestServerPort;
+
+  if ADecryptionPluginName <> '' then
+    ExecApp.ListOfParams := ExecApp.ListOfParams + #4#5 + '--DecryptionPluginName' + #4#5 + ADecryptionPluginName + '.dllarc|Mem:\' + ADecryptionPluginName + '.dll';
+
+  ExecApp.WaitForApp := True;
+  ExecApp.AppStdIn := ATXKey + #4#5 +      //This is provided when DistInitialEnc.exe prints "Trasmission Key" on StdOut.
+                      ATXIV + #4#5 +       //This is provided when DistInitialEnc.exe prints "Trasmission IV" on StdOut.
+                      ANextKey + #4#5 +    //This is provided when DistInitialEnc.exe prints "Subsequent Key" on StdOut.
+                      ANextIV + #4#5;      //This is provided when DistInitialEnc.exe prints "Subsequent IV" on StdOut.
+  ExecApp.CurrentDir := ExtractFileDir(ExecApp.PathToApp);
+  ExecApp.UseInheritHandles := uihYes;
+  ExecApp.VerifyFileExistence := True;
+  ExecApp.WaitForApp := True;
+  ExecApp.NoConsole := True;
+
+  try
+    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'Send DistInitialDec', 5000, False);
+  except
+    on E: Exception do
+      Result := 'Ex on starting broker: ' + E.Message;
+  end;
+
+  ExecResults := TStringList.Create;
+  try
+    ExecResults.Text := FastReplace_87ToReturn(Result);
+    if ExecResults.Values['$ExecAction_Err$'] <> '' then
+    begin
+      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
+    begin
+      Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
+      Exit;
+    end;
+  finally
+    ExecResults.Free;
+  end;
+end;
+
+
+var
+  InitialTransmissionKey: string = 'dummy_key';
+  InitialTrasmissionIV: string = 'dummy_iv';
+  InitialSubsequentKey: string = 'ABCDEF';
+  InitialSubsequentIV: string = 'IV.IV';
+  DistDecSubsequentKey: string = 'ABCDEFDistDec';
+  DistDecSubsequentIV: string = 'IVDistDec.IV';
+  FindSubControlKey: string = 'ABCDEFFindSubControl';
+  FindSubControlIV: string = 'IVFindSubControl';
+
+function Send_DistInitialDecDll_Via_DistInitialEnc: string;
+begin
+  Result := SendPlugin('DistInitialEnc', 'DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
+end;
+
+
+function Send_DistDecDll_Via_DistInitialEnc: string;
+begin
+  Result := SendPlugin('DistInitialEnc', 'DistDec', 'DistDec', InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV);
+end;
+
+
+function Send_UIClickerDistFindSubControlDll_Via_DistEnc: string;
+begin
+  Result := SendPlugin('DistEnc', 'UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+end;
+
+
+function Send_PoolClientDll_Via_DistEnc: string;
+begin
+  Result := SendPlugin('DistEnc', 'PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+end;
+
+
+procedure SendAllDistPlugins;
+const
+  CPrefix = '$ExecAction_StdOut$=Trasmission Key=Trasmission IV=Subsequent Key=Subsequent IV=';
+  COperation = 'Sending plugin to http://127.0.0.1:' + CClientUnderTestServerPort + '/';
+  CExpectedResponse_Unencrypted = CPrefix + 'Sending unencrypted...' + COperation + 'Response: OK';
+  CExpectedResponse_Encrypted = CPrefix + COperation + 'Using archive encryption..Response: OK';
+begin
+  Expect(Send_DistInitialDecDll_Via_DistInitialEnc).ToBe(CExpectedResponse_Unencrypted);
+  Expect(Send_DistDecDll_Via_DistInitialEnc).ToBe(CExpectedResponse_Encrypted);
+  Expect(Send_UIClickerDistFindSubControlDll_Via_DistEnc).ToBe(CExpectedResponse_Encrypted);
+  Expect(Send_PoolClientDll_Via_DistEnc).ToBe(CExpectedResponse_Encrypted);
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl.BeforeAll_AlwaysExecute;
+begin
+  inherited BeforeAll_AlwaysExecute;
+
+  SetBrokerCountOnWorkerPoolManager(1);
+  SetWorkerCountOnWorkerPoolManager(4, 3);
+
+  RemoveMachineFromList('127.0.0.1');
+  AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
+  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning);
+
+  InitialTransmissionKey := 'A new key every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialTrasmissionIV := 'A new IV every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialSubsequentKey := 'A new subsequent key every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialSubsequentIV := 'A new subsequent IV every time ' + IntToHex(GetTickCount64);
+
+  SendAllDistPlugins;
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl.AfterAll_AlwaysExecute;
+begin
+  RemoveMachineFromList('127.0.0.1');
+  CloseAllWorkers;
+  CloseAllWorkerUIClickers;
+  inherited AfterAll_AlwaysExecute;
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow;
+begin
+  //
+end;
+
 
 
 initialization
 
-  RegisterTest(TTestWorkerPoolManager);
+  RegisterTest(TTestWorkerPoolManager_Resources);
+  RegisterTest(TTestWorkerPoolManager_DistFindSubControl);
 
 end.
 
