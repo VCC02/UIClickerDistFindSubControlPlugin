@@ -84,7 +84,7 @@ type
   published
     procedure BeforeAll_AlwaysExecute; override;
 
-    procedure Test_EnsureTheDistPluginStopsExecutionOnBadCredentials;
+    procedure Test_EnsureTheDistPluginStopsExecutionOnBadAddress;
 
     procedure AfterAll_AlwaysExecute; override;
   end;
@@ -512,10 +512,10 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager_DistFindSubControl_NoWorker.Test_EnsureTheDistPluginStopsExecutionOnBadCredentials;
+procedure TTestWorkerPoolManager_DistFindSubControl_NoWorker.Test_EnsureTheDistPluginStopsExecutionOnBadAddress;
 begin
   //This test verifies if the tmrProcessRecData timer, from Dist plugin, can be stopped. In case of an exception, the timer would add a log entry, wait for 1s, then exit.
-  //When the plugin had bad/unset credentials, this timer would continue to run, even after the stop button has been pressed.
+  //When the plugin had bad/unset address:port, this timer would continue to run, even after the stop button has been pressed.
   //The fix was to disable the timer on Exception, and reenable it if the plugin is still supposed to be running (e.g., when the stop button is not pressed).
 
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\ErrorsDistFindSubControl.clktmpl');

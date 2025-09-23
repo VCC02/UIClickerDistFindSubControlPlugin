@@ -51,6 +51,7 @@ const
   CPoolClientUserNameParam = 'PoolClientUserName';
   CPoolClientPassWordParam = 'PoolClientPassWord';
   CPoolCredentialsFileName = 'Mem:\PoolCredentials.txt';
+  CBrokerCredentialsFileName = 'Mem:\BrokerCredentials.txt';
 
   //broker/worker params
   CMachineOSParam = 'MachineOS';

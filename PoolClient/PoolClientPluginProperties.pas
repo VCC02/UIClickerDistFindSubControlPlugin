@@ -110,7 +110,7 @@ const
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
     '127.0.0.1', //PoolManagerAddress
     '11883', //PoolManagerPort
-    CPoolCredentialsFileName, //OutputCredentialsFileName
+    CBrokerCredentialsFileName, //OutputCredentialsFileName
     '$MQTTBrokerAdress$', //BrokerAddressOutputVarName
     '$MQTTBrokerPort$'  //BrokerPortOutputVarName
   );
