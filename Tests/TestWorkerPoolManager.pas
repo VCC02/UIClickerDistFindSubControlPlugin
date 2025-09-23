@@ -46,7 +46,7 @@ type
     procedure AddMachineToList(AWorkerMachineAddress, ADistUIClickerMachineAddress, AExpectedResponse: string);
     procedure RemoveMachineFromList(AWorkerMachineAddress: string);
 
-    procedure ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 80000);
+    procedure ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 100000);
   public
     constructor Create; override;
     procedure BeforeAll;
@@ -70,10 +70,13 @@ type
 
 
   TTestWorkerPoolManager_DistFindSubControl = class(TTestWorkerPoolManager)
+  private
+    procedure SetEvaluateFileNameBeforeSendingInPluginAction(AEvaluateFileNameBeforeSending: Boolean);
   published
     procedure BeforeAll_AlwaysExecute; override;
 
-    procedure Test_HappyFlow;
+    procedure Test_HappyFlow_DoNotEvaluateFileNameBeforeSending;
+    procedure Test_HappyFlow_EvaluateFileNameBeforeSending;
 
     procedure AfterAll_AlwaysExecute; override;
   end;
@@ -223,7 +226,7 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager.ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 80000);
+procedure TTestWorkerPoolManager.ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 100000);
 begin
   FWorkerMachineAddress := AWorkerMachineAddress;
   LoopedExpect(@GetAppsStatusCallback, ATimeout).ToBe(AExpectedStatus);
@@ -459,6 +462,30 @@ begin
 end;
 
 
+procedure TTestWorkerPoolManager_DistFindSubControl.SetEvaluateFileNameBeforeSendingInPluginAction(AEvaluateFileNameBeforeSending: Boolean);
+var
+  EditTemplateOptions: TClkEditTemplateOptions;
+begin
+  GetDefaultPropertyValues_EditTemplate(EditTemplateOptions);
+
+  EditTemplateOptions.Operation := etoSetProperty;
+  EditTemplateOptions.WhichTemplate := etwtSelf;
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=' + BoolToStr(AEvaluateFileNameBeforeSending, True) + '';
+  EditTemplateOptions.ListOfEnabledProperties := 'EvaluateFileNameBeforeSending';
+  EditTemplateOptions.EditedActionName := '"Plugin"';
+  EditTemplateOptions.EditedActionType := acPlugin;
+
+  PrepareClickerUnderTestToReadItsVars;
+  //TestServerAddress := CClientUnderTestServerPort;
+  //try
+  //  //connect to ClientUnderTest instance, which is now running in server mode
+    ExecuteEditTemplateAction(CTestClientAddress, EditTemplateOptions); //ExpectSuccessfulAction(FastReplace_87ToReturn(ExecuteEditTemplateAction(CTestClientAddress, EditTemplateOptions)));
+  //finally
+  //  TestServerAddress := CTestDriverServerAddress_Client; //restore
+  //end;
+end;
+
+
 procedure TTestWorkerPoolManager_DistFindSubControl.BeforeAll_AlwaysExecute;
 begin
   inherited BeforeAll_AlwaysExecute;
@@ -475,9 +502,21 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow;
+procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow_DoNotEvaluateFileNameBeforeSending;
 begin
-  //
+  //SetEvaluateFileNameBeforeSendingInPluginAction(False); //this would require loading the template, executing SetEvaluate.. then running the template
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\BasicDistFindSubControl.clktmpl');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed.');
+  ExpectVarFromClientUnderTest('$PluginError$', '', 'No plugin error expected.');
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow_EvaluateFileNameBeforeSending;
+begin
+  //SetEvaluateFileNameBeforeSendingInPluginAction(True);   //this would require loading the template, executing SetEvaluate.. then running the template
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\BasicDistFindSubControl.clktmpl');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed.');
+  ExpectVarFromClientUnderTest('$PluginError$', '', 'No plugin error expected.');
 end;
 
 

@@ -3372,9 +3372,11 @@ var
               //update the action for every worker:
               DecodedAction.MatchBitmapFiles := ListOfBmps.Text;
               DecodedAction.MatchPrimitiveFiles := ListOfPmtvs.Text;
-              ActionContentStr := GetFindSubControlActionProperties(DecodedAction);
+
+              AllWorkers[WorkersIndex].WorkerActionContentStr := GetFindSubControlActionProperties(DecodedAction);
+            end //if EvaluateFileNameBeforeSending
+            else
               AllWorkers[WorkersIndex].WorkerActionContentStr := ActionContentStr;
-            end; //if EvaluateFileNameBeforeSending
           end; //for WorkersIndex
 
           if VerbLevel < 2 then
@@ -3422,7 +3424,7 @@ var
             AllWorkers[i].WorkerActionContentStr := AllWorkers[i].WorkerActionContentStr + //ActionContentStr +  //initialized above, with worker-specific action (list of bmps and list of pmtvs)
                                 '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - FindSubControlTimeoutDiff)) +
                                 '&' + AllWorkers[i].WorkerSpecificTask +
-                                '&' + CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                                {'&' +} CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                                 '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
                                 '&' + CProtocolParam_ImageSourceRawContent + '=' + TempBkStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
           end;
