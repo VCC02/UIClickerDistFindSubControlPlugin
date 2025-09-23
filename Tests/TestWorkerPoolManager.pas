@@ -79,6 +79,16 @@ type
   end;
 
 
+  TTestWorkerPoolManager_DistFindSubControl_NoWorker = class(TTestWorkerPoolManager)
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_EnsureTheDistPluginStopsExecutionOnBadCredentials;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
 implementation
 
 
@@ -437,6 +447,18 @@ begin
 end;
 
 
+procedure SetKeys;
+begin
+  InitialTransmissionKey := 'A new key every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialTrasmissionIV := 'A new IV every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialSubsequentKey := 'A new subsequent key every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialSubsequentIV := 'A new subsequent IV every time ' + IntToHex(GetTickCount64);
+end;
+
+
 procedure TTestWorkerPoolManager_DistFindSubControl.BeforeAll_AlwaysExecute;
 begin
   inherited BeforeAll_AlwaysExecute;
@@ -448,15 +470,14 @@ begin
   AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
   ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning);
 
-  InitialTransmissionKey := 'A new key every time ' + IntToHex(GetTickCount64);
-  Sleep(33);
-  InitialTrasmissionIV := 'A new IV every time ' + IntToHex(GetTickCount64);
-  Sleep(33);
-  InitialSubsequentKey := 'A new subsequent key every time ' + IntToHex(GetTickCount64);
-  Sleep(33);
-  InitialSubsequentIV := 'A new subsequent IV every time ' + IntToHex(GetTickCount64);
-
+  SetKeys;
   SendAllDistPlugins;
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow;
+begin
+  //
 end;
 
 
@@ -469,17 +490,37 @@ begin
 end;
 
 
-procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow;
+procedure TTestWorkerPoolManager_DistFindSubControl_NoWorker.BeforeAll_AlwaysExecute;
 begin
-  //
+  inherited BeforeAll_AlwaysExecute;
+
+  SetKeys;
+  SendAllDistPlugins;
 end;
 
+
+procedure TTestWorkerPoolManager_DistFindSubControl_NoWorker.Test_EnsureTheDistPluginStopsExecutionOnBadCredentials;
+begin
+  //This test verifies if the tmrProcessRecData timer, from Dist plugin, can be stopped. In case of an exception, the timer would add a log entry, wait for 1s, then exit.
+  //When the plugin had bad/unset credentials, this timer would continue to run, even after the stop button has been pressed.
+  //The fix was to disable the timer on Exception, and reenable it if the plugin is still supposed to be running (e.g., when the stop button is not pressed).
+
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\ErrorsDistFindSubControl.clktmpl');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Failed', 'Plugin execution should fail.');
+  ExpectVarFromClientUnderTest('$PluginError$', 'Plugin exception: "Access violation".', 'Plugin error should be set.');
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl_NoWorker.AfterAll_AlwaysExecute;
+begin
+  inherited AfterAll_AlwaysExecute;
+end;
 
 
 initialization
 
   RegisterTest(TTestWorkerPoolManager_Resources);
   RegisterTest(TTestWorkerPoolManager_DistFindSubControl);
-
+  RegisterTest(TTestWorkerPoolManager_DistFindSubControl_NoWorker);
 end.
 

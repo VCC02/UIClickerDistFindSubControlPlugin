@@ -1429,6 +1429,8 @@ end;
 
 
 procedure TPluginMQTTClientHandlers.tmrProcessRecDataTimer(Sender: TObject);
+var
+  i: Integer;
 begin
   //try
   //  DebugPoint('ProcessReceivedBuffer timer', '');
@@ -1440,8 +1442,24 @@ begin
   except
     on E: Exception do
     begin
-      AddToLog('_________________ Ex on processing received data: ' + E.Message);
-      Sleep(1000); //this loop is pretty fast, so slow it to the point where the user can manually stop the process
+      tmrProcessRecData.Enabled := False;  //disable the timer, to allow calling Application.ProcessMessages
+      try
+        AddToLog('_________________ Ex on processing received data: ' + E.Message);
+
+        for i := 1 to 10 do
+        begin
+          Sleep(100); //this loop is pretty fast, so slow it to the point where the user can manually stop the process
+          Application.ProcessMessages;
+        end;
+      finally
+        if IdTCPClient1 <> nil then  //re-enable if not closing
+          tmrProcessRecData.Enabled := True;
+      end;
+
+      //The following code was causing the timer to keep running, even after pressing the Stop button.
+      //The Test_EnsureTheDistPluginStopsExecutionOnBadCredentials test verifyes this. The above code, which stops the timer, should fix the bug.
+      //AddToLog('_________________ Ex on processing received data: ' + E.Message);
+      //Sleep(1000); //this loop is pretty fast, so slow it to the point where the user can manually stop the process
     end;
   end;
 end;
