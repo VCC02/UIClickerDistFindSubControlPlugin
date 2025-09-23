@@ -41,6 +41,7 @@ type
     FReportedFonts: TStringArr;
     FPluginUsedOS: string; //TextRenderingOS property
     FCalledAction: string;
+    FEvaluateFileNameBeforeSending: string;
 
     FIsWine: Boolean;
     FTemplatesDir: string;
@@ -76,7 +77,10 @@ type
     procedure SetReportedFonts(const AReportedFonts: TStringArr);
     procedure SetTextRenderingOSInPluginAction(AOSName: string);
     procedure SetTextRenderingPmtvActionInPluginAction(APmtvAction: string);
+    procedure SetEvaluateFileNameBeforeSendingInPluginAction(AEvaluateFileNameBeforeSending: string);
+
     procedure SetPluginUsedOS(AOSName: string);
+    procedure SetPluginEvaluateFileNameBeforeSending(AEval: string);
 
     function StartMainUIClicker(AMainUIClickerExecMode, AMainUIClickerServerPort, AMainUIClickerExtraCaption: string): TAsyncProcess;
 
@@ -693,6 +697,7 @@ begin
   SetLength(FReportedFonts, 0);
   FPluginUsedOS := '';
   FCalledAction := '';
+  FEvaluateFileNameBeforeSending := 'True';
   FTemplatesDir := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\ActionTemplates\';
 
   {$IFDEF UNIX}
@@ -731,7 +736,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=True';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=True';
   EditTemplateOptions.ListOfEnabledProperties := 'TextRenderingOS';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -755,8 +760,32 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=True';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=True';
   EditTemplateOptions.ListOfEnabledProperties := 'FindSubControlAction';
+  EditTemplateOptions.EditedActionName := '"Plugin"';
+  EditTemplateOptions.EditedActionType := acPlugin;
+
+  PrepareClickerUnderTestToReadItsVars;
+  //TestServerAddress := CClientUnderTestServerPort;
+  //try
+  //  //connect to ClientUnderTest instance, which is now running in server mode
+    ExecuteEditTemplateAction(CTestClientAddress, EditTemplateOptions); //ExpectSuccessfulAction(FastReplace_87ToReturn(ExecuteEditTemplateAction(CTestClientAddress, EditTemplateOptions)));
+  //finally
+  //  TestServerAddress := CTestDriverServerAddress_Client; //restore
+  //end;
+end;
+
+
+procedure TTestDistPlugin.SetEvaluateFileNameBeforeSendingInPluginAction(AEvaluateFileNameBeforeSending: string);
+var
+  EditTemplateOptions: TClkEditTemplateOptions;
+begin
+  GetDefaultPropertyValues_EditTemplate(EditTemplateOptions);
+
+  EditTemplateOptions.Operation := etoSetProperty;
+  EditTemplateOptions.WhichTemplate := etwtSelf;
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=' + AEvaluateFileNameBeforeSending + '';
+  EditTemplateOptions.ListOfEnabledProperties := 'EvaluateFileNameBeforeSending';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
 
@@ -774,6 +803,12 @@ end;
 procedure TTestDistPlugin.SetPluginUsedOS(AOSName: string);
 begin
   FPluginUsedOS := AOSName;
+end;
+
+
+procedure TTestDistPlugin.SetPluginEvaluateFileNameBeforeSending(AEval: string);
+begin
+  FEvaluateFileNameBeforeSending := AEval;
 end;
 
 
@@ -1228,10 +1263,19 @@ begin
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
   end;
 
+  if FEvaluateFileNameBeforeSending <> '' then
+  begin
+    SetEvaluateFileNameBeforeSendingInPluginAction(FEvaluateFileNameBeforeSending);
+    PrepareClickerUnderTestToLocalMode;
+    ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
+  end;
+
   ExecuteTemplateOnTestDriver(FTemplatesDir + 'PlayAllActionsFromAppUnderTest.clktmpl', CREParam_FileLocation_ValueDisk);
   PrepareClickerUnderTestToReadItsVars;
 
-  if (FPluginUsedOS <> '') or (FCalledAction <> '') then
+  if (FPluginUsedOS <> '') or
+     (FCalledAction <> '') or
+     (FEvaluateFileNameBeforeSending <> '') then
   begin
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
     ExecuteTemplateOnTestDriver(FTemplatesDir + '..\..\..\UIClickerDistFindSubControlPlugin\Tests\TestDriverFiles\CloseModifiedTemplatePrompt.clktmpl', CREParam_FileLocation_ValueDisk);

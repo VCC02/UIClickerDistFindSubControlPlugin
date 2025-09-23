@@ -229,7 +229,7 @@ RenderingInBrowserSettings.PluginActionForReceivingBitmaps=
 RenderingInBrowserSettings.FontSizeUnit=0
 
 [Action_6]
-ActionName=Dist
+ActionName="Plugin"
 Action=Plugin
 ActionTimeout=0
 ActionEnabled=1
