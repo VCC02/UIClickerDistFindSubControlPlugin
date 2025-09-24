@@ -57,6 +57,7 @@ type
     IdHTTPServer1: TIdHTTPServer;
     IdHTTPServer2: TIdHTTPServer;
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
+    IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool;
     IdTCPClient1: TIdTCPClient;
     imgFindSubControlBackground: TImage;
     lblBrokerConnectionStatus: TLabel;
@@ -191,6 +192,7 @@ var
 const
   CBrokerIsConnectedStatus = 'Status: connected';
   CBrokerIsDisconnectedStatus = 'Status: disconnected';
+  CMissedPingResponseCountToChangeToDisconnected = 10; //Number of failed ping responses in a row, to mark the connection as "disconnected".
 
 
 function GetFirstAvailableResponseSlotIndex: Integer;
@@ -2356,8 +2358,12 @@ end;
 
 
 const
+  //ExtServer module
   CRECmd_GetImage = 'GetImage';
   CRECmd_Dummy = 'Dummy';
+
+  //Status/Monitoring server module
+  CRECmd_GetBrokerConnection = 'GetBrokerConnection';
 
 
 procedure GenerateErrBmp(AFnm: string; ADestStream: TStream);
@@ -2468,7 +2474,10 @@ procedure TfrmFindSubControlWorkerMain.IdHTTPServer2CommandGet(
   AContext: TIdContext; ARequestInfo: TIdHTTPRequestInfo;
   AResponseInfo: TIdHTTPResponseInfo);
 begin
-  //
+  AResponseInfo.ContentType := 'text/plain';
+
+  if ARequestInfo.Document = '/' + CRECmd_GetBrokerConnection then
+    AResponseInfo.ContentText := IntToStr(lblBrokerConnectionStatus.Tag);
 end;
 
 
@@ -2583,7 +2592,7 @@ begin
         AddToLog('Timeout waiting for ping response... ' {+ IntToStr(ID)} + '  MissedPingResponseCount = ' + IntToStr(FMissedPingResponseCount));
         Inc(FMissedPingResponseCount);
 
-        if FMissedPingResponseCount >= 6 then  //found even 3 missed responses in a row
+        if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected then  //found even 3 missed responses in a row
           ShowBrokerIsDisconnected('ping');    //If ping turns out to be even more unreliable, then this constant has to be increased.
 
         Break;
@@ -2787,6 +2796,7 @@ procedure TfrmFindSubControlWorkerMain.ShowBrokerIsConnected(ASrcCall: string);
 begin
   lblBrokerConnectionStatus.Font.Color := clGreen;
   lblBrokerConnectionStatus.Caption := CBrokerIsConnectedStatus; //used by UIClicker in tests
+  lblBrokerConnectionStatus.Tag := 1; //used by monitoring server
   AddToLog(lblBrokerConnectionStatus.Caption + ' from "' + ASrcCall + '"');
 end;
 
@@ -2795,6 +2805,7 @@ procedure TfrmFindSubControlWorkerMain.ShowBrokerIsDisconnected(ASrcCall: string
 begin
   lblBrokerConnectionStatus.Font.Color := clMaroon;
   lblBrokerConnectionStatus.Caption := CBrokerIsDisconnectedStatus; //used by UIClicker in tests
+  lblBrokerConnectionStatus.Tag := 0; //used by monitoring server
   AddToLog(lblBrokerConnectionStatus.Caption + ' from "' + ASrcCall + '"');
 end;
 

@@ -355,6 +355,8 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     DefaultPort = 8880
     OnConnect = IdHTTPServer2Connect
     OnException = IdHTTPServer2Exception
+    Scheduler = IdSchedulerOfThreadPool2
+    KeepAlive = True
     OnCommandGet = IdHTTPServer2CommandGet
     Left = 984
     Top = 144
@@ -365,5 +367,11 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     OnTimer = tmrPingTimer
     Left = 452
     Top = 56
+  end
+  object IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool
+    MaxThreads = 30
+    PoolSize = 10
+    Left = 984
+    Top = 96
   end
 end

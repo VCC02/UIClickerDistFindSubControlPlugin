@@ -216,7 +216,7 @@ type
     procedure GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string; AListOfProcesses: TStringList); overload;
     function GetListOfListeningAppsOnRemoteMachine(AMachineAddress, ACmdUIClickerPort, AMachineOS: string): string; overload; //returns exec result
     function GetAppsWhichHaveToBeStartedCount(var AMachineRec: TMachineRec): Integer;
-    procedure FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; out AFoundState: TAppRunning);
+    procedure FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; AMonitoringPort: Word; out AFoundState: TAppRunning);
     function FindUIClickerStatusConnected(AMachineAddress, ACmdUIClickerPort, AWorkerUIClickerAddress, AWorkerUIClickerPort: string): Boolean;
     function GetAMachineWithBrokerWhichRequiresLinWorkers(AExcludeMachineAddress: string; AGetAnyValidMachine: Boolean): PMachineRec;
 
@@ -1262,7 +1262,7 @@ begin
 
             atWorker:
             begin
-              FindWorkerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, CWinParam, AWorkerExtraCaption, TempAppState);
+              FindWorkerStatusConnected(AMachineAddress, FServiceUIClickerCmdPortNumber, CWinParam, AWorkerExtraCaption, AUIClickerPort + CWorkerMonitoringOffset, TempAppState);
               if chkAllowCheckingForWorkerStatus.Checked and (TempAppState = arFullyRunning) then
               begin
                 AApp.RunningState := arFullyRunning;
@@ -2211,147 +2211,164 @@ end;
 
 
 //It works on Win only machines, because of the UIClicker interaction. Eventually, this may be replaced by a client-server approach.
-procedure TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; out AFoundState: TAppRunning);  //code version of FindWorkerStatusConnected.clktmpl
-var
-  FindControl_FindWorker: TClkFindControlOptions;
-  WindowOperations_BringToFront: TClkWindowOperationsOptions;
-  FindControl_FindMQTTGroupBox: TClkFindControlOptions;
-  FindSubControl_FindStatusConnected: TClkFindSubControlOptions;
+//procedure TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; AMonitoringPort: Word; out AFoundState: TAppRunning);  //code version of FindWorkerStatusConnected.clktmpl
+//var
+//  FindControl_FindWorker: TClkFindControlOptions;
+//  WindowOperations_BringToFront: TClkWindowOperationsOptions;
+//  FindControl_FindMQTTGroupBox: TClkFindControlOptions;
+//  FindSubControl_FindStatusConnected: TClkFindSubControlOptions;
+//
+//  Response: string;
+//  ResultStr: TStringList;
+//  Res: Boolean;
+//begin
+//  AFoundState := arConnecting;
+//  GetDefaultPropertyValues_FindControl(FindControl_FindWorker);
+//  FindControl_FindWorker.MatchCriteria.SearchForControlMode := sfcmEnumWindows;
+//  FindControl_FindWorker.MatchText := 'FindSubControl Worker - ' + AWorkerExtraCaption;   // $ExtraWorkerName$
+//  FindControl_FindWorker.MatchClassName := 'Window';
+//  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker Window', 10, CREParam_FileLocation_ValueDisk);
+//
+//  ResultStr := TStringList.Create;
+//  try
+//    ResultStr.Text := FastReplace_87ToReturn(Response);
+//    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+//    if not Res then
+//    begin
+//      AFoundState := arNotFound;
+//      AddToLog('Find Worker: ' + ResultStr.Values['$ExecAction_Err$']);
+//      Exit;
+//    end;
+//
+//    AFoundState := arConnecting;  //so far, the window is there
+//  finally
+//    ResultStr.Free;
+//  end;
+//
+//  GetDefaultPropertyValues_WindowOperations(WindowOperations_BringToFront);
+//  Response := ExecuteWindowOperationsAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), WindowOperations_BringToFront);
+//
+//  ResultStr := TStringList.Create;
+//  try
+//    ResultStr.Text := FastReplace_87ToReturn(Response);
+//    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+//    if not Res then
+//    begin
+//      AFoundState := arNotFound;
+//      AddToLog('Bring to front: ' + ResultStr.Values['$ExecAction_Err$']);
+//      Exit;
+//    end;
+//  finally
+//    ResultStr.Free;
+//  end;
+//
+//  GetDefaultPropertyValues_FindControl(FindControl_FindMQTTGroupBox);
+//  FindControl_FindMQTTGroupBox.MatchText := 'MQTT';
+//  FindControl_FindMQTTGroupBox.MatchClassName := 'Button';
+//  FindControl_FindMQTTGroupBox.InitialRectangle.Right := '$Control_Left$';
+//  FindControl_FindMQTTGroupBox.InitialRectangle.Bottom := '$Control_Top$';
+//  FindControl_FindMQTTGroupBox.InitialRectangle.LeftOffset := '16';
+//  FindControl_FindMQTTGroupBox.InitialRectangle.TopOffset := '212';
+//  FindControl_FindMQTTGroupBox.InitialRectangle.RightOffset := '121';
+//  FindControl_FindMQTTGroupBox.InitialRectangle.BottomOffset :='289';
+//  FindControl_FindMQTTGroupBox.UseWholeScreen := False;
+//  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindMQTTGroupBox, 'Find MQTT GroupBox', 1000, CREParam_FileLocation_ValueDisk);
+//
+//  ResultStr := TStringList.Create;
+//  try
+//    ResultStr.Text := FastReplace_87ToReturn(Response);
+//    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+//    if not Res then
+//    begin
+//      AFoundState := arNotFound;
+//      AddToLog('Find MQTT GroupBox: ' + ResultStr.Values['$ExecAction_Err$']);
+//      Exit;
+//    end;
+//  finally
+//    ResultStr.Free;
+//  end;
+//
+//  GetDefaultPropertyValues_FindSubControl(FindSubControl_FindStatusConnected);
+//  FindSubControl_FindStatusConnected.MatchCriteria.WillMatchBitmapText := True;
+//  FindSubControl_FindStatusConnected.MatchCriteria.WillMatchBitmapFiles := False;
+//  FindSubControl_FindStatusConnected.MatchCriteria.WillMatchPrimitiveFiles := False;
+//  FindSubControl_FindStatusConnected.AllowToFail := False;
+//  FindSubControl_FindStatusConnected.MatchText := 'Status: connected';
+//  SetLength(FindSubControl_FindStatusConnected.MatchBitmapText, 1);
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].ForegroundColor := '008000';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].BackgroundColor := '$Color_BtnFace$';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontName := 'DejaVu Sans';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontSize := 8;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].Bold := False;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].Italic := False;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].Underline := False;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].StrikeOut := False;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontQuality := fqNonAntialiased;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontQualityUsesReplacement := False;
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontQualityReplacement := '';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].ProfileName := 'Profile [0]';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropLeft := '0';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropTop := '0';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropRight := '0';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropBottom := '0';
+//  FindSubControl_FindStatusConnected.MatchBitmapText[0].IgnoreBackgroundColor := False;
+//  FindSubControl_FindStatusConnected.MatchBitmapFiles := '';
+//  FindSubControl_FindStatusConnected.MatchBitmapAlgorithm := mbaBruteForce;
+//  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.XMultipleOf := 1;
+//  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.YMultipleOf := 1;
+//  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.XOffset := 0;
+//  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.YOffset := 0;
+//  FindSubControl_FindStatusConnected.InitialRectangle.Left := '$Control_Left$';
+//  FindSubControl_FindStatusConnected.InitialRectangle.Top := '$Control_Top$';
+//  FindSubControl_FindStatusConnected.InitialRectangle.Right := '$Control_Right$';
+//  FindSubControl_FindStatusConnected.InitialRectangle.Bottom := '$Control_Bottom$';
+//  FindSubControl_FindStatusConnected.InitialRectangle.LeftOffset := '337';
+//  FindSubControl_FindStatusConnected.InitialRectangle.TopOffset := '10';
+//  FindSubControl_FindStatusConnected.InitialRectangle.RightOffset := '-5';
+//  FindSubControl_FindStatusConnected.InitialRectangle.BottomOffset := '-35';
+//  FindSubControl_FindStatusConnected.UseWholeScreen := False;
+//  FindSubControl_FindStatusConnected.ColorError := '0';
+//  FindSubControl_FindStatusConnected.AllowedColorErrorCount := '0';
+//  FindSubControl_FindStatusConnected.WaitForControlToGoAway := False;
+//  FindSubControl_FindStatusConnected.StartSearchingWithCachedControl := False;
+//  FindSubControl_FindStatusConnected.CachedControlLeft := '';
+//  FindSubControl_FindStatusConnected.CachedControlTop := '';
+//  FindSubControl_FindStatusConnected.MatchPrimitiveFiles := '';
+//  FindSubControl_FindStatusConnected.SleepySearch := True;
+//  Response := ExecuteFindSubControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindSubControl_FindStatusConnected, 'Find status "Connected"', 500, CREParam_FileLocation_ValueDisk);
+//
+//  ResultStr := TStringList.Create;
+//  try
+//    ResultStr.Text := FastReplace_87ToReturn(Response);
+//    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
+//    if not Res then
+//    begin
+//      AFoundState := arNotFound;
+//      AddToLog('Find status "Connected" at worker "' + AWorkerExtraCaption + '": ' + ResultStr.Values['$ExecAction_Err$']);
+//      Exit;
+//    end;
+//
+//    AFoundState := arFullyRunning;
+//  finally
+//    ResultStr.Free;
+//  end;
+//end;
 
+
+//The client-server approach, which does not use UI status.
+procedure TfrmWorkerPoolManagerMain.FindWorkerStatusConnected(AMachineAddress, ACmdUIClickerPort, AMachineOS, AWorkerExtraCaption: string; AMonitoringPort: Word; out AFoundState: TAppRunning);
+const
+  CRECmd_GetBrokerConnection = 'GetBrokerConnection'; //defined in Worker main form. It should be moved to a common unit.
+var
   Response: string;
-  ResultStr: TStringList;
-  Res: Boolean;
 begin
   AFoundState := arConnecting;
-  GetDefaultPropertyValues_FindControl(FindControl_FindWorker);
-  FindControl_FindWorker.MatchCriteria.SearchForControlMode := sfcmEnumWindows;
-  FindControl_FindWorker.MatchText := 'FindSubControl Worker - ' + AWorkerExtraCaption;   // $ExtraWorkerName$
-  FindControl_FindWorker.MatchClassName := 'Window';
-  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindWorker, 'Find Worker Window', 10, CREParam_FileLocation_ValueDisk);
-
-  ResultStr := TStringList.Create;
-  try
-    ResultStr.Text := FastReplace_87ToReturn(Response);
-    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Res then
-    begin
-      AFoundState := arNotFound;
-      AddToLog('Find Worker: ' + ResultStr.Values['$ExecAction_Err$']);
-      Exit;
-    end;
-
-    AFoundState := arConnecting;  //so far, the window is there
-  finally
-    ResultStr.Free;
-  end;
-
-  GetDefaultPropertyValues_WindowOperations(WindowOperations_BringToFront);
-  Response := ExecuteWindowOperationsAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), WindowOperations_BringToFront);
-
-  ResultStr := TStringList.Create;
-  try
-    ResultStr.Text := FastReplace_87ToReturn(Response);
-    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Res then
-    begin
-      AFoundState := arNotFound;
-      AddToLog('Bring to front: ' + ResultStr.Values['$ExecAction_Err$']);
-      Exit;
-    end;
-  finally
-    ResultStr.Free;
-  end;
-
-  GetDefaultPropertyValues_FindControl(FindControl_FindMQTTGroupBox);
-  FindControl_FindMQTTGroupBox.MatchText := 'MQTT';
-  FindControl_FindMQTTGroupBox.MatchClassName := 'Button';
-  FindControl_FindMQTTGroupBox.InitialRectangle.Right := '$Control_Left$';
-  FindControl_FindMQTTGroupBox.InitialRectangle.Bottom := '$Control_Top$';
-  FindControl_FindMQTTGroupBox.InitialRectangle.LeftOffset := '16';
-  FindControl_FindMQTTGroupBox.InitialRectangle.TopOffset := '212';
-  FindControl_FindMQTTGroupBox.InitialRectangle.RightOffset := '121';
-  FindControl_FindMQTTGroupBox.InitialRectangle.BottomOffset :='289';
-  FindControl_FindMQTTGroupBox.UseWholeScreen := False;
-  Response := ExecuteFindControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindControl_FindMQTTGroupBox, 'Find MQTT GroupBox', 1000, CREParam_FileLocation_ValueDisk);
-
-  ResultStr := TStringList.Create;
-  try
-    ResultStr.Text := FastReplace_87ToReturn(Response);
-    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Res then
-    begin
-      AFoundState := arNotFound;
-      AddToLog('Find MQTT GroupBox: ' + ResultStr.Values['$ExecAction_Err$']);
-      Exit;
-    end;
-  finally
-    ResultStr.Free;
-  end;
-
-  GetDefaultPropertyValues_FindSubControl(FindSubControl_FindStatusConnected);
-  FindSubControl_FindStatusConnected.MatchCriteria.WillMatchBitmapText := True;
-  FindSubControl_FindStatusConnected.MatchCriteria.WillMatchBitmapFiles := False;
-  FindSubControl_FindStatusConnected.MatchCriteria.WillMatchPrimitiveFiles := False;
-  FindSubControl_FindStatusConnected.AllowToFail := False;
-  FindSubControl_FindStatusConnected.MatchText := 'Status: connected';
-  SetLength(FindSubControl_FindStatusConnected.MatchBitmapText, 1);
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].ForegroundColor := '008000';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].BackgroundColor := '$Color_BtnFace$';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontName := 'DejaVu Sans';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontSize := 8;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].Bold := False;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].Italic := False;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].Underline := False;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].StrikeOut := False;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontQuality := fqNonAntialiased;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontQualityUsesReplacement := False;
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].FontQualityReplacement := '';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].ProfileName := 'Profile [0]';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropLeft := '0';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropTop := '0';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropRight := '0';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].CropBottom := '0';
-  FindSubControl_FindStatusConnected.MatchBitmapText[0].IgnoreBackgroundColor := False;
-  FindSubControl_FindStatusConnected.MatchBitmapFiles := '';
-  FindSubControl_FindStatusConnected.MatchBitmapAlgorithm := mbaBruteForce;
-  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.XMultipleOf := 1;
-  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.YMultipleOf := 1;
-  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.XOffset := 0;
-  FindSubControl_FindStatusConnected.MatchBitmapAlgorithmSettings.YOffset := 0;
-  FindSubControl_FindStatusConnected.InitialRectangle.Left := '$Control_Left$';
-  FindSubControl_FindStatusConnected.InitialRectangle.Top := '$Control_Top$';
-  FindSubControl_FindStatusConnected.InitialRectangle.Right := '$Control_Right$';
-  FindSubControl_FindStatusConnected.InitialRectangle.Bottom := '$Control_Bottom$';
-  FindSubControl_FindStatusConnected.InitialRectangle.LeftOffset := '337';
-  FindSubControl_FindStatusConnected.InitialRectangle.TopOffset := '10';
-  FindSubControl_FindStatusConnected.InitialRectangle.RightOffset := '-5';
-  FindSubControl_FindStatusConnected.InitialRectangle.BottomOffset := '-35';
-  FindSubControl_FindStatusConnected.UseWholeScreen := False;
-  FindSubControl_FindStatusConnected.ColorError := '0';
-  FindSubControl_FindStatusConnected.AllowedColorErrorCount := '0';
-  FindSubControl_FindStatusConnected.WaitForControlToGoAway := False;
-  FindSubControl_FindStatusConnected.StartSearchingWithCachedControl := False;
-  FindSubControl_FindStatusConnected.CachedControlLeft := '';
-  FindSubControl_FindStatusConnected.CachedControlTop := '';
-  FindSubControl_FindStatusConnected.MatchPrimitiveFiles := '';
-  FindSubControl_FindStatusConnected.SleepySearch := True;
-  Response := ExecuteFindSubControlAction(GetMachineConnectionForUIClicker(AMachineAddress, ACmdUIClickerPort), FindSubControl_FindStatusConnected, 'Find status "Connected"', 500, CREParam_FileLocation_ValueDisk);
-
-  ResultStr := TStringList.Create;
-  try
-    ResultStr.Text := FastReplace_87ToReturn(Response);
-    Res := (StrToIntDef(ResultStr.Values['$Control_Left$'], -1) > 0) and (ResultStr.Values['$ExecAction_Err$'] = '');
-    if not Res then
-    begin
-      AFoundState := arNotFound;
-      AddToLog('Find status "Connected" at worker "' + AWorkerExtraCaption + '": ' + ResultStr.Values['$ExecAction_Err$']);
-      Exit;
-    end;
-
-    AFoundState := arFullyRunning;
-  finally
-    ResultStr.Free;
-  end;
+  Response := SendTextRequestToServer('http://' + AMachineAddress + ':' + IntToStr(AMonitoringPort) + '/' + CRECmd_GetBrokerConnection);
+  if Response = '0' then
+    AFoundState := arNotFound
+  else
+    if Response = '1' then
+      AFoundState := arFullyRunning;
 end;
 
 
