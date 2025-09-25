@@ -733,7 +733,8 @@ begin
   Result := SendFileToServer(GetUIClickerAddr +
                              InMemLoc + '?' +
                              CREParam_FileName + '=' + AFilename,
-                             AContent);
+                             AContent,
+                             False);  //this might solve the problem of calling the HandleOnAfterReceivingMQTT_PUBLISH handler multiple times
 end;
 
 
