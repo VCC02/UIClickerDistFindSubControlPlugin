@@ -354,7 +354,7 @@ begin
   GetDefaultPropertyValues_ExecApp(ExecApp);
   ExecApp.PathToApp := DistPath + ASenderApp + '\' + ASenderApp + '.exe';
   ExecApp.ListOfParams := '--ClickerClient' + #4#5 + DistPath + '..\UIClicker\ClickerClient\ClickerClient.dll' + #4#5 +
-                          '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib\i386-win32\' + APluginToBeSent + '.dll' + #4#5 +
+                          '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib\' + APluginToBeSent + '.dll' + #4#5 +
                           '--PluginToBeSentDestName' + #4#5 + APluginToBeSent + '.dll' + #4#5 +
                           '--UIClickerAddress' + #4#5 + '127.0.0.1' + #4#5 +
                           '--UIClickerPort' + #4#5 + CClientUnderTestServerPort;
@@ -410,27 +410,27 @@ var
   FindSubControlKey: string = 'ABCDEFFindSubControl';
   FindSubControlIV: string = 'IVFindSubControl';
 
-function Send_DistInitialDecDll_Via_DistInitialEnc: string;
+function Send_DistInitialDecDll_Via_DistInitialEnc(ADistBitness: string): string;
 begin
-  Result := SendPlugin('DistInitialEnc', 'DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
+  Result := SendPlugin('DistInitialEnc', ADistBitness + '\DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
 end;
 
 
-function Send_DistDecDll_Via_DistInitialEnc: string;
+function Send_DistDecDll_Via_DistInitialEnc(ADistBitness: string): string;
 begin
-  Result := SendPlugin('DistInitialEnc', 'DistDec', 'DistDec', InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV);
+  Result := SendPlugin('DistInitialEnc', ADistBitness + '\DistDec', 'DistDec', InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV);
 end;
 
 
-function Send_UIClickerDistFindSubControlDll_Via_DistEnc: string;
+function Send_UIClickerDistFindSubControlDll_Via_DistEnc(ADistBitness: string): string;
 begin
-  Result := SendPlugin('DistEnc', 'UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+  Result := SendPlugin('DistEnc', ADistBitness + '\UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
 end;
 
 
-function Send_PoolClientDll_Via_DistEnc: string;
+function Send_PoolClientDll_Via_DistEnc(ADistBitness: string): string;
 begin
-  Result := SendPlugin('DistEnc', 'PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+  Result := SendPlugin('DistEnc', ADistBitness + '\PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
 end;
 
 
@@ -440,11 +440,28 @@ const
   COperation = 'Sending plugin to http://127.0.0.1:' + CClientUnderTestServerPort + '/';
   CExpectedResponse_Unencrypted = CPrefix + 'Sending unencrypted...' + COperation + 'Response: OK';
   CExpectedResponse_Encrypted = CPrefix + COperation + 'Using archive encryption..Response: OK';
+var
+  DistBitness: string;
+  AllVars: TStringList;
 begin
-  Expect(Send_DistInitialDecDll_Via_DistInitialEnc).ToBe(CExpectedResponse_Unencrypted);
-  Expect(Send_DistDecDll_Via_DistInitialEnc).ToBe(CExpectedResponse_Encrypted);
-  Expect(Send_UIClickerDistFindSubControlDll_Via_DistEnc).ToBe(CExpectedResponse_Encrypted);
-  Expect(Send_PoolClientDll_Via_DistEnc).ToBe(CExpectedResponse_Encrypted);
+  AllVars := TStringList.Create;
+  try
+    AllVars.Text := FastReplace_87ToReturn(GetAllReplacementVars(CTestClientAddress, 0));
+    DistBitness := AllVars.Values['$AppBitness$'] + '-' + AllVars.Values['$OSBitness$'];   // i386-win32 or x86_64-win64
+
+    try
+      Expect(DistBitness).ToBe('i386-win32', 'Expecting 32-bit');
+    except
+      Expect(DistBitness).ToBe('x86_64-win64', 'Expecting 64-bit'); //if not 32-bit, then it has to be 64-bit
+    end;
+  finally
+    AllVars.Free;
+  end;
+
+  Expect(Send_DistInitialDecDll_Via_DistInitialEnc(DistBitness)).ToBe(CExpectedResponse_Unencrypted);
+  Expect(Send_DistDecDll_Via_DistInitialEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
+  Expect(Send_UIClickerDistFindSubControlDll_Via_DistEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
+  Expect(Send_PoolClientDll_Via_DistEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
 end;
 
 

@@ -35,7 +35,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
   InMemFileSystem, PollingFIFO, DynArrays, ClickerFileProviderClient,
-  TplZlibUnit, TplLzmaUnit,
+  TplLzmaUnit,
   IdGlobal, IdTCPClient, IdHTTPServer, IdCoderMIME, IdSchedulerOfThreadPool,
   IdCustomHTTPServer, IdContext, IdCustomTCPServer, IdHTTP;
 
@@ -1343,7 +1343,6 @@ var
   QoS: Byte;
   ID: Word;
   Topic, s, Msg, TempWorkerSpecificTask, ThisWorkerTask, WorkerName: string;
-  SetVarRequest: TClkSetVarOptions;
   TempFindSubControlResponse, ProcResponse, ProcErrMsg: string;
   ResponseIndex, i: Integer;
 begin
@@ -1761,7 +1760,7 @@ var
   TempByte: Byte;
   PacketName: string;
   PacketSize: DWord;
-  LoggedDisconnection: Boolean;
+  //LoggedDisconnection: Boolean;
   TempArr: TIdBytes;
   SuccessfullyDecoded: Boolean;
   ProcessBufferLengthResult: Word;
@@ -1771,7 +1770,7 @@ begin
     InitDynArrayToEmpty(TempReadBuf);
 
     try
-      LoggedDisconnection := False;
+      //LoggedDisconnection := False;
       repeat
         //try
         //  TempByte := frmFindSubControlWorkerMain.IdTCPClient1.IOHandler.ReadByte;
@@ -2224,8 +2223,8 @@ end;
 procedure TfrmFindSubControlWorkerMain.btnConnectionClick(Sender: TObject);
 var
   tk: QWord;
-  ClientToServerBuf: {$IFDEF SingleOutputBuffer} PMQTTBuffer; {$ELSE} PMQTTMultiBuffer; {$ENDIF}
-  Err: Word;
+  //ClientToServerBuf: {$IFDEF SingleOutputBuffer} PMQTTBuffer; {$ELSE} PMQTTMultiBuffer; {$ENDIF}
+  //Err: Word;
 begin
   if btnConnection.Tag = 0 then //Disconnect
   begin
