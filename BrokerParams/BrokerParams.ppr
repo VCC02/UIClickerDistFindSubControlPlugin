@@ -116,6 +116,7 @@ begin
   Result := CActionPlugin_APIVersion;
 end;
 
+
 procedure GetListOfProperties(APluginReference: Pointer;                 //UIClicker passes the plugin reference to the plugin, then the plugin calls some callbacks with that reference
                               AListOfProperties: Pointer;
                               AListOfPropertiesLen: PDWord;
@@ -156,6 +157,21 @@ begin
     dmProperties.Free;
   end;
 end;
+
+
+procedure CopyConfFileFromMosquittoDir(AConfFnm: string);
+var
+  Content: TStringList;
+begin
+  Content := TStringList.Create;
+  try
+    Content.LoadFromFile('C:\Program Files\mosquitto\mosquitto.conf');
+    Content.SaveToFile(AConfFnm);
+  finally
+    Content.Free;
+  end;
+end;
+
 
 function ExecutePlugin(APluginReference: Pointer;
                        AListOfPluginSettings: Pointer;
@@ -275,8 +291,14 @@ begin
       ConfFnm := EvaluateAllReplacements(ListOfAllVars, '$ConfFile$');
       if not FileExists(ConfFnm) then
       begin
-        SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Conf file not found: "' + ConfFnm + '".');
-        Exit;
+        CopyConfFileFromMosquittoDir(ConfFnm);
+        AddToLog('Broker conf file did not exist, but got created from the original.');
+
+        if not FileExists(ConfFnm) then
+        begin
+          SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Conf file not found: "' + ConfFnm + '".');
+          Exit;
+        end;
       end;
 
       PasswordFnm := EvaluateAllReplacements(ListOfAllVars, '$PasswordFile$');

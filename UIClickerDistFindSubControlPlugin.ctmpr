@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <MultiProject FileVersion="1">
+    <Elements Count="10">
+      <Element0 FileName="UIClickerDistFindSubControl.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element0>
+      <Element1 FileName="BrokerParams\BrokerParams.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element1>
+      <Element2 FileName="PoolClient\PoolClient.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element2>
+      <Element3 FileName="DistInitialEnc\DistInitialEnc.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element3>
+      <Element4 FileName="DistEnc\DistEnc.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element4>
+      <Element5 FileName="DistInitialDec\DistInitialDec.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element5>
+      <Element6 FileName="DistDec\DistDec.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element6>
+      <Element7 FileName="Worker\FindSubControlWorker.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element7>
+      <Element8 FileName="WorkerPoolManager\WorkerPoolManager.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element8>
+      <Element9 FileName="Tests\UIClickerDistFindSubControlPluginTests.ctmpr"/>
+    </Elements>
+  </MultiProject>
+</CONFIG>

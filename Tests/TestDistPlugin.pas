@@ -913,8 +913,8 @@ var
   ReportedFonts: TStringArr;
   i: Integer;
 begin
-  Expect(Length(AReportedOSes)).ToBe(4, 'Only 4 workers are supported for now (OSes).');   //Each AReportedOSes item matches a worker.
-  Expect(Length(AReportedFonts)).ToBe(4, 'Only 4 workers are supported for now (Fonts).'); //Each AReportedFonts item matches a worker. If an item is empty, the "reported fonts" feature is not used, so the worker gets the list of fonts from its UIClicker.
+  Expect(Integer(Length(AReportedOSes))).ToBe(4, 'Only 4 workers are supported for now (OSes).');   //Each AReportedOSes item matches a worker.
+  Expect(Integer(Length(AReportedFonts))).ToBe(4, 'Only 4 workers are supported for now (Fonts).'); //Each AReportedFonts item matches a worker. If an item is empty, the "reported fonts" feature is not used, so the worker gets the list of fonts from its UIClicker.
 
   //Other params: '--SetBrokerCredFile', '--SetBrokerAddress', '--SetBrokerPort'
   PathToDistWorker := ExtractFilePath(ParamStr(0)) + '..\Worker\FindSubControlWorker.exe';
@@ -1089,7 +1089,7 @@ begin
   for j := 0 to Length(FoundArr) - 1 do
     Expect(FoundArr[j]).ToBe(True, 'A worker should get work for the task [' + IntToStr(j) + '].');
 
-  Expect(Length(ATaskAllocationCountInfo)).ToBe(Length(ATaskAllocationCountCount), 'The lengths of the two arrays should match: ATaskAllocationCountInfo vs. ATaskAllocationCountCount.');
+  Expect(Integer(Length(ATaskAllocationCountInfo))).ToBe(Integer(Length(ATaskAllocationCountCount)), 'The lengths of the two arrays should match: ATaskAllocationCountInfo vs. ATaskAllocationCountCount.');
   for j := 0 to Length(FoundCountInfo) - 1 do
     Expect(FoundCountInfo[j]).ToBe(ATaskAllocationCountCount[j], 'Task info [' + IntToStr(j) + '] is expected to be found ' + IntToStr(ATaskAllocationCountCount[j]) + ' time(s).');
 end;

@@ -1418,7 +1418,7 @@ begin
           if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
             AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
           else
-            AddToLog('Error starting broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);;
+            AddToLog('Error starting broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
         end;
 
         for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
