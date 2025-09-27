@@ -185,7 +185,7 @@ end;
 
 function ArchivePlugin(APluginFileName, APluginFileNameInsideArchive, ATrasmissionKey, ATrasmissionIV, ASubsequentKey, ASubsequentIV, ADecryptionPluginName, ADecompressionPluginName, AHashingPluginName, AAdditionalInfo: string; AUseCompression, AIsDecDecHash: Boolean; AAdditionalFiles: TStringList; AOutputStream: TMemoryStream): string;
 var
-  MemStream, ArchiveStream: TMemoryStream;
+  MemStream, SecondMemStream, ArchiveStream: TMemoryStream;
   FileNameWS, DecryptionPluginNameWS, DecompressionPluginNameWS, HashingPluginNameWS, AdditionalInfoWS: WideString;
   Response: string;
   ResLen: Integer;
@@ -195,19 +195,53 @@ var
   i: Integer;
   s: string;
   SubsequentKeyHash, SubsequentIVHash: TArr32OfByte;
+  MainBitness, TheOtherBitness, SecondPluginFileName, SecondPluginFileNameInsideArchive: string;
 begin
   Result := '';
   if not FileExists(APluginFileName) then
     Exit;
 
+  MainBitness := '';
+  TheOtherBitness := '';
+  SecondMemStream := nil;
+  if Pos('i386-win32', APluginFileName) > 0 then
+  begin
+    MainBitness := 'i386-win32';
+    TheOtherBitness := 'x86_64-win64';
+  end;
+
+  if Pos('x86_64-win64', APluginFileName) > 0 then
+  begin
+    MainBitness := 'x86_64-win64';
+    TheOtherBitness := 'i386-win32';
+  end;
+
   ArchiveHandlers := THandlers.Create;
   try
     MemStream := TMemoryStream.Create;
+    SecondMemStream := TMemoryStream.Create;
     ArchiveStream := TMemoryStream.Create;
     Archive := TMemArchive.Create;
     try
       SetLength(Response, CMaxSharedStringLength);
       MemStream.LoadFromFile(APluginFileName);
+
+      if MainBitness <> '' then
+      begin
+        SecondPluginFileName := StringReplace(APluginFileName, MainBitness, TheOtherBitness, [rfReplaceAll]);
+
+        if FileExists(SecondPluginFileName) then
+        begin
+          SecondMemStream.LoadFromFile(SecondPluginFileName);
+          if Pos(MainBitness, APluginFileNameInsideArchive) = 1 then //the filename is prefixed with e.g. i386-win32, then the other will become x86_64-win64
+            SecondPluginFileNameInsideArchive := StringReplace(APluginFileNameInsideArchive, MainBitness, TheOtherBitness, [rfReplaceAll])
+          else
+            if Pos(TheOtherBitness, APluginFileNameInsideArchive) = 1 then //if for some reason, they are swapped (i.e. the two arguments do not point to the same bitness), then set swapped
+              SecondPluginFileNameInsideArchive := StringReplace(APluginFileNameInsideArchive, TheOtherBitness, MainBitness, [rfReplaceAll]);
+        end
+        else
+          MainBitness := ''; //reset, so no second file will be sent
+      end;  //If no bitness is detected, then some other plugin is sent, which does not matter. At least its path cannot be used to find its bitness.
 
       if ADecryptionPluginName > '' then
       begin
@@ -279,6 +313,9 @@ begin
       try
         Archive.AddFromStream(APluginFileNameInsideArchive, MemStream);  //this should be .dll
 
+        if MainBitness <> '' then
+          Archive.AddFromStream(SecondPluginFileNameInsideArchive, SecondMemStream);  //this should be .dll
+
         MemStream.Clear;
         MemStream.SetSize(32);
         Move(SubsequentKeyHash, MemStream.Memory^, MemStream.Size);
@@ -324,6 +361,7 @@ begin
       SetLength(Response, ResLen);
     finally
       MemStream.Free;
+      SecondMemStream.Free;
       ArchiveStream.Free;
       Archive.Free;
     end;

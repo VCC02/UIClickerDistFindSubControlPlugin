@@ -1313,6 +1313,11 @@ begin
             begin
               StartWorkerApp(AApp, AMachineAddress, AWorkerExtraCaption, AUIClickerPort);
               AApp.RunningState := arJustStarted;
+            end
+            else
+            begin
+              AddToLog('GetProcessIDByListeningPort is False on worker ' + AApp.Port);
+              Sleep(500);
             end;
 
         atUIClicker:
@@ -1989,6 +1994,8 @@ begin
   ExecAppOptions.CurrentDir := ExtractFileDir(ExecAppOptions.PathToApp);
   ExecAppOptions.UseInheritHandles := uihNo;
   ExecAppOptions.NoConsole := True; //True means do not display a console
+  ExecAppOptions.VerifyFileExistence := True;
+  ExecAppOptions.LeaveRunningAfterTimeout := True;
 
   try
     Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);

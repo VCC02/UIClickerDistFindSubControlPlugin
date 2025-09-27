@@ -45,7 +45,7 @@
       </Unit>
       <Unit>
         <Filename Value="BrokerParamsDM.pas"/>
-        <FRMtype Value="200"/>
+        <FRMtype Value="300"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="dmProperties"/>
         <HasResources Value="True"/>
@@ -62,7 +62,7 @@
     <PathDelim Value="\"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils\;..\..\UIClicker\ClickerClient\"/>
+      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils;..\..\UIClicker\ClickerClient"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>

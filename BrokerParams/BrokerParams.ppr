@@ -165,6 +165,7 @@ var
 begin
   Content := TStringList.Create;
   try
+    Content.LineBreak := #10;
     Content.LoadFromFile('C:\Program Files\mosquitto\mosquitto.conf');
     Content.SaveToFile(AConfFnm);
   finally
@@ -232,11 +233,12 @@ function ExecutePlugin(APluginReference: Pointer;
       end
       else
         if Pos('#' + AKeyName, AConfFileContent.Strings[i]) = 1 then  //found commented
-        begin
-          AIsCommented := True;
-          Result := i;
-          Exit;
-        end;
+          if (i < AConfFileContent.Count - 2) and (Pos(AKeyName, AConfFileContent.Strings[i + 1]) = 0) then //next line is still not the searched uncommented key
+          begin
+            AIsCommented := True;
+            Result := i;
+            Exit;
+          end;
   end;
 
 
