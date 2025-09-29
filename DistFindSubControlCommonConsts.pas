@@ -57,6 +57,8 @@ const
   CTopicName_AppToWorker_GetListOfFonts = 'AppToWorker_GetListOfFonts';    //request to workers
   CTopicName_WorkerToApp_GetListOfFonts = 'WorkerToApp_GetListOfFonts';    //response from workers
 
+  CTopicName_WorkerToWorker_Ping = 'Ping_'; //followed by worker ID
+
   CCallbackID_GetCapabilities = 0;
   CCallbackID_SendBackgroundToAll = 1;
   CCallbackID_SendBackgroundToSome = 2;

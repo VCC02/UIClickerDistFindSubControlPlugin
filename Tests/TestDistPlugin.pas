@@ -60,6 +60,7 @@ type
     procedure PrepareClickerUnderTestToReadItsVars;
     procedure PrepareClickerUnderTestToLocalMode;
     procedure LoadTestTemplateInClickerUnderTest_FullPath(ATestTemplate: string);
+    function GetVarFromClientUnderTest(AVarName: string): string;
     procedure ExpectVarFromClientUnderTest(AVarName, AExpectedValue: string; AExtraComment: string = '');
     procedure ExpectWorkAtWorkerSide(const AWork: TStringArr; AExpectedUnreceivedWorkCount: Integer; const ATaskAllocationCountInfo: TStringArr; const ATaskAllocationCountCount: TIntArr);
     procedure ExpectWorkAtPluginSide(const AWork: TStringArr; AExpectedUnreceivedWorkCount: Integer; const ATaskAllocationCountInfo: TStringArr; const ATaskAllocationCountCount: TIntArr);
@@ -1008,15 +1009,21 @@ begin
 end;
 
 
-procedure TTestDistPlugin.ExpectVarFromClientUnderTest(AVarName, AExpectedValue: string; AExtraComment: string = '');
+function TTestDistPlugin.GetVarFromClientUnderTest(AVarName: string): string;
 begin
   TestServerAddress := CTestClientAddress;
   try
     //connect to ClientUnderTest instance, which is now running in server mode and read its variables
-    Expect(GetVarValueFromServer(AVarName)).ToBe(AExpectedValue, AExtraComment);
+    Result := GetVarValueFromServer(AVarName);
   finally
     TestServerAddress := CTestDriverServerAddress_Client; //restore
   end;
+end;
+
+
+procedure TTestDistPlugin.ExpectVarFromClientUnderTest(AVarName, AExpectedValue: string; AExtraComment: string = '');
+begin
+  Expect(GetVarFromClientUnderTest(AVarName)).ToBe(AExpectedValue, AExtraComment);
 end;
 
 

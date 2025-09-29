@@ -474,6 +474,13 @@ begin
     Exit;
   end;
 
+  Result := FillIn_SubscribePayload(CTopicName_WorkerToWorker_Ping + AssignedClientID, Options, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_SUBSCRIBE not enough memory to add "Ping" TopicFilters.');
+    Exit;
+  end;
+
   //
   //Result := FillIn_SubscribePayload('MoreExtra_' + frmFindSubControlWorkerMain.lbeTopicName.Text, 1, ASubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to ASubscribeFields.TopicFilters
   //if not Result then
@@ -577,6 +584,13 @@ begin
     Exit;
   end;
 
+  Result := FillIn_UnsubscribePayload(CTopicName_WorkerToWorker_Ping + AssignedClientID, AUnsubscribeFields.TopicFilters);  //call this again with a different string (i.e. TopicFilter), in order to add it to AUnsubscribeFields.TopicFilters
+  if not Result then
+  begin
+    frmFindSubControlWorkerMain.AddToLog('HandleOnBeforeSendingMQTT_UNSUBSCRIBE not enough memory to add TopicFilters.');
+    Exit;
+  end;
+
   if VerbLevel < 1 then
     frmFindSubControlWorkerMain.AddToLog('Unsubscribing from "' + CTopicName_AppToWorker_GetCapabilities + '" and "' + CTopicName_AppToWorker_SendBackground + '" and "' + TopicWithWorkerName_Background + '" and "' + TopicWithWorkerName_FindSubControl + '"...');
 
@@ -654,6 +668,11 @@ begin
              CProtocolParam_Fonts + '=' + ProcessResponse(ACallbackID shr 8);
     end;
 
+    5:
+    begin
+      Msg := CProtocolParam_Name + '=' + 'Ping';
+    end;
+
     else
       Msg := 'unknown CallbackID';
   end;
@@ -668,6 +687,7 @@ begin
     1: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_SendBackground, APublishFields.TopicName);
     3: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_FindSubControl, APublishFields.TopicName);
     4: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToApp_GetListOfFonts, APublishFields.TopicName);
+    5: Result := Result and StringToDynArrayOfByte(CTopicName_WorkerToWorker_Ping + AssignedClientID, APublishFields.TopicName);
     else
       Result := Result and StringToDynArrayOfByte(CMQTT_Worker_UnhandledRequest, APublishFields.TopicName);
   end;
@@ -1449,6 +1469,12 @@ begin
 
       frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
     end;
+  end;
+
+  if Topic = CTopicName_WorkerToWorker_Ping + AssignedClientID then
+  begin
+    frmFindSubControlWorkerMain.FMissedPingResponseCount := 0;
+    frmFindSubControlWorkerMain.AddToLog('MissedPingResponseCount reset by valid PUBLISH');
   end;
 
   if VerbLevel < 2 then
@@ -2578,7 +2604,7 @@ begin
 
     tk := GetTickCount64;
     repeat
-      Application.ProcessMessages;
+      Application.ProcessMessages;  //FGotPingResponse is set here
 
       if FGotPingResponse then
       begin
@@ -2591,6 +2617,13 @@ begin
       begin
         AddToLog('Timeout waiting for ping response... ' {+ IntToStr(ID)} + '  MissedPingResponseCount = ' + IntToStr(FMissedPingResponseCount));
         Inc(FMissedPingResponseCount);
+
+        if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected - 3 then
+        begin
+          frmFindSubControlWorkerMain.AddToLog('PING failed too many times. Sending a PUBLISH..');
+          if not MQTT_PUBLISH(0, 5, 1) then
+            frmFindSubControlWorkerMain.AddToLog('Error publishing Ping.');
+        end;
 
         if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected then  //found even 3 missed responses in a row
           ShowBrokerIsDisconnected('ping');    //If ping turns out to be even more unreliable, then this constant has to be increased.

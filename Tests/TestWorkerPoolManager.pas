@@ -497,7 +497,7 @@ procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow_DoNotEvaluate
 begin
   SetPluginEvaluateFileNameBeforeSending('False');
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\BasicDistFindSubControl.clktmpl');
-  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed.');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed. $PluginError$ is ' + GetVarFromClientUnderTest('$PluginError$'));
   ExpectVarFromClientUnderTest('$PluginError$', '', 'No plugin error expected.');
 end;
 
@@ -506,7 +506,7 @@ procedure TTestWorkerPoolManager_DistFindSubControl.Test_HappyFlow_EvaluateFileN
 begin
   SetPluginEvaluateFileNameBeforeSending('True');
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\BasicDistFindSubControl.clktmpl');
-  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed.');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed. $PluginError$ is ' + GetVarFromClientUnderTest('$PluginError$'));
   ExpectVarFromClientUnderTest('$PluginError$', '', 'No plugin error expected.');
 end;
 

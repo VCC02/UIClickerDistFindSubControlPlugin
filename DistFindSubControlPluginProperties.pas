@@ -383,7 +383,7 @@ const
     '1883',      //Port
     '1',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '500',  //GetWorkerCapabilitiesTimeout
-    '3000', //FindSubControlWorkerTimeout
+    '3500', //FindSubControlWorkerTimeout
     '2500', //FindSubControlTimeoutDiff
     CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl, //WorkerCapabilitiesSource
     '', //LoadWorkerCapabilitiesCacheAction
