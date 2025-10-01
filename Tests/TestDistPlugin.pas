@@ -42,6 +42,7 @@ type
     FPluginUsedOS: string; //TextRenderingOS property
     FCalledAction: string;
     FEvaluateFileNameBeforeSending: string;
+    FStartAdditionalWorkers: Boolean;
 
     FIsWine: Boolean;
     FTemplatesDir: string;
@@ -72,6 +73,8 @@ type
 
     procedure BeforeAll(const AReportedOSes, AReportedFonts: TStringArr);
     procedure AfterAll;
+
+    property StartAdditionalWorkers: Boolean read FStartAdditionalWorkers write FStartAdditionalWorkers;
   public
     constructor Create; override;
     procedure SetReportedOSes(const AReportedOSes: TStringArr);
@@ -672,11 +675,15 @@ const
   CWorkerClickerServerPort2 = '44444';
   CWorkerClickerServerPort3 = '54444';
   CWorkerClickerServerPort4 = '24444';
+  CWorkerClickerServerPort5 = '14444';
+  CWorkerClickerServerPort6 = '04444';
 
   //CWorkerClickerServerAddress1 = 'http://127.0.0.1:' + CWorkerClickerServerPort1 + '/';
   //CWorkerClickerServerAddress2 = 'http://127.0.0.1:' + CWorkerClickerServerPort2 + '/';
   //CWorkerClickerServerAddress3 = 'http://127.0.0.1:' + CWorkerClickerServerPort3 + '/';
   //CWorkerClickerServerAddress4 = 'http://127.0.0.1:' + CWorkerClickerServerPort4 + '/';
+  //CWorkerClickerServerAddress5 = 'http://127.0.0.1:' + CWorkerClickerServerPort5 + '/';
+  //CWorkerClickerServerAddress6 = 'http://127.0.0.1:' + CWorkerClickerServerPort6 + '/';
 
 
   CSkipSavingWorkerSettings: string = ' --SkipSavingIni Yes';
@@ -685,8 +692,8 @@ const
 
 var
   FTestDriverForClient_Proc, FClientAppUnderTest_Proc: TAsyncProcess;
-  FWorker1_Proc, FWorker2_Proc, FWorker3_Proc, FWorker4_Proc: TAsyncProcess;
-  FServerForWorker1_Proc, FServerForWorker2_Proc, FServerForWorker3_Proc, FServerForWorker4_Proc: TAsyncProcess;
+  FWorker1_Proc, FWorker2_Proc, FWorker3_Proc, FWorker4_Proc, FWorker5_Proc, FWorker6_Proc: TAsyncProcess;
+  FServerForWorker1_Proc, FServerForWorker2_Proc, FServerForWorker3_Proc, FServerForWorker4_Proc, FServerForWorker5_Proc, FServerForWorker6_Proc: TAsyncProcess;
   CommonFonts_Proc: TAsyncProcess;
 
 
@@ -699,6 +706,7 @@ begin
   FPluginUsedOS := '';
   FCalledAction := '';
   FEvaluateFileNameBeforeSending := 'True';
+  FStartAdditionalWorkers := False;
   FTemplatesDir := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\ActionTemplates\';
 
   {$IFDEF UNIX}
@@ -737,7 +745,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=True';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4';
   EditTemplateOptions.ListOfEnabledProperties := 'TextRenderingOS';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -761,7 +769,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=True';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4';
   EditTemplateOptions.ListOfEnabledProperties := 'FindSubControlAction';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -785,7 +793,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=' + AEvaluateFileNameBeforeSending + '';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=' + AEvaluateFileNameBeforeSending + 'CustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4';
   EditTemplateOptions.ListOfEnabledProperties := 'EvaluateFileNameBeforeSending';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -888,6 +896,19 @@ begin
     Sleep(100);
     FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4' + ' --UseWideStringsOnGetControlText Yes');
     Sleep(1000);
+
+    if FStartAdditionalWorkers then
+    begin
+      SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 140, 90, 500, 240);
+      Sleep(100);
+      FServerForWorker5_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort5 + ' --ExtraCaption Worker5' + ' --UseWideStringsOnGetControlText Yes');
+      Sleep(1000);
+
+      SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 150, 100, 500, 250);
+      Sleep(100);
+      FServerForWorker6_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort6 + ' --ExtraCaption Worker6' + ' --UseWideStringsOnGetControlText Yes');
+      Sleep(1000);
+    end;
   end
   else
   begin
@@ -895,6 +916,12 @@ begin
     FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2');
     FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3');
     FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4');
+
+    if FStartAdditionalWorkers then
+    begin
+      FServerForWorker5_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort5 + ' --ExtraCaption Worker5');
+      FServerForWorker6_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort6 + ' --ExtraCaption Worker6');
+    end;
   end;
 end;
 
@@ -914,8 +941,16 @@ var
   ReportedFonts: TStringArr;
   i: Integer;
 begin
-  Expect(Integer(Length(AReportedOSes))).ToBe(4, 'Only 4 workers are supported for now (OSes).');   //Each AReportedOSes item matches a worker.
-  Expect(Integer(Length(AReportedFonts))).ToBe(4, 'Only 4 workers are supported for now (Fonts).'); //Each AReportedFonts item matches a worker. If an item is empty, the "reported fonts" feature is not used, so the worker gets the list of fonts from its UIClicker.
+  if not FStartAdditionalWorkers then
+  begin
+    Expect(Integer(Length(AReportedOSes))).ToBe(4, 'Only 4 workers are supported for now (OSes).');   //Each AReportedOSes item matches a worker.
+    Expect(Integer(Length(AReportedFonts))).ToBe(4, 'Only 4 workers are supported for now (Fonts).'); //Each AReportedFonts item matches a worker. If an item is empty, the "reported fonts" feature is not used, so the worker gets the list of fonts from its UIClicker.
+  end
+  else
+  begin
+    Expect(Integer(Length(AReportedOSes))).ToBe(6, 'Only 6 workers are supported for now (OSes).');   //Each AReportedOSes item matches a worker.
+    Expect(Integer(Length(AReportedFonts))).ToBe(6, 'Only 6 workers are supported for now (Fonts).'); //Each AReportedFonts item matches a worker. If an item is empty, the "reported fonts" feature is not used, so the worker gets the list of fonts from its UIClicker.
+  end;
 
   //Other params: '--SetBrokerCredFile', '--SetBrokerAddress', '--SetBrokerPort'
   PathToDistWorker := ExtractFilePath(ParamStr(0)) + '..\Worker\FindSubControlWorker.exe';
@@ -935,6 +970,14 @@ begin
   Sleep(500);
   FWorker4_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[3] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort4 + ' --SetWorkerExtraName Fourth --SetWorkerExtraCaption Fourth' + ReportedFonts[3]);
   Sleep(500);
+
+  if FStartAdditionalWorkers then
+  begin
+    FWorker5_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[0] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort5 + ' --SetWorkerExtraName Fifth --SetWorkerExtraCaption Fifth' + ReportedFonts[5]);
+    Sleep(500);
+    FWorker6_Proc := CreateUIClickerProcess(PathToDistWorker, '--SetReportedOS ' + AReportedOSes[1] + CSkipSavingWorkerSettings + ' --SetUIClickerPort ' + CWorkerClickerServerPort6 + ' --SetWorkerExtraName Sixth --SetWorkerExtraCaption Sixth' + ReportedFonts[6]);
+    Sleep(500);
+  end;
 end;
 
 
@@ -1225,10 +1268,22 @@ begin
   FWorker3_Proc.Terminate(0);
   FWorker4_Proc.Terminate(0);
 
+  if FStartAdditionalWorkers then
+  begin
+    FWorker5_Proc.Terminate(0);
+    FWorker6_Proc.Terminate(0);
+  end;
+
   FServerForWorker1_Proc.Terminate(0);
   FServerForWorker2_Proc.Terminate(0);
   FServerForWorker3_Proc.Terminate(0);
   FServerForWorker4_Proc.Terminate(0);
+
+  if FStartAdditionalWorkers then
+  begin
+    FServerForWorker5_Proc.Terminate(0);
+    FServerForWorker6_Proc.Terminate(0);
+  end;
 
   CommonFonts_Proc.Terminate(0);
 
@@ -1240,10 +1295,22 @@ begin
   FreeAndNil(FWorker3_Proc);
   FreeAndNil(FWorker4_Proc);
 
+  if FStartAdditionalWorkers then
+  begin
+    FreeAndNil(FWorker5_Proc);
+    FreeAndNil(FWorker6_Proc);
+  end;
+
   FreeAndNil(FServerForWorker1_Proc);
   FreeAndNil(FServerForWorker2_Proc);
   FreeAndNil(FServerForWorker3_Proc);
   FreeAndNil(FServerForWorker4_Proc);
+
+  if FStartAdditionalWorkers then
+  begin
+    FreeAndNil(FServerForWorker5_Proc);
+    FreeAndNil(FServerForWorker6_Proc);
+  end;
 
   FreeAndNil(CommonFonts_Proc);
 end;

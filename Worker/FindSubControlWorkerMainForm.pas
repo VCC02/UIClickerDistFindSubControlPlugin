@@ -1400,7 +1400,9 @@ begin
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)
     if not MQTT_PUBLISH(ClientInstance, 0, QoS) then
-      frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities');
+      frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities')
+    else
+      frmFindSubControlWorkerMain.AddToLog('Responding with capabilities..');
   end;
 
   if (Topic = TopicWithWorkerName_Background) or (Topic = CTopicName_AppToWorker_SendBackground) then  //common and individual subscriptions

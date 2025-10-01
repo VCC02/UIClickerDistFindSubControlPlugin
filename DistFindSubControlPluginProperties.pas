@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 28;
+  CAdditionalPropertiesCount = 29;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -71,6 +71,8 @@ const
   CCustomFontProfilesPropertyIndex = 27;
   CUseFontProfilesPropertyIndex = 28;
 
+  CMinExpectedWorkerCountPropertyIndex = 29;
+
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
   CAddressPropertyName = 'Address';
@@ -103,6 +105,8 @@ const
   CEvaluateFileNameBeforeSendingPropertyName = 'EvaluateFileNameBeforeSending';
   CCustomFontProfilesPropertyName = 'CustomFontProfiles';
   CUseFontProfilesPropertyName = 'UseFontProfiles';
+
+  CMinExpectedWorkerCountName = 'MinExpectedWorkerCount';
 
   CReqCapOperation_wcsReqCapAndFindSubControl = 'wcsReqCapAndFindSubControl';
   CReqCapOperation_wcsReqCapAndGetFonts = 'wcsReqCapAndGetFonts';
@@ -146,7 +150,8 @@ const
     CExtraDebuggingInfoPropertyName,
     CEvaluateFileNameBeforeSendingPropertyName,
     CCustomFontProfilesPropertyName,
-    CUseFontProfilesPropertyName
+    CUseFontProfilesPropertyName,
+    CMinExpectedWorkerCountName
   );
 
   //property details: (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
@@ -184,7 +189,8 @@ const
     'BooleanCombo',  //ExtraDebuggingInfo
     'BooleanCombo',  //EvaluateFileNameBeforeSending
     'UserEditor',    //CustomFontProfiles
-    'EnumCombo'      //UseFontProfiles
+    'EnumCombo',     //UseFontProfiles
+    'SpinText'       //MinExpectedWorkerCount
   );
 
   CRequiredSubControlPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
@@ -220,7 +226,8 @@ const
     CDTBool,    //ExtraDebuggingInfo
     CDTBool,    //EvaluateFileNameBeforeSending
     CDTString,  //CustomFontProfiles
-    CDTEnum     //UseFontProfiles
+    CDTEnum,    //UseFontProfiles
+    CDTInteger  //MinExpectedWorkerCount
   );
 
   CPluginEnumCounts: array[0..CPropertiesCount - 1] of Integer = (
@@ -256,7 +263,8 @@ const
     0, //ExtraDebuggingInfo
     0, //EvaluateFileNameBeforeSending
     0, //CustomFontProfiles
-    2  //UseFontProfiles
+    2, //UseFontProfiles
+    0  //MinExpectedWorkerCount
   );
 
   CPluginEnumStrings: array[0..CPropertiesCount - 1] of string = (
@@ -296,7 +304,8 @@ const
     '', //ExtraDebuggingInfo
     '', //EvaluateFileNameBeforeSending
     '', //CustomFontProfiles
-    CUseFontProfiles_FromConfiguredAction + #4#5 + CUseFontProfiles_FromCustom + #4#5
+    CUseFontProfiles_FromConfiguredAction + #4#5 + CUseFontProfiles_FromCustom + #4#5, //UseFontProfiles
+    ''  //MinExpectedWorkerCount
   );
 
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
@@ -336,7 +345,8 @@ const
     'When set to True, the plugin updates a few variables with debugging information or statistics,' + #4#5 + 'like task allocation to workers - what font profiles end up on what workers, what bmp/pmtv files end up on what workers etc.',  //ExtraDebuggingInfo
     'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.', //EvaluateFileNameBeforeSending
     'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.' + #4#5 + 'For now, this is a path to a .clkprf file.',
-    'When UseFontProfiles is ufpFromCustom, the font profiles, configured in CustomFontProfiles property, are used to distribute tasks.'
+    'When UseFontProfiles is ufpFromCustom, the font profiles, configured in CustomFontProfiles property, are used to distribute tasks.',
+    'Minimum number of workers, which respond as available, that stops the waiting, before the time set by the GetWorkerCapabilitiesTimeout property, runs out.' + #4#5 + 'A value of MinExpectedWorkerCount, less than the available number of workers, allows setting a higher timeout value.' + #4#5 + 'Because of this, it is better to have idle workers, than always requiring the available number.' //MinExpectedWorkerCount
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -372,7 +382,8 @@ const
     '', //ExtraDebuggingInfo
     '', //EvaluateFileNameBeforeSending
     'PropertyValue[28]==ufpFromCustom', //CustomFontProfiles
-    '' //UseFontProfiles
+    '', //UseFontProfiles
+    ''  //MinExpectedWorkerCount
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -407,7 +418,8 @@ const
     'False', //ExtraDebuggingInfo
     'False', //EvaluateFileNameBeforeSending
     '', //CustomFontProfiles
-    'ufpFromConfiguredAction' //UseFontProfiles
+    'ufpFromConfiguredAction', //UseFontProfiles
+    '4' //MinExpectedWorkerCount
   );
 
 

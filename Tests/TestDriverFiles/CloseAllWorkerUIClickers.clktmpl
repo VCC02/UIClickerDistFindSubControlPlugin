@@ -1,5 +1,5 @@
 [Actions]
-Count=16
+Count=18
 Version=2
 
 [Action_0]
@@ -207,7 +207,7 @@ NewPositionEnabled=0
 NewSizeEnabled=0
 
 [Action_8]
-ActionName=Find UIClicker 40005
+ActionName=Find UIClicker 40004
 Action=FindControl
 ActionTimeout=3000
 ActionEnabled=1
@@ -218,7 +218,7 @@ BreakpointCondition=
 MatchCriteria.WillMatchText=1
 MatchCriteria.WillMatchClassName=1
 MatchCriteria.SearchForControlMode=2
-MatchText=UI Clicker Main - 40005
+MatchText=UI Clicker Main - 40004
 MatchClassName=Window
 MatchTextSeparator=
 MatchClassNameSeparator=
@@ -258,7 +258,7 @@ NewPositionEnabled=0
 NewSizeEnabled=0
 
 [Action_10]
-ActionName=Find UIClicker 40006
+ActionName=Find UIClicker 40005
 Action=FindControl
 ActionTimeout=3000
 ActionEnabled=1
@@ -269,7 +269,7 @@ BreakpointCondition=
 MatchCriteria.WillMatchText=1
 MatchCriteria.WillMatchClassName=1
 MatchCriteria.SearchForControlMode=2
-MatchText=UI Clicker Main - 40006
+MatchText=UI Clicker Main - 40005
 MatchClassName=Window
 MatchTextSeparator=
 MatchClassNameSeparator=
@@ -309,7 +309,7 @@ NewPositionEnabled=0
 NewSizeEnabled=0
 
 [Action_12]
-ActionName=Find UIClicker 40007
+ActionName=Find UIClicker 40006
 Action=FindControl
 ActionTimeout=3000
 ActionEnabled=1
@@ -320,7 +320,7 @@ BreakpointCondition=
 MatchCriteria.WillMatchText=1
 MatchCriteria.WillMatchClassName=1
 MatchCriteria.SearchForControlMode=2
-MatchText=UI Clicker Main - 40007
+MatchText=UI Clicker Main - 40006
 MatchClassName=Window
 MatchTextSeparator=
 MatchClassNameSeparator=
@@ -360,6 +360,57 @@ NewPositionEnabled=0
 NewSizeEnabled=0
 
 [Action_14]
+ActionName=Find UIClicker 40007
+Action=FindControl
+ActionTimeout=3000
+ActionEnabled=1
+ActionCondition=
+BreakpointExists=0
+BreakpointEnabled=0
+BreakpointCondition=
+MatchCriteria.WillMatchText=1
+MatchCriteria.WillMatchClassName=1
+MatchCriteria.SearchForControlMode=2
+MatchText=UI Clicker Main - 40007
+MatchClassName=Window
+MatchTextSeparator=
+MatchClassNameSeparator=
+AllowToFail=1
+WaitForControlToGoAway=0
+InitialRectangle.Left=$Control_Left$
+InitialRectangle.Top=$Control_Top$
+InitialRectangle.Right=$Control_Right$
+InitialRectangle.Bottom=$Control_Bottom$
+UseWholeScreen=1
+InitialRectangle.LeftOffset=0
+InitialRectangle.TopOffset=0
+InitialRectangle.RightOffset=0
+InitialRectangle.BottomOffset=0
+StartSearchingWithCachedControl=0
+CachedControlLeft=
+CachedControlTop=
+GetAllControls=0
+PrecisionTimeout=0
+EvaluateTextCount=-1
+
+[Action_15]
+ActionName=Close
+Action=WindowOperations
+ActionTimeout=0
+ActionEnabled=1
+ActionCondition=$LastAction_Status$==Successful
+BreakpointExists=0
+BreakpointEnabled=0
+BreakpointCondition=
+WindowOperation=2
+NewX=
+NewY=
+NewWidth=
+NewHeight=
+NewPositionEnabled=0
+NewSizeEnabled=0
+
+[Action_16]
 ActionName=Find UIClicker 40008
 Action=FindControl
 ActionTimeout=3000
@@ -393,7 +444,7 @@ GetAllControls=0
 PrecisionTimeout=0
 EvaluateTextCount=-1
 
-[Action_15]
+[Action_17]
 ActionName=Close
 Action=WindowOperations
 ActionTimeout=0

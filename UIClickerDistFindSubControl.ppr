@@ -185,6 +185,7 @@ var
   EvaluateFileNameBeforeSending: Boolean;
   UsingCustomFontProfiles: Boolean;
   CustomProfilesFnm: string;
+  MinExpectedWorkerCount: Integer;
 
   RecTh: TMQTTReceiveThread;
 
@@ -1950,7 +1951,8 @@ begin
       NextState := SWaitForCapabilitiesResponse;
 
     SWaitForCapabilitiesResponse:
-      if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
+      if (GetTickCount64 - tk > GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
+         (Length(AllWorkers) >= MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
       begin
         if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
           NextState := SGetFindSubControlActionContent
@@ -2008,7 +2010,7 @@ begin
         FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCount) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
 
         AddToLog(FSMError);
-        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - tk) + 'ms.');
+        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FindSubControlWorkerTimeout) + 'ms.');
       end
       else
       begin
@@ -3574,7 +3576,7 @@ begin
       FindSubControlWorkerTimeout := Min(Max(FindSubControlWorkerTimeout, 50), 60000);  //limited to 50..60000
 
       FindSubControlTimeoutDiff := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlTimeoutDiffPropertyIndex], 2500);
-      FindSubControlTimeoutDiff := Min(Max(FindSubControlTimeoutDiff, 1500), 60000);  //limited to 50..60000
+      FindSubControlTimeoutDiff := Min(Max(FindSubControlTimeoutDiff, 1500), 60000);  //limited to 1500..60000
 
       WorkerCapabilitiesSource := PluginSettings.ValueFromIndex[CWorkerCapabilitiesSourcePropertyIndex];
       UpdateCacheActionName := PluginSettings.ValueFromIndex[CSaveWorkerCapabilitiesCacheActionPropertyIndex];
@@ -3584,6 +3586,9 @@ begin
       EvaluateFileNameBeforeSending := PluginSettings.ValueFromIndex[CEvaluateFileNameBeforeSendingPropertyIndex] = 'True';
       UsingCustomFontProfiles := PluginSettings.ValueFromIndex[CUseFontProfilesPropertyIndex] = CUseFontProfiles_FromCustom;
       CustomProfilesFnm := PluginSettings.ValueFromIndex[CCustomFontProfilesPropertyIndex];
+
+      MinExpectedWorkerCount := StrToIntDef(PluginSettings.ValueFromIndex[CMinExpectedWorkerCountPropertyIndex], 4);
+      MinExpectedWorkerCount := Min(Max(FindSubControlTimeoutDiff, 1), 50);  //limited to 1..50
 
       if VerbLevel < 2 then
         AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);

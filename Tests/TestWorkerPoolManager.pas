@@ -80,6 +80,17 @@ type
   end;
 
 
+  TTestWorkerPoolManager_DistFindSubControl_6W = class(TTestWorkerPoolManager)
+  published
+    procedure BeforeAll_AlwaysExecute; override;
+
+    procedure Test_HappyFlow_DoNotEvaluateFileNameBeforeSending;
+    procedure Test_HappyFlow_EvaluateFileNameBeforeSending;
+
+    procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
   TTestWorkerPoolManager_DistFindSubControl_NoWorker = class(TTestWorkerPoolManager)
   published
     procedure BeforeAll_AlwaysExecute; override;
@@ -520,6 +531,50 @@ begin
 end;
 
 
+procedure TTestWorkerPoolManager_DistFindSubControl_6W.BeforeAll_AlwaysExecute;
+begin
+  StartAdditionalWorkers := True;   //start two additional workers
+  inherited BeforeAll_AlwaysExecute;
+
+  SetBrokerCountOnWorkerPoolManager(1);
+  SetWorkerCountOnWorkerPoolManager(6, 3);
+
+  RemoveMachineFromList('127.0.0.1');
+  AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
+  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 125000);
+
+  SetKeys;
+  SendAllDistPlugins;
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl_6W.Test_HappyFlow_DoNotEvaluateFileNameBeforeSending;
+begin
+  SetPluginEvaluateFileNameBeforeSending('False');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\BasicDistFindSubControl.clktmpl');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed. $PluginError$ is ' + GetVarFromClientUnderTest('$PluginError$'));
+  ExpectVarFromClientUnderTest('$PluginError$', '', 'No plugin error expected.');
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl_6W.Test_HappyFlow_EvaluateFileNameBeforeSending;
+begin
+  SetPluginEvaluateFileNameBeforeSending('True');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\BasicDistFindSubControl.clktmpl');
+  ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'Plugin execution should succeed. $PluginError$ is ' + GetVarFromClientUnderTest('$PluginError$'));
+  ExpectVarFromClientUnderTest('$PluginError$', '', 'No plugin error expected.');
+end;
+
+
+procedure TTestWorkerPoolManager_DistFindSubControl_6W.AfterAll_AlwaysExecute;
+begin
+  RemoveMachineFromList('127.0.0.1');
+  CloseAllWorkers;
+  CloseAllWorkerUIClickers;
+  inherited AfterAll_AlwaysExecute;
+end;
+
+
 procedure TTestWorkerPoolManager_DistFindSubControl_NoWorker.BeforeAll_AlwaysExecute;
 begin
   inherited BeforeAll_AlwaysExecute;
@@ -551,6 +606,7 @@ initialization
 
   RegisterTest(TTestWorkerPoolManager_Resources);
   RegisterTest(TTestWorkerPoolManager_DistFindSubControl);
+  RegisterTest(TTestWorkerPoolManager_DistFindSubControl_6W);
   RegisterTest(TTestWorkerPoolManager_DistFindSubControl_NoWorker);
 end.
 
