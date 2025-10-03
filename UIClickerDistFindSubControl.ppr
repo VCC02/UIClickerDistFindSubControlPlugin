@@ -927,6 +927,7 @@ var
   Content: TStringList;
   WorkerIndex: Integer;
   TempResponseArchiveStr: string;
+  WorkerName: string;
 begin
   QoS := (APublishFields.PublishCtrlFlags shr 1) and 3;
   Msg := StringReplace(DynArrayOfByteToString(APublishFields.ApplicationMessage), #0, '#0', [rfReplaceAll]);
@@ -951,21 +952,29 @@ begin
   try
     Content.LineBreak := #13#10;
     Content.Text := Msg;
+    WorkerName := Content.Values[CProtocolParam_Name];
 
     if Topic = CTopicName_WorkerToApp_GetCapabilities then
+    begin
       if WaitingForWorkerCapabilities then //This is True only for a short while (see the state machine below). Any worker which publishes after this, is ignored.
-        AddNewWorkerToList(Content.Values[CProtocolParam_Name],
+      begin
+        AddToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  Adding worker to list: ' + WorkerName);
+        AddNewWorkerToList(WorkerName,
                            Content.Values[CProtocolParam_OS],
                            FastReplace_45ToReturn(Content.Values[CProtocolParam_FileCache]), //#4#5 separated list of files. Each item uses the CDefaultInMemFileNameHashSeparator string between name and hash.
                            Content.Values[CProtocolParam_ExtraName]
                           );
+      end
+      else
+        AddToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  Worker ' + WorkerName + ' responded too late. It won''t be added to list.');
+    end;
 
 
     if Topic = CTopicName_WorkerToApp_SendBackground then
     begin
-      WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
+      WorkerIndex := GetWorkerIndexByName(WorkerName);
       if WorkerIndex = -1 then
-        AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
+        AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
       else
       begin
         if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
@@ -982,9 +991,9 @@ begin
 
     if Topic = CTopicName_WorkerToApp_FindSubControl then
     begin
-      WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
+      WorkerIndex := GetWorkerIndexByName(WorkerName);
       if WorkerIndex = -1 then
-        AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
+        AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
       else
       begin
         Inc(WorkerRespondedCount);
@@ -1035,11 +1044,11 @@ begin
       if WaitingForWorkerFonts then
       begin
         if VerbLevel < 2 then
-          AddToLog('Received fonts from worker: ' + Content.Values[CProtocolParam_Name]);
+          AddToLog('Received fonts from worker: ' + WorkerName);
 
-        WorkerIndex := GetWorkerIndexByName(Content.Values[CProtocolParam_Name]);
+        WorkerIndex := GetWorkerIndexByName(WorkerName);
         if WorkerIndex = -1 then
-          AddToLog('Error: cannot find worker "' + Content.Values[CProtocolParam_Name] + '" on receiving result.')
+          AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
         else
           AllWorkers[WorkerIndex].Fonts := Content.Values[CProtocolParam_Fonts];
       end;
@@ -1359,7 +1368,7 @@ begin
         //Inc(ReadCount);
       until Terminated;
     finally
-      AddMsgToLog('Thread done..');
+      AddMsgToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  Thread done..');
     end;
   except
     on E: Exception do
@@ -3442,7 +3451,7 @@ var
         else
         begin
           FLatestMsg := 'No workers available. (A worker application might still be running, but it may be busy.)';
-          AddToLog('----------- ' + FLatestMsg);
+          AddToLog('----------- ' + DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  ' + FLatestMsg);
           Result := False;
         end;
       finally
@@ -3871,7 +3880,7 @@ begin
     SaveBitmapToExtRenderingInMemFS;
 
     FLatestMsg := 'Exiting plugin...';
-    AddToLog(FLatestMsg);
+    AddToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  ' + FLatestMsg);
     SetTemplateVar(CActionPlugin_DebuggingVar, FLatestMsg);
 
     //AOnActionPlugin_Screenshot(APluginReference, @string('ScreenshotSettings')[1]);

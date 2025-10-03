@@ -40,6 +40,7 @@ uses
   IdCustomHTTPServer, IdContext, IdCustomTCPServer, IdHTTP;
 
 type
+  TPingFSM = (SInitPing, SStartPing, SWaitForPingResponse, SPingTimeout, SDonePing);
 
   { TfrmFindSubControlWorkerMain }
 
@@ -123,6 +124,9 @@ type
     FGotPingResponse: Boolean;
     FMissedPingResponseCount: Integer;
 
+    FPingState, FPingNextState: TPingFSM;
+    FPingIntervalCounter: QWord;
+
     procedure LogDynArrayOfByte(var AArr: TDynArrayOfByte; ADisplayName: string = '');
 
     procedure HandleClientOnConnected(Sender: TObject);
@@ -154,6 +158,8 @@ type
 
     procedure ShowBrokerIsConnected(ASrcCall: string);
     procedure ShowBrokerIsDisconnected(ASrcCall: string);
+
+    procedure ProcessPingFSM;
   public
 
   end;
@@ -1372,6 +1378,9 @@ begin
   Topic := DynArrayOfByteToString(APublishFields.TopicName); //StringReplace(DynArrayOfByteToString(APublishFields.TopicName), #0, '#0', [rfReplaceAll]);
   TempWorkerSpecificTask := DynArrayOfByteToString(APublishProperties.ContentType);
 
+  frmFindSubControlWorkerMain.FGotPingResponse := True; //any received PUBLISH message is a valid indicator that the connection is still working
+  frmFindSubControlWorkerMain.FMissedPingResponseCount := 0; //Also, reset the missed ping response counter.
+
   WorkerName := frmFindSubControlWorkerMain.lbeClientID.Text;
   ThisWorkerTask := Copy(TempWorkerSpecificTask, Pos(WorkerName + CWorkerTaskAssignmentOperator, TempWorkerSpecificTask) + Length(WorkerName + CWorkerTaskAssignmentOperator), MaxInt);
   ThisWorkerTask := Copy(ThisWorkerTask, 1, Pos(CWorkerTaskLineBreak, ThisWorkerTask) - 1);
@@ -1476,7 +1485,7 @@ begin
   if Topic = CTopicName_WorkerToWorker_Ping + AssignedClientID then
   begin
     frmFindSubControlWorkerMain.FMissedPingResponseCount := 0;
-    frmFindSubControlWorkerMain.AddToLog('MissedPingResponseCount reset by valid PUBLISH');
+    //frmFindSubControlWorkerMain.AddToLog('MissedPingResponseCount reset by valid PUBLISH');  Use this only when sending PING! Since the ping was replaced by PUBLISH, this line wll appear too many times in the log, so it better stay commented.
   end;
 
   if VerbLevel < 2 then
@@ -1960,6 +1969,9 @@ begin
   VerbLevel := 2;
   FGotPingResponse := False;
   FMissedPingResponseCount := 0;
+  FPingState := SInitPing;
+  FPingNextState := SStartPing;
+  FPingIntervalCounter := 0;
 
   tmrStartup.Enabled := True;
 end;
@@ -2589,53 +2601,8 @@ end;
 
 
 procedure TfrmFindSubControlWorkerMain.tmrPingTimer(Sender: TObject);
-var
-  tk: DWord;
-  //ID: DWord;
 begin
-  //ID := GetTickCount64;
-  //AddToLog('Sending ping... ' + IntToStr(ID));
-  tmrPing.Enabled := False;
-  try
-    FGotPingResponse := False;
-    if not MQTT_PINGREQ(0) then
-    begin
-      AddToLog('Can''t prepare MQTT_PINGREQ packet.');
-      Exit;
-    end;
-
-    tk := GetTickCount64;
-    repeat
-      Application.ProcessMessages;  //FGotPingResponse is set here
-
-      if FGotPingResponse then
-      begin
-        FMissedPingResponseCount := 0; //reset on first valid response
-        //AddToLog('Got ping response... ' + IntToStr(ID));
-        Break;
-      end;
-
-      if GetTickCount64 - tk > 5000 then   //waiting for a "long" time, in case the broker is busy
-      begin
-        AddToLog('Timeout waiting for ping response... ' {+ IntToStr(ID)} + '  MissedPingResponseCount = ' + IntToStr(FMissedPingResponseCount));
-        Inc(FMissedPingResponseCount);
-
-        if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected - 3 then
-        begin
-          frmFindSubControlWorkerMain.AddToLog('PING failed too many times. Sending a PUBLISH..');
-          if not MQTT_PUBLISH(0, 5, 1) then
-            frmFindSubControlWorkerMain.AddToLog('Error publishing Ping.');
-        end;
-
-        if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected then  //found even 3 missed responses in a row
-          ShowBrokerIsDisconnected('ping');    //If ping turns out to be even more unreliable, then this constant has to be increased.
-
-        Break;
-      end;
-    until False;
-  finally
-    tmrPing.Enabled := True;
-  end;
+  tmrPing.Tag := 1; //trigger ping FSM
 end;
 
 
@@ -2651,6 +2618,7 @@ end;
 procedure TfrmFindSubControlWorkerMain.tmrProcessRecDataTimer(Sender: TObject);
 begin
   ProcessReceivedBuffer;
+  ProcessPingFSM;
 end;
 
 
@@ -2698,6 +2666,89 @@ begin
     on E: Exception do
       AddToLog('Stopping FileProvider ex: ' + E.Message);
   end;
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.ProcessPingFSM;
+begin
+  case FPingState of
+    SInitPing:
+    begin
+      FGotPingResponse := False;  //FGotPingResponse is a bit redundant, since FMissedPingResponseCount can be reset by any received PUBLISH message.
+    end;
+
+    SStartPing:
+    begin
+      tmrPing.Tag := 0; //reset start flag
+      FPingIntervalCounter := GetTickCount64;
+
+      //AddToLog('Publishing first PING... ');
+      if not MQTT_PUBLISH(0, 5, 1) then  //using PUBLISH instead of PING
+      begin
+        AddToLog('Error publishing first Ping.');
+        Exit;
+      end;
+    end;
+
+    SWaitForPingResponse:
+    begin
+      if FGotPingResponse then
+        FMissedPingResponseCount := 0; //reset on first valid response
+    end;
+
+    SPingTimeout:
+    begin
+      AddToLog('Timeout waiting for ping response... ' {+ IntToStr(ID)} + '  MissedPingResponseCount = ' + IntToStr(FMissedPingResponseCount) + '  GetTickCount64 = ' + IntToStr(GetTickCount64));
+      Inc(FMissedPingResponseCount);
+
+      if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected - 3 then
+      begin
+        AddToLog('PING failed too many times. Sending a PUBLISH..');
+        if not MQTT_PUBLISH(0, 5, 1) then
+          AddToLog('Error publishing Ping.');
+      end;
+
+      if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected then  //found even 3 missed responses in a row
+        ShowBrokerIsDisconnected('ping');    //If ping turns out to be even more unreliable, then this constant has to be increased.
+    end;
+
+    SDonePing:
+    begin
+
+    end;
+  end;
+
+  case FPingState of
+    SInitPing:
+    begin
+      if tmrPing.Tag = 1 then
+        FPingNextState := SStartPing
+      else
+        FPingNextState := SInitPing;
+    end;
+
+    SStartPing:
+      FPingNextState := SWaitForPingResponse;
+
+    SWaitForPingResponse:
+      if GetTickCount64 - FPingIntervalCounter > 5000 then
+        FPingNextState := SPingTimeout
+      else
+      begin
+        if FGotPingResponse then
+          FPingNextState := SDonePing
+        else
+          FPingNextState := SWaitForPingResponse;
+      end;
+
+    SPingTimeout:
+      FPingNextState := SDonePing;
+
+    SDonePing:
+      FPingNextState := SInitPing;
+  end;
+
+  FPingState := FPingNextState;
 end;
 
 
