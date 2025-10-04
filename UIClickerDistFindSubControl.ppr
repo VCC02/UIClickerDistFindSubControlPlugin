@@ -958,7 +958,7 @@ begin
     begin
       if WaitingForWorkerCapabilities then //This is True only for a short while (see the state machine below). Any worker which publishes after this, is ignored.
       begin
-        AddToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  Adding worker to list: ' + WorkerName);
+        AddToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  Adding worker[' + IntToStr(Length(AllWorkers)) + '] to list: ' + WorkerName);
         AddNewWorkerToList(WorkerName,
                            Content.Values[CProtocolParam_OS],
                            FastReplace_45ToReturn(Content.Values[CProtocolParam_FileCache]), //#4#5 separated list of files. Each item uses the CDefaultInMemFileNameHashSeparator string between name and hash.
