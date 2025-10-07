@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <MultiProject FileVersion="1">
-    <Elements Count="2">
-      <Element0 FileName="UIClickerDistFindSubControlPluginTests.ctpr">
+    <Elements Count="4">
+      <Element0 FileName="..\..\UIClicker\Tools\ClkDbgSym\ClkDbgSym.ctpr">
         <BuildModes Count="1"/>
         <Mode1 Name="Default"/>
       </Element0>
-      <Element1 FileName="CommonFonts\CommonFonts.ctpr">
+      <Element1 FileName="..\..\UIClicker\Tools\TestDriverUpdater\TestDriverUpdtr.ctpr">
         <BuildModes Count="1"/>
         <Mode1 Name="Default"/>
       </Element1>
+      <Element2 FileName="UIClickerDistFindSubControlPluginTests.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element2>
+      <Element3 FileName="CommonFonts\CommonFonts.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element3>
     </Elements>
   </MultiProject>
 </CONFIG>
