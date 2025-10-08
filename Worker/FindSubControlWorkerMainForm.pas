@@ -123,6 +123,7 @@ type
     FChachedFonts: string;
     FGotPingResponse: Boolean;
     FMissedPingResponseCount: Integer;
+    FWorkerRequestID: string;
 
     FPingState, FPingNextState: TPingFSM;
     FPingIntervalCounter: QWord;
@@ -648,12 +649,16 @@ begin
   Result := True;
 
   case ACallbackID of
-    0:
+    0:  //GetCapabilities
     begin
       Msg :=       CProtocolParam_Name + '=' + AssignedClientID + #13#10;
       Msg := Msg + CProtocolParam_OS + '=' + frmFindSubControlWorkerMain.FReportedOS + #13#10;
       Msg := Msg + CProtocolParam_FileCache + '=' + FastReplace_ReturnTo45(frmFindSubControlWorkerMain.FInMemFS.ListMemFilesWithHashAsString) + #13#10;
-      Msg := Msg + CProtocolParam_ExtraName + '=' + frmFindSubControlWorkerMain.FWorkerExtraName; //this is user-controlled
+      Msg := Msg + CProtocolParam_ExtraName + '=' + frmFindSubControlWorkerMain.FWorkerExtraName + #13#10; //this is user-controlled
+      Msg := Msg + CProtocolParam_RequestID + '=' + frmFindSubControlWorkerMain.FWorkerRequestID;
+
+      if VerbLevel < 1 then
+        frmFindSubControlWorkerMain.AddToLog('Responding with capabilities. FWorkerRequestID: ' + frmFindSubControlWorkerMain.FWorkerRequestID);
     end;
 
     1:
@@ -1407,6 +1412,11 @@ begin
 
   if Topic = CTopicName_AppToWorker_GetCapabilities then
   begin
+    frmFindSubControlWorkerMain.FWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
+
+    if VerbLevel < 1 then
+      frmFindSubControlWorkerMain.AddToLog('GetCapabilities Msg: ' + frmFindSubControlWorkerMain.FWorkerRequestID);
+
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)
     if not MQTT_PUBLISH(ClientInstance, 0, QoS) then
       frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities')
@@ -1972,6 +1982,7 @@ begin
   FPingState := SInitPing;
   FPingNextState := SStartPing;
   FPingIntervalCounter := 0;
+  FWorkerRequestID := 'not set yet';
 
   tmrStartup.Enabled := True;
 end;

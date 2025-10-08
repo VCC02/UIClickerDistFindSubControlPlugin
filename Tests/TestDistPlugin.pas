@@ -879,48 +879,48 @@ begin
   begin
     SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 100, 50, 500, 200);
     Sleep(100);
-    FServerForWorker1_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1' + ' --UseWideStringsOnGetControlText Yes');
+    FServerForWorker1_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1' + ' --UseWideStringsOnGetControlText Yes' + CSkipSavingSettings);
     Sleep(1000);
 
     SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 110, 60, 500, 210);
     Sleep(100);
-    FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2' + ' --UseWideStringsOnGetControlText Yes');
+    FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2' + ' --UseWideStringsOnGetControlText Yes' + CSkipSavingSettings);
     Sleep(1000);
 
     SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 120, 70, 500, 220);
     Sleep(100);
-    FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3' + ' --UseWideStringsOnGetControlText Yes');
+    FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3' + ' --UseWideStringsOnGetControlText Yes' + CSkipSavingSettings);
     Sleep(1000);
 
     SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 130, 80, 500, 230);
     Sleep(100);
-    FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4' + ' --UseWideStringsOnGetControlText Yes');
+    FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4' + ' --UseWideStringsOnGetControlText Yes' + CSkipSavingSettings);
     Sleep(1000);
 
     if FStartAdditionalWorkers then
     begin
       SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 140, 90, 500, 240);
       Sleep(100);
-      FServerForWorker5_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort5 + ' --ExtraCaption Worker5' + ' --UseWideStringsOnGetControlText Yes');
+      FServerForWorker5_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort5 + ' --ExtraCaption Worker5' + ' --UseWideStringsOnGetControlText Yes' + CSkipSavingSettings);
       Sleep(1000);
 
       SetUIClickerWindowPosition(ExtractFilePath(PathToWorkerUIClicker) + 'Clicker.ini', 150, 100, 500, 250);
       Sleep(100);
-      FServerForWorker6_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort6 + ' --ExtraCaption Worker6' + ' --UseWideStringsOnGetControlText Yes');
+      FServerForWorker6_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort6 + ' --ExtraCaption Worker6' + ' --UseWideStringsOnGetControlText Yes' + CSkipSavingSettings);
       Sleep(1000);
     end;
   end
   else
   begin
-    FServerForWorker1_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1');
-    FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2');
-    FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3');
-    FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4');
+    FServerForWorker1_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort1 + ' --ExtraCaption Worker1' + CSkipSavingSettings);
+    FServerForWorker2_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort2 + ' --ExtraCaption Worker2' + CSkipSavingSettings);
+    FServerForWorker3_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort3 + ' --ExtraCaption Worker3' + CSkipSavingSettings);
+    FServerForWorker4_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort4 + ' --ExtraCaption Worker4' + CSkipSavingSettings);
 
     if FStartAdditionalWorkers then
     begin
-      FServerForWorker5_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort5 + ' --ExtraCaption Worker5');
-      FServerForWorker6_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort6 + ' --ExtraCaption Worker6');
+      FServerForWorker5_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort5 + ' --ExtraCaption Worker5' + CSkipSavingSettings);
+      FServerForWorker6_Proc := CreateUIClickerProcess(PathToWorkerUIClicker, ServerForWorkerParams + CWorkerClickerServerPort6 + ' --ExtraCaption Worker6' + CSkipSavingSettings);
     end;
   end;
 end;

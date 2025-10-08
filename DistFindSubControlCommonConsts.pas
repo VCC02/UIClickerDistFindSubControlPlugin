@@ -78,6 +78,7 @@ const
   CProtocolParam_ResponseArchiveSize = 'ResponseArchiveSize';
   CProtocolParam_ResultImageArchive = 'ResponseArchiveDebugImage';
   CProtocolParam_Fonts = 'Fonts';
+  CProtocolParam_RequestID = 'RequestID';
 
   CBackgroundFileNameInArchive = '_:\Background.bmp'; //a name which cannot be used as OS's file system
   CBackgroundFileNameForUIClicker = 'Background.bmp';
