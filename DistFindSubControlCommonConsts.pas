@@ -132,6 +132,40 @@ type
   end;
 
 
+  TResponseVars = record
+    ControlLeft, ControlTop, ControlRight, ControlBottom: string;
+    ControlWidth, ControlHeight, HalfControlWidth, HalfControlHeight: string;
+    SubCnvXOffset, SubCnvYOffset: string;
+
+    AllControl_Handles, AllControl_XOffsets, AllControl_YOffsets: string;
+    AllControl_MatchSource, AllControl_DetailedMatchSource, AllControl_ResultedErrorCount: string;
+    AllControl_Lefts, AllControl_Tops, AllControl_Rights, AllControl_Bottoms: string;
+    AllControl_Widths, AllControl_Heights, AllHalfControl_Widths, AllHalfControl_Heights: string;
+  end;
+
+  TWorker = record
+    Name: string; //Maybe a unique part of the ClientID (or full ID if required), as assigned by broker. This name will also be used when requesting the execution of FindSubControl by the plugin.
+    OS: string; // Win/Lin
+    WorkerSpecificTask: string; //This field is set by plugin when preparing FindSubControl requests. Every worker receives instructions about what part of a FindSubControl action should work on (not the entire action).
+    FileCacheInfo: TStringList; //list of files and their hashes, currently present in worker's InMemFS (not its pair UIClicker).
+    ExtraName: string; //user-defined name
+    FilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs etc)
+    BmpFilesToSend, PmtvFilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs) - two different lists, used for updating actions
+    ArchiveStream: TMemoryStream;
+    Archive: TMemArchive;
+    CompressionTime: QWord;   //for statistics only
+    WorkerActionContentStr: string; //What is being sent via MQTT to a worker. This field contains action params, ArchiveStream and various other compression params.
+    TxtCntW, BmpCntW, PmtvCntW: Integer; //counts per worker
+    ResponseReceived: Boolean;    //Most dest UIClicker will timeout, because they won't find the search bmp. At least one should find.
+    FindSubControlFound: Boolean; //At least one worker should have this property set to True, to pass the action.
+    Response: string;
+    ResponseVars: TResponseVars;
+    ResponseBitmapStream: TMemoryStream;
+    Fonts: string;
+  end;
+
+  TWorkerArr = array of TWorker;
+
 function CompressionAlgorithmsStrToType(AStr: string): TCompressionAlgorithm;
 procedure FillInLzmaOptionsFromPluginProperties(APluginProperties: TStringList; var ADestLzmaOptions: TplLzmaOptions); overload;
 function FillInLzmaOptionsFromPluginProperties(APluginProperties: TStringList): TplLzmaOptions; overload;

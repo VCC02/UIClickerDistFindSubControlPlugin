@@ -385,7 +385,7 @@ begin
   ExecApp.NoConsole := True;
 
   try
-    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'Send DistInitialDec', 5000, False);
+    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'Send DistInitialDec', 8000, False);
   except
     on E: Exception do
       Result := 'Ex on starting broker: ' + E.Message;

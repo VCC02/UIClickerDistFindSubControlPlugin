@@ -39,7 +39,8 @@ uses
 
   ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
   MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties,
-  ClickerPluginInMemFileSystem, ClickerPrimitives, DistFindSubControlPropertyEditorForm;
+  ClickerPluginInMemFileSystem, ClickerPrimitives,
+  DistFindSubControlPropertyEditorForm, FontSorting;
 
 type
   //TStringArr = array of string;
@@ -52,39 +53,6 @@ type
 
   //TDbgPoint = function(APointName, ALogMsg: string): Boolean;
 
-  TResponseVars = record
-    ControlLeft, ControlTop, ControlRight, ControlBottom: string;
-    ControlWidth, ControlHeight, HalfControlWidth, HalfControlHeight: string;
-    SubCnvXOffset, SubCnvYOffset: string;
-
-    AllControl_Handles, AllControl_XOffsets, AllControl_YOffsets: string;
-    AllControl_MatchSource, AllControl_DetailedMatchSource, AllControl_ResultedErrorCount: string;
-    AllControl_Lefts, AllControl_Tops, AllControl_Rights, AllControl_Bottoms: string;
-    AllControl_Widths, AllControl_Heights, AllHalfControl_Widths, AllHalfControl_Heights: string;
-  end;
-
-  TWorker = record
-    Name: string; //Maybe a unique part of the ClientID (or full ID if required), as assigned by broker. This name will also be used when requesting the execution of FindSubControl by the plugin.
-    OS: string; // Win/Lin
-    WorkerSpecificTask: string; //This field is set by plugin when preparing FindSubControl requests. Every worker receives instructions about what part of a FindSubControl action should work on (not the entire action).
-    FileCacheInfo: TStringList; //list of files and their hashes, currently present in worker's InMemFS (not its pair UIClicker).
-    ExtraName: string; //user-defined name
-    FilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs etc)
-    BmpFilesToSend, PmtvFilesToSend: string; // CRLF separated list of filenames (bmps, pmtvs) - two different lists, used for updating actions
-    ArchiveStream: TMemoryStream;
-    Archive: TMemArchive;
-    CompressionTime: QWord;   //for statistics only
-    WorkerActionContentStr: string; //What is being sent via MQTT to a worker. This field contains action params, ArchiveStream and various other compression params.
-    TxtCntW, BmpCntW, PmtvCntW: Integer; //counts per worker
-    ResponseReceived: Boolean;    //Most dest UIClicker will timeout, because they won't find the search bmp. At least one should find.
-    FindSubControlFound: Boolean; //At least one worker should have this property set to True, to pass the action.
-    Response: string;
-    ResponseVars: TResponseVars;
-    ResponseBitmapStream: TMemoryStream;
-    Fonts: string;
-  end;
-
-  TWorkerArr = array of TWorker;
 
   TMQTTReceiveThread = class(TThread)
   private
@@ -2719,227 +2687,6 @@ var
   end;
 
 
-  function FontExistsInList(AFontName, AListOfFontsStr: string): Boolean;
-  var
-    ListOfFonts: TStringList;
-  begin
-    ListOfFonts := TStringList.Create;
-    try
-      ListOfFonts.LineBreak := #13#10;
-      ListOfFonts.Text := FastReplace_45ToReturn(AListOfFontsStr);
-      Result := ListOfFonts.IndexOf(AFontName) > -1;
-    finally
-      ListOfFonts.Free;
-    end;
-  end;
-
-
-  //Searches for fonts from AListOfSearchedFontNames in AListOfFontsStr. All must exist.
-  function MultipleFontsExistInList(AListOfSearchedFontNames, AListOfFontsStr: string): Boolean;
-  var
-    ListOfSearchedFonts: TStringList;
-    ListOfFonts: TStringList;
-    i: Integer;
-  begin
-    if AListOfSearchedFontNames = '' then
-    begin
-      //Result := False;
-      Result := True;
-      Exit;
-    end;
-
-    ListOfFonts := TStringList.Create;
-    ListOfSearchedFonts := TStringList.Create;
-    try
-      ListOfFonts.LineBreak := #13#10;
-      ListOfSearchedFonts.LineBreak := #13#10;
-      ListOfFonts.Text := FastReplace_45ToReturn(AListOfFontsStr);
-      ListOfSearchedFonts.Text := FastReplace_45ToReturn(AListOfSearchedFontNames);  //probably the FastReplace_45ToReturn is not needed here, since this is used for fonts from pmtv files, which are stored as #13#10 separated items.
-
-      Result := True;
-      for i := 0 to ListOfSearchedFonts.Count - 1 do
-        Result := Result and (ListOfFonts.IndexOf(ListOfSearchedFonts.Strings[i]) > -1);
-    finally
-      ListOfFonts.Free;
-      ListOfSearchedFonts.Free;
-    end;
-  end;
-
-
-  function CompFuncByTxtTaskCount(const a, b: Int64): Integer;
-  begin
-    try
-      if AllWorkers[a].TxtCntW < AllWorkers[b].TxtCntW then
-        Result := -1
-      else
-        if AllWorkers[a].TxtCntW = AllWorkers[b].TxtCntW then
-          Result := 0
-        else
-          Result := 1;
-    except
-      Result := -1;
-      AddToLog('Ex on CompFuncByTxtTaskCount  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(AllWorkers) = ' + IntToStr(Length(AllWorkers)));
-    end;
-  end;
-
-
-  function CompFuncByPmtvTaskCount(const a, b: Int64): Integer;
-  begin
-    try
-      if AllWorkers[a].PmtvCntW < AllWorkers[b].PmtvCntW then
-        Result := -1
-      else
-        if AllWorkers[a].PmtvCntW = AllWorkers[b].PmtvCntW then
-          Result := 0
-        else
-          Result := 1;
-    except
-      Result := -1;
-      AddToLog('Ex on CompFuncByPmtvTaskCount  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(AllWorkers) = ' + IntToStr(Length(AllWorkers)));
-    end;
-  end;
-
-
-  type
-    TCompFunc = function(const a, b: Int64): Integer;
-
-  procedure CustomSortByTaskCount(var AArr: TIntArr; ACmpFunc: TCompFunc);
-  var
-    SortingArray: TInt64List;
-    i: Integer;
-  begin
-    SortingArray := TInt64List.Create;
-    try
-      SortingArray.Capacity := Length(AArr);
-      for i := 0 to Length(AArr) - 1 do
-        SortingArray.Add(AArr[i]);
-
-      SortingArray.Sort(@ACmpFunc);
-
-      for i := 0 to Length(AArr) - 1 do
-        AArr[i] := SortingArray.Items[i];
-    finally
-      SortingArray.Free;
-    end;
-  end;
-
-
-  procedure SortByTxtTaskCount(var AArr: TIntArr);
-  begin
-    CustomSortByTaskCount(AArr, @CompFuncByTxtTaskCount);
-  end;
-
-
-  procedure SortByPmtvTaskCount(var AArr: TIntArr);
-  begin
-    CustomSortByTaskCount(AArr, @CompFuncByPmtvTaskCount);
-  end;
-
-
-  function FontExistsInAllWorkers(AFontName: string): Boolean;
-  var
-    i: Integer;
-  begin
-    Result := True;
-    for i := 0 to Length(AllWorkers) - 1 do                          //with so many nested loops, these arrays should be cached
-      if not FontExistsInList(AFontName, AllWorkers[i].Fonts) then
-      begin
-        Result := False;
-        Break;
-      end;
-  end;
-
-
-  function MultipleFontsExistInAllWorkers(AFontNames: string): Boolean;
-  var
-    i: Integer;
-  begin
-    Result := True;
-    for i := 0 to Length(AllWorkers) - 1 do                          //with so many nested loops, these arrays should be cached
-      if not MultipleFontsExistInList(AFontNames, AllWorkers[i].Fonts) then
-      begin
-        Result := False;
-        Break;
-      end;
-  end;
-
-
-  function CompFuncByDupFonts_Txt(const a, b: Int64): Integer;
-  var
-    a_bool: Boolean;
-    b_bool: Boolean;
-  begin
-    if FindSubControlFonts = nil then
-    begin
-      AddToLog('+++++++++++++++++++++++++++++ FindSubControlFonts = nil');
-      Result := -1;
-      Exit;
-    end;
-
-    try
-      a_bool := FontExistsInAllWorkers(FindSubControlFonts[a].FontName);
-      b_bool := FontExistsInAllWorkers(FindSubControlFonts[b].FontName);
-
-      Result := 0;
-      if not a_bool and b_bool then
-        Result := -1
-      //else           //the following comparisons are not required:
-        //if (a_bool and b_bool) or (not a_bool and not b_bool) then    //"not a_bool and not b_bool" should not be the case
-        //  Result := 0
-        //else
-        //  if a_bool and not b_bool then
-        //    Result := 1;
-    except
-      Result := -1;
-      AddToLog('Ex on CompFuncByDupFonts  a = ' + FindSubControlFonts[a].FontName + '  b = ' + FindSubControlFonts[b].FontName + '  Len(Fonts) = ' + IntToStr(Length(FindSubControlFonts)));
-    end;
-  end;
-
-
-  function CompFuncByDupFonts_Pmtv(const a, b: Int64): Integer;
-  var
-    a_bool: Boolean;
-    b_bool: Boolean;
-  begin
-    if Length(FontsUsedByPmtvs) = 0 then
-    begin
-      AddToLog('+++++++++++++++++++++++++++++ FontsUsedByPmtvs is empty');
-      Result := -1;
-      Exit;
-    end;
-
-    try
-      a_bool := MultipleFontsExistInAllWorkers(FontsUsedByPmtvs[a]);
-      b_bool := MultipleFontsExistInAllWorkers(FontsUsedByPmtvs[b]);
-
-      Result := 0;
-      if not a_bool and b_bool then
-        Result := -1
-      //else           //the following comparisons are not required:
-        //if (a_bool and b_bool) or (not a_bool and not b_bool) then    //"not a_bool and not b_bool" should not be the case
-        //  Result := 0
-        //else
-        //  if a_bool and not b_bool then
-        //    Result := 1;
-    except
-      Result := -1;
-      AddToLog('Ex on CompFuncByDupFonts  a = ' + FindSubControlFonts[a].FontName + '  b = ' + FindSubControlFonts[b].FontName + '  Len(Fonts) = ' + IntToStr(Length(FindSubControlFonts)));
-    end;
-  end;
-
-
-  procedure SortByDupFonts_Txt(var AArr: TIntArr);
-  begin
-    CustomSortByTaskCount(AArr, @CompFuncByDupFonts_Txt);
-  end;
-
-
-  procedure SortByDupFonts_Pmtv(var AArr: TIntArr);
-  begin
-    CustomSortByTaskCount(AArr, @CompFuncByDupFonts_Pmtv);
-  end;
-
-
   procedure GetFontsUsedByPmtvs(AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions; var AFontsUsedByPmtvs: TStringArray);
   var
     ListOfPmtvFiles: TStringList;
@@ -3023,7 +2770,13 @@ var
         //where each element is an index in the MatchBitmapText array, something like MatchBitmapText[SortedByDuplicatedFont[i]].
         //The first elements of this array should point to profiles, which do not exist in all workers, then the last, in all workers.
 
-        FindSubControlFonts := AFindSubControlOptions.MatchBitmapText;
+        //FindSubControlFonts := AFindSubControlOptions.MatchBitmapText;  //Already set before calling AssignTasksToWorkers.
+
+        //Kind of ugly to set these global vars here, but it works. An object would look better, for another time.
+        AllWorkersForSorting := AllWorkers;
+        AddToLogCallbackForSorting := AddToLogCallback;
+        FindSubControlFontsForSorting := FindSubControlFonts;
+        FontsUsedByPmtvsForSorting := FontsUsedByPmtvs;
         SortByDupFonts_Txt(SortedByDuplicatedFont);
 
         //Filter, based on available fonts.
@@ -3290,6 +3043,7 @@ var
         //Otherwise (if it's greater), then some workers will receive more work.
         //Delete from every action if the subproperty index is greater than MaxSplitActionsCount
 
+        FindSubControlFonts := DecodedAction.MatchBitmapText;
         AssignTasksToWorkers(MaxSplitActionsCount, ListOfBmps, ListOfPmtvs, AListOfAllVars, DecodedAction);
 
         UsingCompression := PluginSettings.ValueFromIndex[CUseCompressionPropertyIndex] = 'True';
