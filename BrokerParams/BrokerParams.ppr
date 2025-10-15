@@ -30,17 +30,10 @@ library BrokerParams;
 {$ENDIF}
 
 uses
-  Interfaces, Classes, SysUtils, Graphics, ImgList, Forms, ClickerUtils,
+  Interfaces, Classes, SysUtils, Graphics, ImgList, ClickerUtils,
   ClickerActionPlugins, BrokerParamsPluginProperties, DllUtils, BrokerParamsDM
   { you can add units after this };
 
-type
-  //TDbgPoint = function(APointName, ALogMsg: string): Boolean;
-
-
-  TExHandler = class
-    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
-  end;
 
 
 var
@@ -49,65 +42,11 @@ var
   AddToLogCallback: TOnActionPlugin_AddToLog;
   //GPluginReference: Pointer;
 
-  FExHandler: TExHandler;
-
 
 procedure AddToLog(AMsg: string);  //thread safe
 begin
   if @AddToLogCallback <> nil then
     AddToLogCallback(DefaultPluginReference, @AMsg[1]);
-end;
-
-
-//see https://wiki.freepascal.org/Logging_exceptions
-procedure TExHandler.CustomExceptionHandler(Sender: TObject; E: Exception);
-var
-  ClName, EMsg: string;
-begin
-  try
-    ClName := Sender.ClassName;
-  except
-    ClName := '';
-  end;
-
-  try
-    EMsg := E.Message;
-  except
-    EMsg := '';
-  end;
-
-  try
-    AddToLog('Custom exception in plugin: "' + EMsg + '"   Class: "' + ClName + '"."');
-  except
-    on EE: Exception do
-      //MessageBox(0, PChar('Ex on custom exception: ' + EE.Message), 'Plugin', MB_ICONERROR);
-  end;
-end;
-
-
-//see https://wiki.freepascal.org/Logging_exceptions
-procedure CatchUnhandledException(Obj: TObject; Addr: Pointer; FrameCount: LongInt; Frames: PPointer);
-var
-  Msg: string;
-  i: Integer;
-begin
-  try //use another try..excempt, just in case parsing the stack would raise more exceptions
-    Msg := 'Unhandled exception at adddr $' + SysBacktraceStr(Addr) + ':' + #13#10;
-
-    if Obj is Exception then
-      Msg := Msg + Exception(Obj).ClassName + ' : ' + Exception(Obj).Message
-    else
-      Msg := Msg + 'Exception object '  + Exception(Obj).ClassName + ' is not class Exception.';
-
-    Msg := Msg + #13#10;
-    Msg := Msg + BacktraceStrFunc(Addr) + #13#10;
-
-    for i := 0 to FrameCount - 1 do
-      Msg := Msg + BacktraceStrFunc(Frames[i]) + #13#10;
-
-    AddToLog('Custom exception in plugin: "' + Msg + '".');
-  except
-  end;
 end;
 
 
@@ -192,7 +131,8 @@ function ExecutePlugin(APluginReference: Pointer;
                        AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
                        AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
                        AOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
-                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS
+                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+                       AOnActionPlugin_AppProcMsg: TOnActionPlugin_AppProcMsg
                        ): Boolean; cdecl;
 
   procedure SetTemplateVar(AVarName, AVarValue: string);
@@ -284,11 +224,6 @@ begin
 
       GetAllTemplateVars(AllVarsStr);
       ListOfAllVars.Text := AllVarsStr;
-
-      Application.Initialize;
-      FExHandler := TExHandler.Create;
-      ExceptProc := @CatchUnhandledException;
-      Application.OnException := FExHandler.CustomExceptionHandler;
 
       ConfFnm := EvaluateAllReplacements(ListOfAllVars, '$ConfFile$');
       if not FileExists(ConfFnm) then

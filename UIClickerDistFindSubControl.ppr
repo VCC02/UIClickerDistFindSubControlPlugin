@@ -87,10 +87,6 @@ type
     constructor Create(AOwner: TComponent); override;
   end;
 
-  TExHandler = class
-    procedure CustomExceptionHandler(Sender: TObject; E: Exception);
-  end;
-
 
 const
   CFSMStr: array[TFSM] of string = (
@@ -130,6 +126,7 @@ var
   AddToLogCallback: TOnActionPlugin_AddToLog;
   ActionPlugin_InMemFSCallback: TOnActionPlugin_InMemFS;
   ActionPlugin_ExecuteActionCallback: TOnActionPlugin_ExecuteAction;
+  ActionPlugin_AppProcMsgCallback: TOnActionPlugin_AppProcMsg;
   GPluginReference: Pointer;
 
   FindSubControlActionPropertyValue: string;
@@ -162,13 +159,21 @@ var
   tk: QWord; //used for timeouts
   VerbLevel: Integer;        //0 = low-level MQTT logging, 1 = Dist plugin general logging, 2 = Dist plugin important logging.
                              //error messages are displayed regardless of this value
-  FExHandler: TExHandler;
 
 
 procedure AddToLog(AMsg: string);  //thread safe
 begin
   if @AddToLogCallback <> nil then
     AddToLogCallback(DefaultPluginReference, @AMsg[1]);
+end;
+
+
+procedure AppProcMsg;
+begin
+  if @ActionPlugin_AppProcMsgCallback <> nil then
+    ActionPlugin_AppProcMsgCallback(DefaultPluginReference)
+  else
+    raise Exception.Create('ActionPlugin_AppProcMsgCallback not assigned.');
 end;
 
 //
@@ -1432,7 +1437,7 @@ begin
         for i := 1 to 10 do
         begin
           Sleep(100); //this loop is pretty fast, so slow it to the point where the user can manually stop the process
-          Application.ProcessMessages;
+          AppProcMsg;
         end;
       finally
         if IdTCPClient1 <> nil then  //re-enable if not closing
@@ -1470,7 +1475,7 @@ begin
     tk := GetTickCount64;
     RecTh.Terminate;
     repeat
-      Application.ProcessMessages;
+      AppProcMsg;
       Sleep(1);
 
       if GetTickCount64 - tk > 2000 then
@@ -1542,14 +1547,14 @@ begin
   tk := GetTickCount64;
   repeat
     ClientToServerBuf := MQTT_GetClientToServerBuffer(0, Err);
-    Application.ProcessMessages;
+    AppProcMsg;
     Sleep(10);
   until (GetTickCount64 - tk > 1500) or ((ClientToServerBuf <> nil) and (ClientToServerBuf^.Len = 0));
 
   RecTh.Terminate;
   tk := GetTickCount64;
   repeat
-    Application.ProcessMessages;
+    AppProcMsg;
     Sleep(1);
   until (GetTickCount64 - tk > 1500) or RecTh.Terminated;
 
@@ -1563,57 +1568,6 @@ begin
   //  MessageBox(0, 'MQTT thread is still running..', 'Dist plugin', 0);
 end;
 
-
-//see https://wiki.freepascal.org/Logging_exceptions
-procedure TExHandler.CustomExceptionHandler(Sender: TObject; E: Exception);
-var
-  ClName, EMsg: string;
-begin
-  try
-    ClName := Sender.ClassName;
-  except
-    ClName := '';
-  end;
-
-  try
-    EMsg := E.Message;
-  except
-    EMsg := '';
-  end;
-
-  try
-    AddToLog('Custom exception in plugin: "' + EMsg + '"   Class: "' + ClName + '"."');
-  except
-    on EE: Exception do
-      //MessageBox(0, PChar('Ex on custom exception: ' + EE.Message), 'Plugin', MB_ICONERROR);
-  end;
-end;
-
-
-//see https://wiki.freepascal.org/Logging_exceptions
-procedure CatchUnhandledException(Obj: TObject; Addr: Pointer; FrameCount: LongInt; Frames: PPointer);
-var
-  Msg: string;
-  i: Integer;
-begin
-  try //use another try..excempt, just in case parsing the stack would raise more exceptions
-    Msg := 'Unhandled exception at adddr $' + SysBacktraceStr(Addr) + ':' + #13#10;
-
-    if Obj is Exception then
-      Msg := Msg + Exception(Obj).ClassName + ' : ' + Exception(Obj).Message
-    else
-      Msg := Msg + 'Exception object '  + Exception(Obj).ClassName + ' is not class Exception.';
-
-    Msg := Msg + #13#10;
-    Msg := Msg + BacktraceStrFunc(Addr) + #13#10;
-
-    for i := 0 to FrameCount - 1 do
-      Msg := Msg + BacktraceStrFunc(Frames[i]) + #13#10;
-
-    AddToLog('Custom exception in plugin: "' + Msg + '".');
-  except
-  end;
-end;
 
 
 procedure GetAllVarsAndValuesFromVarsForWorkers(AVarsForWorkers: string; AListOfAllVars: TStringList; out AAllNames, AAllValues, AAllEvalBefore: string);
@@ -2125,7 +2079,8 @@ function ExecutePlugin(APluginReference: Pointer;
                        AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
                        AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
                        AOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
-                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS
+                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+                       AOnActionPlugin_AppProcMsg: TOnActionPlugin_AppProcMsg
                        ): Boolean; cdecl;
 var
   ActionCount, IndexOfFindSubControlActionProperty: Integer;
@@ -3267,6 +3222,7 @@ begin
       AddToLogCallback := AOnActionPlugin_AddToLog;
       ActionPlugin_InMemFSCallback := AOnActionPlugin_InMemFS;
       ActionPlugin_ExecuteActionCallback := AOnActionPlugin_ExecuteAction;
+      ActionPlugin_AppProcMsgCallback := AOnActionPlugin_AppProcMsg;
       GPluginReference := APluginReference;
 
       if FLatestMsg <> '' then
@@ -3362,11 +3318,6 @@ begin
       if VerbLevel < 2 then
         AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
 
-      Application.Initialize;
-      FExHandler := TExHandler.Create;
-      ExceptProc := @CatchUnhandledException;
-      Application.OnException := FExHandler.CustomExceptionHandler;
-
       MQTT_Init;
       FSMError := '';
       State := SInit;
@@ -3398,7 +3349,7 @@ begin
             end;
 
             try
-              Application.ProcessMessages;
+              AppProcMsg;
             except
               on E: Exception do
                 AddToLog('-----------  Ex on FSM loop: ' + E.Message);
@@ -3448,7 +3399,7 @@ begin
       end;
     finally
       try
-        Application.ProcessMessages; //process last logging data
+        AppProcMsg; //process last logging data
 
         //ToDo: set these vars only when their values are known
 
@@ -3653,6 +3604,7 @@ end;
 
 function EditProperty(APluginReference: Pointer;
                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+                      AOnActionPlugin_AppProcMsg: TOnActionPlugin_AppProcMsg;
                       APropertyIndex: Integer;
                       ACurrentValue: Pointer;
                       ANewValue: Pointer;
@@ -3660,23 +3612,18 @@ function EditProperty(APluginReference: Pointer;
 var
   CurrentValue, NewValue: string;
 begin
+  ActionPlugin_AppProcMsgCallback := AOnActionPlugin_AppProcMsg;
+  GPluginReference := APluginReference;
+  DefaultPluginReference := APluginReference;
+
   VerbLevel := 2;
   SetPointedContentToString(ACurrentValue, CurrentValue);
 
   NewValue := CurrentValue;
 
-  Application.Initialize;
-  FExHandler := TExHandler.Create;
-  try
-    ExceptProc := @CatchUnhandledException;
-    Application.OnException := FExHandler.CustomExceptionHandler;
-
-    //open editor here
-    Result := EditCustomFontProfilesProperty(APluginReference, AOnActionPlugin_InMemFS, APropertyIndex, CurrentValue, NewValue);
-    ALenOfNewValue^ := SetPointedContentFromString(NewValue, ANewValue);
-  finally
-    FExHandler.Free;
-  end;
+  //open editor here
+  Result := EditCustomFontProfilesProperty(APluginReference, AOnActionPlugin_InMemFS, APropertyIndex, CurrentValue, NewValue);
+  ALenOfNewValue^ := SetPointedContentFromString(NewValue, ANewValue);
 end;
 
 
