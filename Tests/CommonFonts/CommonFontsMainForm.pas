@@ -61,6 +61,36 @@ type
     Label28: TLabel;
     Label29: TLabel;
     Label30: TLabel;
+    Label31: TLabel;
+    Label32: TLabel;
+    Label33: TLabel;
+    Label34: TLabel;
+    Label35: TLabel;
+    Label36: TLabel;
+    Label37: TLabel;
+    Label38: TLabel;
+    Label39: TLabel;
+    Label40: TLabel;
+    Label41: TLabel;
+    Label42: TLabel;
+    Label43: TLabel;
+    Label44: TLabel;
+    Label45: TLabel;
+    Label46: TLabel;
+    Label47: TLabel;
+    Label48: TLabel;
+    Label49: TLabel;
+    Label50: TLabel;
+    Label51: TLabel;
+    Label52: TLabel;
+    Label53: TLabel;
+    Label54: TLabel;
+    Label55: TLabel;
+    Label56: TLabel;
+    Label57: TLabel;
+    Label58: TLabel;
+    Label59: TLabel;
+    Label60: TLabel;
     lblDraft: TLabel;
     lblAntialiased: TLabel;
     lblCleartype: TLabel;
@@ -73,8 +103,13 @@ type
     Label8: TLabel;
     Label9: TLabel;
     lblNonAntialiased: TLabel;
+    tmrStartup: TTimer;
+    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormCreate(Sender: TObject);
+    procedure tmrStartupTimer(Sender: TObject);
   private
-
+    procedure LoadSettingsFromIni;
+    procedure SaveSettingsToIni;
   public
 
   end;
@@ -85,6 +120,66 @@ var
 implementation
 
 {$R *.frm}
+
+uses
+  IniFiles;
+
+
+procedure TfrmCommonFontsMain.LoadSettingsFromIni;
+var
+  Ini: TMemIniFile;
+begin
+  Ini := TMemIniFile.Create(ExtractFilePath(ParamStr(0)) + 'CustomFonts.ini');
+  try
+    Left := Ini.ReadInteger('Window', 'Left', Left);
+    Top := Ini.ReadInteger('Window', 'Top', Top);
+    Width := Ini.ReadInteger('Window', 'Width', Width);
+    Height := Ini.ReadInteger('Window', 'Height', Height);
+  finally
+    Ini.Free;
+  end;
+end;
+
+
+procedure TfrmCommonFontsMain.SaveSettingsToIni;
+var
+  Ini: TMemIniFile;
+begin
+  Ini := TMemIniFile.Create(ExtractFilePath(ParamStr(0)) + 'CustomFonts.ini');
+  try
+    Ini.WriteInteger('Window', 'Left', Left);
+    Ini.WriteInteger('Window', 'Top', Top);
+    Ini.WriteInteger('Window', 'Width', Width);
+    Ini.WriteInteger('Window', 'Height', Height);
+
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+end;
+
+
+procedure TfrmCommonFontsMain.tmrStartupTimer(Sender: TObject);
+begin
+  tmrStartup.Enabled := False;
+  LoadSettingsFromIni;
+end;
+
+
+procedure TfrmCommonFontsMain.FormCreate(Sender: TObject);
+begin
+  tmrStartup.Enabled := True;
+end;
+
+
+procedure TfrmCommonFontsMain.FormClose(Sender: TObject;
+  var CloseAction: TCloseAction);
+begin
+  try
+    SaveSettingsToIni;
+  except
+  end;
+end;
 
 end.
 
