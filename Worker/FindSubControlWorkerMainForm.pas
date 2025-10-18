@@ -1387,11 +1387,15 @@ begin
   frmFindSubControlWorkerMain.FMissedPingResponseCount := 0; //Also, reset the missed ping response counter.
 
   WorkerName := frmFindSubControlWorkerMain.lbeClientID.Text;
-  ThisWorkerTask := Copy(TempWorkerSpecificTask, Pos(WorkerName + CWorkerTaskAssignmentOperator, TempWorkerSpecificTask) + Length(WorkerName + CWorkerTaskAssignmentOperator), MaxInt);
-  ThisWorkerTask := Copy(ThisWorkerTask, 1, Pos(CWorkerTaskLineBreak, ThisWorkerTask) - 1);
-  frmFindSubControlWorkerMain.lbeLatestWork.Text := ThisWorkerTask;
-  frmFindSubControlWorkerMain.lbeLatestWork.Hint := 'Updated at ' + DateTimeToStr(Now);
-  frmFindSubControlWorkerMain.FThisWorkerTask := ThisWorkerTask;
+
+  if Topic = TopicWithWorkerName_FindSubControl then
+  begin
+    ThisWorkerTask := Copy(TempWorkerSpecificTask, Pos(WorkerName + CWorkerTaskAssignmentOperator, TempWorkerSpecificTask) + Length(WorkerName + CWorkerTaskAssignmentOperator), MaxInt);
+    ThisWorkerTask := Copy(ThisWorkerTask, 1, Pos(CWorkerTaskLineBreak, ThisWorkerTask) - 1);
+    frmFindSubControlWorkerMain.lbeLatestWork.Text := ThisWorkerTask;
+    frmFindSubControlWorkerMain.lbeLatestWork.Hint := 'Updated at ' + DateTimeToStr(Now);
+    frmFindSubControlWorkerMain.FThisWorkerTask := ThisWorkerTask;
+  end;
 
   if VerbLevel < 1 then
     frmFindSubControlWorkerMain.AddToLog('Received PUBLISH' + #13#10 +
