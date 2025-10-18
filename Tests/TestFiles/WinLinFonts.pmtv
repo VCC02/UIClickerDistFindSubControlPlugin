@@ -8,11 +8,11 @@ Count=3
 Count=1
 
 [Primitive_0]
-PrimitiveName=DejaVu Sans
+PrimitiveName=Terminal
 Primitive=SetFont
 ForegroundColor=000000
 BackgroundColor=FFFFFF
-FontName=DejaVu Sans
+FontName=Terminal
 FontSize=8
 Bold=0
 Italic=0
@@ -29,11 +29,11 @@ CropBottom=
 IgnoreBackgroundColor=0
 
 [Primitive_1]
-PrimitiveName=DejaVu Serif
+PrimitiveName=Arial
 Primitive=SetFont
 ForegroundColor=000000
 BackgroundColor=FFFFFF
-FontName=DejaVu Serif
+FontName=Arial
 FontSize=8
 Bold=0
 Italic=0

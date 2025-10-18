@@ -2167,7 +2167,7 @@ constructor TTestDistPluginWinLinCustomFonts_WinPlugin.Create;
 begin
   inherited Create;
   SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin. Only one Win worker "implements" the used font.
-  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma', 'DejaVu Sans,DejaVu Sans Mono', 'Liberation Sans']);
+  SetReportedFonts(['Terminal,Arial', 'Courier New,Tahoma', 'Terminal,Fixedsys', 'Liberation Sans']);
   SetPluginUsedOS(CReportedOS_Win);
 end;
 
@@ -2271,7 +2271,7 @@ constructor TTestDistPluginWinLinCustomFonts_LinPlugin.Create;
 begin
   inherited Create;
   SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);       //two Win, two Lin. Only one Lin worker "implements" the used font.
-  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma', 'DejaVu Sans,DejaVu Sans Mono', 'Liberation Sans']);
+  SetReportedFonts(['Terminal,Arial', 'Courier New,Tahoma', 'Terminal,Fixedsys', 'Liberation Sans']);
   SetPluginUsedOS(CReportedOS_Lin);
 end;
 
@@ -3685,7 +3685,7 @@ constructor TTestDistPlugin_PmtvText_WinLinWorkers.Create;
 begin
   inherited Create;
   SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);
-  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']);
+  SetReportedFonts(['Terminal,Arial', 'Courier New,Tahoma,Verdana', 'Terminal,Fixedsys', 'Arial,Monospace,Ubuntu Mono']);
   //SetPluginUsedOS(CReportedOS_WinLin);  //Leave commented. The plugin is Win+Lin by default in template.
 end;
 
@@ -3694,7 +3694,7 @@ procedure TTestDistPlugin_PmtvText_WinLinWorkers.BeforeAll_AlwaysExecute;
 begin
   inherited;
   //OSes:  [ Win,                        Win,                          Lin,                            Lin                                ]
-  //Fonts: ['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']
+  //Fonts: ['Terminal,Arial', 'Courier New,Tahoma,Verdana', 'Terminal,Fixedsys', 'Arial,Monospace,Ubuntu Mono']
   //Pmtvs: WinLin                        Win                                                           Lin
 end;
 
@@ -3737,7 +3737,7 @@ begin
   ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');
 end;
 
 
@@ -3747,7 +3747,7 @@ begin
   ExpectWorkAtPluginSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkAtWorkerSide(['Pmtv_0=1&'], 3, [COnePmtvFontProfileTask], [1]);
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');
 end;
 
 
@@ -3766,9 +3766,9 @@ begin
 
   try
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');
     ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');
   end;
 end;
@@ -3785,9 +3785,9 @@ begin
 
   try
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Terminal,Arial');
     ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');
   end;
 end;
@@ -3807,11 +3807,11 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');
   end;
 end;
 
@@ -3838,33 +3838,33 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');           //WinLin
     ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier NewTahomaVerdana');         //Win
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
       ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahoma,Verdana');         //Win
-      ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'TerminalArial');           //WinLin
     except
       try
         ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'TerminalArial');           //WinLin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');           //WinLin
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');           //WinLin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier NewTahomaVerdana');         //Win
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');           //WinLin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');         //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           except
             ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');           //WinLin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');           //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           end;
         end;
       end;
@@ -3894,25 +3894,25 @@ begin
 
   try
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
   except
     try
       ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana'); //Win
-      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');    //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');    //WinLin
     except
       try
         ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana'); //Win
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Sans Mono'); //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalFixedsys'); //Lin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');         //Win
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');       //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');       //WinLin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Sans Mono');    //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');    //Lin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
           end;
         end;
@@ -3944,27 +3944,27 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');            //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');            //Lin
     ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');                    //Win
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');          //Lin
-      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');                     //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');          //Lin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');                     //WinLin
     except
       try
-        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');        //Lin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Sans Mono');               //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');        //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalFixedsys');               //Lin
       except
         try
           ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');              //Win
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');      //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');      //Lin
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');               //WinLin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');    //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');               //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');    //Lin
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Sans Mono');           //Lin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');    //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');           //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');    //Lin
           end;
         end;
       end;
@@ -3995,27 +3995,27 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');            //WinLin
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');            //WinLin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');          //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');          //WinLin
       ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');       //Win
     except
       try
-        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');        //WinLin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Sans Mono');    //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');        //WinLin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalFixedsys');    //Lin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');            //WinLin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');            //WinLin
         except
           try
             ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');       //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');          //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Sans Mono');      //Lin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');          //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');      //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
           end;
         end;
       end;
@@ -4246,7 +4246,7 @@ constructor TTestDistPlugin_PmtvText_And_Bmp_WinLinWorkers.Create;
 begin
   inherited Create;
   SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Lin, CReportedOS_Lin]);
-  SetReportedFonts(['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']);
+  SetReportedFonts(['Terminal,Arial', 'Courier New,Tahoma,Verdana', 'Terminal,Fixedsys', 'Arial,Monospace,Ubuntu Mono']);
   //SetPluginUsedOS(CReportedOS_WinLin);  //Leave commented. The plugin is Win+Lin by default in template.
 end;
 
@@ -4255,7 +4255,7 @@ procedure TTestDistPlugin_PmtvText_And_Bmp_WinLinWorkers.BeforeAll_AlwaysExecute
 begin
   inherited;
   //OSes:  [ Win,                        Win,                          Lin,                            Lin                                ]
-  //Fonts: ['DejaVu Sans,DejaVu Serif', 'Courier New,Tahoma,Verdana', 'DejaVu Sans,DejaVu Sans Mono', 'DejaVu Serif,Monospace,Ubuntu Mono']
+  //Fonts: ['Terminal,Arial', 'Courier New,Tahoma,Verdana', 'Terminal,Fixedsys', 'Arial,Monospace,Ubuntu Mono']
   //Pmtvs: WinLin                        Win                                                           Lin
 end;
 
@@ -4308,7 +4308,7 @@ begin
   end;
 
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');
 end;
 
 
@@ -4324,7 +4324,7 @@ begin
   end;
 
   ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
-  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');
+  ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');
 end;
 
 
@@ -4349,9 +4349,9 @@ begin
 
   try
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');
     ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');
   end;
 end;
@@ -4373,9 +4373,9 @@ begin
 
   try
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu Sans,DejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Terminal,Arial');
     ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');
   end;
 end;
@@ -4401,11 +4401,11 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');
   except
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');
   end;
 end;
 
@@ -4438,33 +4438,33 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');           //WinLin
     ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier NewTahomaVerdana');         //Win
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
       ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahoma,Verdana');         //Win
-      ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'TerminalArial');           //WinLin
     except
       try
         ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'TerminalArial');           //WinLin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');           //WinLin
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');           //WinLin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'Courier NewTahomaVerdana');         //Win
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');           //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');           //WinLin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');         //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           except
             ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');           //WinLin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');           //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_2=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           end;
         end;
       end;
@@ -4499,25 +4499,25 @@ begin
 
   try
     ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');         //Win
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
   except
     try
       ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana'); //Win
-      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');    //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');    //WinLin
     except
       try
         ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana'); //Win
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Sans Mono'); //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalFixedsys'); //Lin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
           ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');         //Win
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');       //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');       //WinLin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Sans Mono');    //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');    //Lin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
           end;
         end;
@@ -4554,27 +4554,27 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');            //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');            //Lin
     ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');                    //Win
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');          //Lin
-      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');                     //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');          //Lin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');                     //WinLin
     except
       try
-        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono');        //Lin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Sans Mono');               //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono');        //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalFixedsys');               //Lin
       except
         try
           ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');              //Win
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');      //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');      //Lin
         except
           try
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');               //WinLin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');    //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');               //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');    //Lin
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Sans Mono');           //Lin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono');    //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');           //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono');    //Lin
           end;
         end;
       end;
@@ -4610,27 +4610,27 @@ begin
   end;
 
   try
-    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');            //WinLin
-    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');            //WinLin
+    ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'ArialMonospaceUbuntu Mono'); //Lin
   except
     try
-      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');          //WinLin
+      ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');          //WinLin
       ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');       //Win
     except
       try
-        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Serif');        //WinLin
-        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Sans Mono');    //Lin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');        //WinLin
+        ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalFixedsys');    //Lin
       except
         try
-          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SerifMonospaceUbuntu Mono'); //Lin
-          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');            //WinLin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'ArialMonospaceUbuntu Mono'); //Lin
+          ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');            //WinLin
         except
           try
             ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');       //Win
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');          //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'DejaVu SansDejaVu Sans Mono');      //Lin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'DejaVu SansDejaVu Serif');          //WinLin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');      //Lin
+            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
           end;
         end;
       end;
