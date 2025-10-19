@@ -1226,8 +1226,8 @@ end;
 procedure TTestDistPlugin.BeforeAll(const AReportedOSes, AReportedFonts: TStringArr);
 begin
   StartAllUIClickerInstances;
-  StartAllWorkerInstances(AReportedOSes, AReportedFonts);
-  CommonFonts_Proc := StartTestUtilities;
+  //StartAllWorkerInstances(AReportedOSes, AReportedFonts);   //Moved below. Uncomment these lines after finding a solution to the problem of "inactive UIClicker main window". It is possible that the window can't get to front, because the worker windows are busy starting up.
+  //CommonFonts_Proc := StartTestUtilities;
 
   WaitForDriverStartup;
 
@@ -1249,6 +1249,10 @@ begin
   Sleep(500);                       //these sleep calls should be replaced by some waiting loops
   ArrangeUIClickerActionWindows;
   Sleep(500);
+
+  StartAllWorkerInstances(AReportedOSes, AReportedFonts);
+  CommonFonts_Proc := StartTestUtilities;
+
   ArrangeWorkerWindows;
   Sleep(500);
 
