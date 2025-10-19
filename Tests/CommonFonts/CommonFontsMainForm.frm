@@ -1,7 +1,7 @@
 object frmCommonFontsMain: TfrmCommonFontsMain
-  Left = 370
+  Left = 373
   Height = 383
-  Top = 186
+  Top = 185
   Width = 382
   Caption = 'CommonFonts'
   ClientHeight = 383
@@ -11,9 +11,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   OnCreate = FormCreate
   object Label1: TLabel
     Left = 8
-    Height = 15
+    Height = 14
     Top = 40
-    Width = 31
+    Width = 36
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -26,9 +26,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label2: TLabel
     Left = 8
-    Height = 15
+    Height = 14
     Top = 72
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -41,9 +41,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label3: TLabel
     Left = 8
-    Height = 15
+    Height = 14
     Top = 104
-    Width = 31
+    Width = 37
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -56,9 +56,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label4: TLabel
     Left = 8
-    Height = 15
+    Height = 14
     Top = 136
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -71,9 +71,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label5: TLabel
     Left = 8
-    Height = 15
+    Height = 14
     Top = 168
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -86,9 +86,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label6: TLabel
     Left = 8
-    Height = 15
+    Height = 14
     Top = 198
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -101,9 +101,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label7: TLabel
     Left = 80
-    Height = 15
+    Height = 14
     Top = 40
-    Width = 31
+    Width = 36
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -116,9 +116,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label8: TLabel
     Left = 80
-    Height = 15
+    Height = 14
     Top = 72
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -131,9 +131,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label9: TLabel
     Left = 80
-    Height = 15
+    Height = 14
     Top = 104
-    Width = 31
+    Width = 37
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -146,9 +146,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label10: TLabel
     Left = 80
-    Height = 15
+    Height = 14
     Top = 136
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -161,9 +161,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label11: TLabel
     Left = 80
-    Height = 15
+    Height = 14
     Top = 168
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -176,9 +176,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label12: TLabel
     Left = 80
-    Height = 15
+    Height = 14
     Top = 198
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -191,9 +191,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label13: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 40
-    Width = 31
+    Width = 36
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -206,9 +206,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label14: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 72
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -221,9 +221,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label15: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 104
-    Width = 31
+    Width = 37
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -236,9 +236,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label16: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 136
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -251,9 +251,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label17: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 168
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -266,9 +266,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label18: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 198
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -281,9 +281,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label19: TLabel
     Left = 224
-    Height = 15
+    Height = 14
     Top = 40
-    Width = 31
+    Width = 36
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -296,9 +296,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label20: TLabel
     Left = 224
-    Height = 15
+    Height = 14
     Top = 72
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -311,9 +311,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label21: TLabel
     Left = 224
-    Height = 15
+    Height = 14
     Top = 104
-    Width = 31
+    Width = 37
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -326,9 +326,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label22: TLabel
     Left = 224
-    Height = 15
+    Height = 14
     Top = 136
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -341,9 +341,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label23: TLabel
     Left = 224
-    Height = 15
+    Height = 14
     Top = 168
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -356,9 +356,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label24: TLabel
     Left = 224
-    Height = 15
+    Height = 14
     Top = 198
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -371,9 +371,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object lblDraft: TLabel
     Left = 25
-    Height = 15
+    Height = 14
     Top = 8
-    Width = 26
+    Width = 31
     Caption = 'Draft'
     Color = clYellow
     Font.CharSet = ANSI_CHARSET
@@ -386,9 +386,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object lblAntialiased: TLabel
     Left = 72
-    Height = 15
+    Height = 14
     Top = 8
-    Width = 61
+    Width = 69
     Caption = 'Antialiased'
     Color = clYellow
     Font.CharSet = ANSI_CHARSET
@@ -401,9 +401,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object lblCleartype: TLabel
     Left = 152
-    Height = 15
+    Height = 14
     Top = 8
-    Width = 52
+    Width = 59
     Caption = 'Cleartype'
     Color = clYellow
     Font.CharSet = ANSI_CHARSET
@@ -416,9 +416,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object lblProof: TLabel
     Left = 225
-    Height = 15
+    Height = 14
     Top = 8
-    Width = 29
+    Width = 33
     Caption = 'Proof'
     Color = clYellow
     Font.CharSet = ANSI_CHARSET
@@ -679,9 +679,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label25: TLabel
     Left = 296
-    Height = 15
+    Height = 14
     Top = 40
-    Width = 31
+    Width = 36
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -694,9 +694,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label26: TLabel
     Left = 296
-    Height = 15
+    Height = 14
     Top = 72
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -709,9 +709,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label27: TLabel
     Left = 296
-    Height = 15
+    Height = 14
     Top = 104
-    Width = 31
+    Width = 37
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -724,9 +724,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label28: TLabel
     Left = 296
-    Height = 15
+    Height = 14
     Top = 136
-    Width = 31
+    Width = 42
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -739,9 +739,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label29: TLabel
     Left = 296
-    Height = 15
+    Height = 14
     Top = 168
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -754,9 +754,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object Label30: TLabel
     Left = 296
-    Height = 15
+    Height = 14
     Top = 198
-    Width = 31
+    Width = 32
     Caption = '32-bit'
     Color = clGreen
     Font.CharSet = ANSI_CHARSET
@@ -769,9 +769,9 @@ object frmCommonFontsMain: TfrmCommonFontsMain
   end
   object lblNonAntialiased: TLabel
     Left = 281
-    Height = 15
+    Height = 14
     Top = 8
-    Width = 84
+    Width = 94
     Caption = 'NonAntialiased'
     Color = clYellow
     Font.CharSet = ANSI_CHARSET
@@ -818,15 +818,12 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 41
     Height = 15
     Top = 120
-    Width = 33
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Semibold'
-    Font.Pitch = fpVariable
+    Font.Name = 'Fixedsys'
     Font.Quality = fqDraft
-    Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -835,31 +832,26 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 41
     Height = 15
     Top = 152
-    Width = 30
+    Width = 31
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Light'
-    Font.Pitch = fpVariable
+    Font.Name = 'Arial'
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
     Transparent = False
   end
   object Label35: TLabel
-    Left = 41
-    Height = 15
+    Left = 42
+    Height = 12
     Top = 184
-    Width = 36
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Black'
-    Font.Pitch = fpVariable
+    Font.Name = 'Terminal'
     Font.Quality = fqDraft
-    Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -871,10 +863,8 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Width = 32
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
     Font.Name = 'Tahoma'
-    Font.Pitch = fpVariable
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
@@ -916,15 +906,12 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 113
     Height = 15
     Top = 120
-    Width = 33
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Semibold'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Fixedsys'
+    Font.Quality = fqAntialiased
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -933,31 +920,26 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 113
     Height = 15
     Top = 152
-    Width = 30
+    Width = 31
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Light'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
+    Font.Name = 'Arial'
+    Font.Quality = fqAntialiased
     ParentColor = False
     ParentFont = False
     Transparent = False
   end
   object Label41: TLabel
     Left = 113
-    Height = 15
+    Height = 12
     Top = 184
-    Width = 36
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Black'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Terminal'
+    Font.Quality = fqAntialiased
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -969,10 +951,8 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Width = 32
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
     Font.Name = 'Tahoma'
-    Font.Pitch = fpVariable
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
@@ -1014,15 +994,12 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 185
     Height = 15
     Top = 120
-    Width = 33
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Semibold'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Fixedsys'
+    Font.Quality = fqCleartype
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -1031,31 +1008,26 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 185
     Height = 15
     Top = 152
-    Width = 30
+    Width = 31
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Light'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
+    Font.Name = 'Arial'
+    Font.Quality = fqCleartype
     ParentColor = False
     ParentFont = False
     Transparent = False
   end
   object Label47: TLabel
     Left = 185
-    Height = 15
+    Height = 12
     Top = 184
-    Width = 36
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Black'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Terminal'
+    Font.Quality = fqCleartype
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -1067,10 +1039,8 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Width = 32
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
     Font.Name = 'Tahoma'
-    Font.Pitch = fpVariable
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
@@ -1112,15 +1082,12 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 257
     Height = 15
     Top = 120
-    Width = 33
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Semibold'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Fixedsys'
+    Font.Quality = fqProof
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -1129,31 +1096,26 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 257
     Height = 15
     Top = 152
-    Width = 30
+    Width = 31
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Light'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
+    Font.Name = 'Arial'
+    Font.Quality = fqProof
     ParentColor = False
     ParentFont = False
     Transparent = False
   end
   object Label53: TLabel
     Left = 257
-    Height = 15
+    Height = 12
     Top = 184
-    Width = 36
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Black'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Terminal'
+    Font.Quality = fqProof
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -1165,10 +1127,8 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Width = 32
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
     Font.Name = 'Tahoma'
-    Font.Pitch = fpVariable
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
@@ -1210,15 +1170,12 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 329
     Height = 15
     Top = 120
-    Width = 33
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Semibold'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Fixedsys'
+    Font.Quality = fqNonAntialiased
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -1227,31 +1184,26 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Left = 329
     Height = 15
     Top = 152
-    Width = 30
+    Width = 31
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Light'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
+    Font.Name = 'Arial'
+    Font.Quality = fqNonAntialiased
     ParentColor = False
     ParentFont = False
     Transparent = False
   end
   object Label59: TLabel
     Left = 329
-    Height = 15
+    Height = 12
     Top = 184
-    Width = 36
+    Width = 48
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
-    Font.Name = 'Segoe UI Black'
-    Font.Pitch = fpVariable
-    Font.Quality = fqDraft
-    Font.Style = [fsBold]
+    Font.Name = 'Terminal'
+    Font.Quality = fqNonAntialiased
     ParentColor = False
     ParentFont = False
     Transparent = False
@@ -1263,10 +1215,8 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Width = 32
     Caption = '32-bit'
     Color = clGreen
-    Font.CharSet = ANSI_CHARSET
     Font.Height = -12
     Font.Name = 'Tahoma'
-    Font.Pitch = fpVariable
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
