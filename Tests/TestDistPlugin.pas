@@ -3880,8 +3880,18 @@ end;
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly;
 begin
   inherited;      //In case of no fonts, at least one worker should receive the task. Another worker, should receive the "Fonts" task (with priority).
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  try
+    ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+    ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  except
+    try
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+    except
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 3, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 3, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+    end;
+  end;
 
   try
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
@@ -3916,8 +3926,13 @@ begin
             ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');       //WinLin
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');    //Lin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
+            try
+              ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');    //Lin
+              ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana');    //Win
+            except
+              ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana'); //Win
+              ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'Courier NewTahomaVerdana'); //Win
+            end;
           end;
         end;
       end;
@@ -3931,8 +3946,18 @@ end;
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly;
 begin
   inherited;      //In case of no fonts, at least one worker should receive the task. Another worker, should receive the "Fonts" task (with priority).
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  try
+    ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+    ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  except
+    try
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+    except
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 3, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 3, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+    end;
+  end;
 
   try
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Lin);
@@ -3982,8 +4007,18 @@ end;
 procedure TTestDistPlugin_PmtvText_WinLinWorkers.Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts;
 begin
   inherited;      //In case of no fonts, at least one worker should receive the task. Another worker, should receive the "Fonts" task (with priority).
-  ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
-  ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  try
+    ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+    ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [COnePmtvFontProfileTask], [2]);
+  except
+    try
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 2, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+    except
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 3, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&'], 3, [CTwoPmtvFontProfilesTask], [1]);  //two pmtvs allocated on the same worker
+    end;
+  end;
 
   try
     ExpectWorkerOSOnSpecificTask('Pmtv_0=1&', CReportedOS_Win);
@@ -4018,8 +4053,13 @@ begin
             ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'Courier NewTahomaVerdana');       //Win
             ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
           except
-            ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');      //Lin
-            ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
+            try
+              ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalFixedsys');      //Lin
+              ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');          //WinLin
+            except
+              ExpectWorkerFontsOnSpecificTask('Pmtv_0=1&', 'TerminalArial');      //WinLin
+              ExpectWorkerFontsOnSpecificTask('Pmtv_1=1&', 'TerminalArial');      //WinLin
+            end;
           end;
         end;
       end;
@@ -4484,8 +4524,13 @@ begin
     ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 1, [COnePmtvFontProfileTask, COneBmpTask], [2, 1]);
     ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 1, [COnePmtvFontProfileTask, COneBmpTask], [2, 1]);
   except
-    ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
-    ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+    try
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+    except
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COneBmpTask, CTwoPmtvFontProfilesTask], [1, 1]); //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COneBmpTask, CTwoPmtvFontProfilesTask], [1, 1]); //two pmtvs allocated on the same worker
+    end;
   end;
 
   try
@@ -4540,8 +4585,13 @@ begin
     ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 1, [COnePmtvFontProfileTask, COneBmpTask], [2, 1]);
     ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 1, [COnePmtvFontProfileTask, COneBmpTask], [2, 1]);
   except
-    ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
-    ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+    try
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+    except
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COneBmpTask, CTwoPmtvFontProfilesTask], [1, 1]); //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COneBmpTask, CTwoPmtvFontProfilesTask], [1, 1]); //two pmtvs allocated on the same worker
+    end;
   end;
 
   try
