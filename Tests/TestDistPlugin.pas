@@ -1093,7 +1093,7 @@ const
   CFiveBmpsTask = 'TxtCnt=0&BmpCnt=5&PmtvCnt=0&';
 
   COnePmtvFontProfileTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=1&';
-  //CTwoPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=2&';
+  CTwoPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=2&';
   //CThreePmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=3&';
   //CFourPmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=4&';
   //CFivePmtvFontProfilesTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=5&';
@@ -4596,8 +4596,13 @@ begin
     ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 1, [COnePmtvFontProfileTask, COneBmpTask], [2, 1]);
     ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 1, [COnePmtvFontProfileTask, COneBmpTask], [2, 1]);
   except
-    ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
-    ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+    try
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COnePmtvFontProfileTask, COneBmpAndOnePmtvFontProfileTask], [1, 1]);
+    except
+      ExpectWorkAtPluginSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COneBmpTask, CTwoPmtvFontProfilesTask], [1, 1]); //two pmtvs allocated on the same worker
+      ExpectWorkAtWorkerSide(['Pmtv_0=1&', 'Pmtv_1=1&', 'Bmp_0=1&'], 2, [COneBmpTask, CTwoPmtvFontProfilesTask], [1, 1]); //two pmtvs allocated on the same worker
+    end;
   end;
 
   try

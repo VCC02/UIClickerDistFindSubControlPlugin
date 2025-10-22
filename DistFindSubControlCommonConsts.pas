@@ -162,6 +162,7 @@ type
     ResponseVars: TResponseVars;
     ResponseBitmapStream: TMemoryStream;
     Fonts: string;
+    FindSubControlRequestID: string;
   end;
 
   TWorkerArr = array of TWorker;

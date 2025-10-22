@@ -151,7 +151,10 @@ var
   UsingCustomFontProfiles: Boolean;
   CustomProfilesFnm: string;
   MinExpectedWorkerCount: Integer;
+
+  RequestIDCnt: Integer;
   GetCapabilitiesRequestID: string;
+  SendBackgroundToAllRequestID: string;
 
   RecTh: TMQTTReceiveThread;
 
@@ -645,7 +648,8 @@ begin
   case ACallbackID and $FF of
     CCallbackID_GetCapabilities:
     begin
-      GetCapabilitiesRequestID := IntToStr(GetTickCount64);
+      GetCapabilitiesRequestID := IntToStr(GetTickCount64) + '_' + IntToStr(RequestIDCnt);
+      Inc(RequestIDCnt);
 
       Msg := CMQTT_AppToWorkerCmd_GetCapabilities + #13#10 + CProtocolParam_RequestID + '=' + GetCapabilitiesRequestID;
       TempWorkerSpecificTask := 'DebuggingString';
@@ -658,7 +662,10 @@ begin
 
     CCallbackID_SendBackgroundToAll:
     begin
-      Msg := AllWorkerBackgroundBmpStr;
+      SendBackgroundToAllRequestID := IntToStr(GetTickCount64) + '_' + IntToStr(RequestIDCnt);
+      Inc(RequestIDCnt);
+
+      Msg := CProtocolParam_RequestID + '=' + SendBackgroundToAllRequestID + '&' + AllWorkerBackgroundBmpStr;  //AllWorkerBackgroundBmpStr uses '&' instead of #13#10 and the last string is the background itself
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_SendBackground, APublishFields.TopicName);
 
       if VerbLevel < 2 then
@@ -692,8 +699,13 @@ begin
     CCallbackID_SendFindSubControl:
     begin
       CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
-      Msg := AllWorkers[CurrentWorkerIndex].WorkerActionContentStr;
+
+      AllWorkers[CurrentWorkerIndex].FindSubControlRequestID := IntToStr(GetTickCount64) + '_' + IntToStr(RequestIDCnt);
+      Inc(RequestIDCnt);
+
+      Msg := CProtocolParam_RequestID + '=' + AllWorkers[CurrentWorkerIndex].FindSubControlRequestID + '&' + AllWorkers[CurrentWorkerIndex].WorkerActionContentStr;
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_FindSubControl + '_' + AllWorkers[CurrentWorkerIndex].Name, APublishFields.TopicName);
+      //AddToLog('---------------------------------- Sending FindSubControl request with ID: ' + AllWorkers[CurrentWorkerIndex].FindSubControlRequestID);
 
       if VerbLevel < 2 then
         AddToLog('Publishing FindSubControl request to worker[' + IntToStr(CurrentWorkerIndex) + ']...');
@@ -829,6 +841,7 @@ begin
   AllWorkers[Length(AllWorkers) - 1].ResponseBitmapStream := TMemoryStream.Create; //created here, destroyed on returning to app
 
   AllWorkers[Length(AllWorkers) - 1].Fonts := '';
+  AllWorkers[Length(AllWorkers) - 1].FindSubControlRequestID := 'NotSet';
 end;
 
 
@@ -949,23 +962,24 @@ begin
 
 
     if Topic = CTopicName_WorkerToApp_SendBackground then
-    begin
-      WorkerIndex := GetWorkerIndexByName(WorkerName);
-      if WorkerIndex = -1 then
-        AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
-      else
+      if WorkerRequestID = SendBackgroundToAllRequestID then
       begin
-        if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
-        begin
-          Inc(WorkerRespondedCount);
-
-          if VerbLevel < 2 then
-            AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with success when sending background image.');
-        end
+        WorkerIndex := GetWorkerIndexByName(WorkerName);
+        if WorkerIndex = -1 then
+          AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
         else
-          AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with error when sending background image: ' + Content.Values['$ExecAction_Err$']);
+        begin
+          if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
+          begin
+            Inc(WorkerRespondedCount);
+
+            if VerbLevel < 2 then
+              AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with success when sending background image.');
+          end
+          else
+            AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with error when sending background image: ' + Content.Values['$ExecAction_Err$']);
+        end;
       end;
-    end;
 
     if Topic = CTopicName_WorkerToApp_FindSubControl then
     begin
@@ -974,49 +988,54 @@ begin
         AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
       else
       begin
-        Inc(WorkerRespondedCount);
-        AllWorkers[WorkerIndex].ResponseReceived := True;
-        AllWorkers[WorkerIndex].Response := Content.Values['$ExecAction_Err$'];  /////////////// there is also CActionPlugin_ExecutionResultErrorVar, but the response is set to $ExecAction_Err$
-        AllWorkers[WorkerIndex].FindSubControlFound := AllWorkers[WorkerIndex].Response = '';
-
-        AllWorkers[WorkerIndex].ResponseVars.ControlLeft := Content.Values['$Control_Left$'];
-        AllWorkers[WorkerIndex].ResponseVars.ControlTop := Content.Values['$Control_Top$'];
-        AllWorkers[WorkerIndex].ResponseVars.ControlRight := Content.Values['$Control_Right$'];
-        AllWorkers[WorkerIndex].ResponseVars.ControlBottom := Content.Values['$Control_Bottom$'];
-        AllWorkers[WorkerIndex].ResponseVars.ControlWidth := Content.Values['$Control_Width$'];
-        AllWorkers[WorkerIndex].ResponseVars.ControlHeight := Content.Values['$Control_Height$'];
-        AllWorkers[WorkerIndex].ResponseVars.HalfControlWidth := Content.Values['$Half_Control_Width$'];
-        AllWorkers[WorkerIndex].ResponseVars.HalfControlHeight := Content.Values['$Half_Control_Height$'];
-        AllWorkers[WorkerIndex].ResponseVars.SubCnvXOffset := Content.Values['$DebugVar_SubCnvXOffset$'];
-        AllWorkers[WorkerIndex].ResponseVars.SubCnvYOffset := Content.Values['$DebugVar_SubCnvYOffset$'];
-
-        if GetAllControls then
+        if WorkerRequestID = AllWorkers[WorkerIndex].FindSubControlRequestID then   //////////////////////// must be uncommented, but then, some workers are not counted
         begin
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Handles := Content.Values['$AllControl_Handles$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_XOffsets := Content.Values['$AllControl_XOffsets$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_YOffsets := Content.Values['$AllControl_YOffsets$'];
+          Inc(WorkerRespondedCount);
+          AllWorkers[WorkerIndex].ResponseReceived := True;
+          AllWorkers[WorkerIndex].Response := Content.Values['$ExecAction_Err$'];  /////////////// there is also CActionPlugin_ExecutionResultErrorVar, but the response is set to $ExecAction_Err$
+          AllWorkers[WorkerIndex].FindSubControlFound := AllWorkers[WorkerIndex].Response = '';
 
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_MatchSource := Content.Values['$AllControl_MatchSource$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_DetailedMatchSource := Content.Values['$AllControl_DetailedMatchSource$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_ResultedErrorCount := Content.Values['$AllControl_ResultedErrorCount$'];
+          AllWorkers[WorkerIndex].ResponseVars.ControlLeft := Content.Values['$Control_Left$'];
+          AllWorkers[WorkerIndex].ResponseVars.ControlTop := Content.Values['$Control_Top$'];
+          AllWorkers[WorkerIndex].ResponseVars.ControlRight := Content.Values['$Control_Right$'];
+          AllWorkers[WorkerIndex].ResponseVars.ControlBottom := Content.Values['$Control_Bottom$'];
+          AllWorkers[WorkerIndex].ResponseVars.ControlWidth := Content.Values['$Control_Width$'];
+          AllWorkers[WorkerIndex].ResponseVars.ControlHeight := Content.Values['$Control_Height$'];
+          AllWorkers[WorkerIndex].ResponseVars.HalfControlWidth := Content.Values['$Half_Control_Width$'];
+          AllWorkers[WorkerIndex].ResponseVars.HalfControlHeight := Content.Values['$Half_Control_Height$'];
+          AllWorkers[WorkerIndex].ResponseVars.SubCnvXOffset := Content.Values['$DebugVar_SubCnvXOffset$'];
+          AllWorkers[WorkerIndex].ResponseVars.SubCnvYOffset := Content.Values['$DebugVar_SubCnvYOffset$'];
 
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Lefts := Content.Values['$AllControl_Lefts$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Tops := Content.Values['$AllControl_Lefts$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Rights := Content.Values['$AllControl_Rights$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Bottoms := Content.Values['$AllControl_Bottoms$'];
+          if GetAllControls then
+          begin
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Handles := Content.Values['$AllControl_Handles$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_XOffsets := Content.Values['$AllControl_XOffsets$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_YOffsets := Content.Values['$AllControl_YOffsets$'];
 
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Widths := Content.Values['$AllControl_Widths$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllControl_Heights := Content.Values['$AllControl_Heights$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllHalfControl_Widths := Content.Values['$AllHalf_Control_Widths$'];
-          AllWorkers[WorkerIndex].ResponseVars.AllHalfControl_Heights := Content.Values['$AllHalf_Control_Heights$'];
-        end;
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_MatchSource := Content.Values['$AllControl_MatchSource$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_DetailedMatchSource := Content.Values['$AllControl_DetailedMatchSource$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_ResultedErrorCount := Content.Values['$AllControl_ResultedErrorCount$'];
 
-        TempResponseArchiveStr := Copy(Msg, Pos(CProtocolParam_ResultImageArchive + '=', Msg) + Length(CProtocolParam_ResultImageArchive + '='), MaxInt);
-        SetWorkerResponseBitmapStream(WorkerIndex, TempResponseArchiveStr, Content.Values[CProtocolParam_ResponseArchiveSize]);
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Lefts := Content.Values['$AllControl_Lefts$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Tops := Content.Values['$AllControl_Lefts$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Rights := Content.Values['$AllControl_Rights$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Bottoms := Content.Values['$AllControl_Bottoms$'];
 
-        AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_AtLeastOneFound;   //this should be set after all responses
-      end;
-    end;
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Widths := Content.Values['$AllControl_Widths$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllControl_Heights := Content.Values['$AllControl_Heights$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllHalfControl_Widths := Content.Values['$AllHalf_Control_Widths$'];
+            AllWorkers[WorkerIndex].ResponseVars.AllHalfControl_Heights := Content.Values['$AllHalf_Control_Heights$'];
+          end;
+
+          TempResponseArchiveStr := Copy(Msg, Pos(CProtocolParam_ResultImageArchive + '=', Msg) + Length(CProtocolParam_ResultImageArchive + '='), MaxInt);
+          SetWorkerResponseBitmapStream(WorkerIndex, TempResponseArchiveStr, Content.Values[CProtocolParam_ResponseArchiveSize]);
+
+          AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_AtLeastOneFound;   //this should be set after all responses
+        end  //WorkerRequestID = AllWorkers[WorkerIndex].FindSubControlRequestID
+        else
+          AddToLog('==================== Received FindSubControl response with RequestID = ' + AllWorkers[WorkerIndex].FindSubControlRequestID);
+      end; //WorkerIndex = -1
+    end; //Topic
 
     if Topic = CTopicName_WorkerToApp_GetListOfFonts then
       if WaitingForWorkerFonts then
@@ -3205,6 +3224,10 @@ begin
   SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
   WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
   GetCapabilitiesRequestID := 'NotSet';
+  SendBackgroundToAllRequestID := 'NotSet';
+
+  Randomize;
+  RequestIDCnt := Random(MaxInt);
   VerbLevel := 2;
 
   try

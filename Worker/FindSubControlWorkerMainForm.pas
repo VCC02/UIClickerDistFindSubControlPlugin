@@ -123,7 +123,9 @@ type
     FChachedFonts: string;
     FGotPingResponse: Boolean;
     FMissedPingResponseCount: Integer;
-    FWorkerRequestID: string;
+    FGetCapabilitiesWorkerRequestID: string;
+    FSendBackgroundWorkerRequestID: string;
+    FFindSubControlWorkerRequestID: string;
 
     FPingState, FPingNextState: TPingFSM;
     FPingIntervalCounter: QWord;
@@ -655,22 +657,30 @@ begin
       Msg := Msg + CProtocolParam_OS + '=' + frmFindSubControlWorkerMain.FReportedOS + #13#10;
       Msg := Msg + CProtocolParam_FileCache + '=' + FastReplace_ReturnTo45(frmFindSubControlWorkerMain.FInMemFS.ListMemFilesWithHashAsString) + #13#10;
       Msg := Msg + CProtocolParam_ExtraName + '=' + frmFindSubControlWorkerMain.FWorkerExtraName + #13#10; //this is user-controlled
-      Msg := Msg + CProtocolParam_RequestID + '=' + frmFindSubControlWorkerMain.FWorkerRequestID;
+      Msg := Msg + CProtocolParam_RequestID + '=' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID;
 
       if VerbLevel < 1 then
-        frmFindSubControlWorkerMain.AddToLog('Responding with capabilities. FWorkerRequestID: ' + frmFindSubControlWorkerMain.FWorkerRequestID);
+        frmFindSubControlWorkerMain.AddToLog('Responding with capabilities. FWorkerRequestID: ' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID);
     end;
 
-    1:
+    1:  //SendBackground
     begin
       Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
+             CProtocolParam_RequestID + '=' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID + #13#10 +
              ProcessResponse(ACallbackID shr 8);
+
+      if VerbLevel < 1 then
+        frmFindSubControlWorkerMain.AddToLog('Responding to SendBackground. FWorkerRequestID: ' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID);
     end;
 
-    3:
+    3:  //FindSubControl
     begin
       Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
+             CProtocolParam_RequestID + '=' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID + #13#10 +
              ProcessResponse(ACallbackID shr 8);
+
+      if VerbLevel < 1 then
+        frmFindSubControlWorkerMain.AddToLog('Responding to FindSubControl. FWorkerRequestID: ' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID);
     end;
 
     4:
@@ -1416,10 +1426,10 @@ begin
 
   if Topic = CTopicName_AppToWorker_GetCapabilities then
   begin
-    frmFindSubControlWorkerMain.FWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
+    frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
 
     if VerbLevel < 1 then
-      frmFindSubControlWorkerMain.AddToLog('GetCapabilities Msg: ' + frmFindSubControlWorkerMain.FWorkerRequestID);
+      frmFindSubControlWorkerMain.AddToLog('GetCapabilities Msg: ' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID);
 
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)
     if not MQTT_PUBLISH(ClientInstance, 0, QoS) then
@@ -1430,6 +1440,12 @@ begin
 
   if (Topic = TopicWithWorkerName_Background) or (Topic = CTopicName_AppToWorker_SendBackground) then  //common and individual subscriptions
   begin
+    frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
+    frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID := Copy(frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID, 1, Pos('&', frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID) - 1);
+
+    if VerbLevel < 1 then
+      frmFindSubControlWorkerMain.AddToLog('SendBackground Msg: "' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID + '"');
+
     if VerbLevel < 2 then
       frmFindSubControlWorkerMain.AddToLog('Sending background image');
 
@@ -1451,6 +1467,11 @@ begin
   if Topic = TopicWithWorkerName_FindSubControl then
   begin
     ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)    //////////////////// start rendering
+    frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
+    frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID := Copy(frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID, 1, Pos('&', frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID) - 1);
+
+    if VerbLevel < 1 then
+      frmFindSubControlWorkerMain.AddToLog('SendBackground Msg: "' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID + '"');
 
     if VerbLevel < 2 then
       frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
@@ -1986,7 +2007,9 @@ begin
   FPingState := SInitPing;
   FPingNextState := SStartPing;
   FPingIntervalCounter := 0;
-  FWorkerRequestID := 'not set yet';
+  FGetCapabilitiesWorkerRequestID := 'not set yet';
+  FSendBackgroundWorkerRequestID := 'not set yet';
+  FFindSubControlWorkerRequestID := 'not set yet';
 
   tmrStartup.Enabled := True;
 end;
