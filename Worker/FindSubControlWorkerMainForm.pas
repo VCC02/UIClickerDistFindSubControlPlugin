@@ -1265,77 +1265,82 @@ begin
       else
         TempMemArchive.CompressionLevel := 0;
 
-      try
-        tk := GetTickCount64;
-        TempMemArchive.OpenArchive(MemStream, False);
-        tk := GetTickCount64 - tk;
+      if AThisWorkerTask <> CEmptyWorkTask then
+      begin
         try
-          if VerbLevel < 2 then
-            AddToLog('Decompressed archive with bitmaps in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size));
-
-          //if VerbLevel < 2 then
-            frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker...');
-
-          CmdResult := SendVarsToWorkers(TempMemArchive);
-
-          if VerbLevel < 2 then
-            frmFindSubControlWorkerMain.AddToLog('Sent vars to UIClicker. Response: ' + CmdResult)
-          else
-            frmFindSubControlWorkerMain.AddToLog('Sent vars to UIClicker.');
-
-          if CmdResult = 'Client exception: Connect timed out.' then
-          begin
-            AResponse := '$ExecAction_Err$=Timeout sending vars to UIClicker.';
-            AErrMsg := 'Cannot respond with FindSubControl result on sending vars to UIClicker.';
-            Result := False;
-            Exit;
-          end;
-
-          ListOfArchiveFiles := TStringList.Create;
+          tk := GetTickCount64;
+          TempMemArchive.OpenArchive(MemStream, False);
+          tk := GetTickCount64 - tk;
           try
-            ListOfArchiveFiles.LineBreak := #13#10;
-            TempMemArchive.GetListOfFiles(ListOfArchiveFiles);
-            for i := 0 to ListOfArchiveFiles.Count - 1 do
-              if (ListOfArchiveFiles.Strings[i] <> CBackgroundFileNameInArchive) and
-                 (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_Names) and
-                 (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_Values) and
-                 (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_EvalBefore) then
-              begin
-                DecompressedStream.Clear;
-                TempMemArchive.ExtractToStream(ListOfArchiveFiles.Strings[i], DecompressedStream);
-                SaveBmpToInMemFS(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+            if VerbLevel < 2 then
+              AddToLog('Decompressed archive with bitmaps in ' + FloatToStrF(tk / 1000, ffNumber, 15, 5) + 's.  Compressed size: ' + IntToStr(MemStream.Size));
 
-                /////////////////////////////////////////////////////// verify cache here
+            //if VerbLevel < 2 then
+              frmFindSubControlWorkerMain.AddToLog('Sending vars to UIClicker...');
 
-                if Pos(CExtBmp_PrefixUpperCase, UpperCase(ListOfArchiveFiles.Strings[i])) = 1 then
-                  CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, ListOfArchiveFiles.Strings[i])
-                else
-                  CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+            CmdResult := SendVarsToWorkers(TempMemArchive);
 
-                if VerbLevel < 1 then
-                  frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
+            if VerbLevel < 2 then
+              frmFindSubControlWorkerMain.AddToLog('Sent vars to UIClicker. Response: ' + CmdResult)
+            else
+              frmFindSubControlWorkerMain.AddToLog('Sent vars to UIClicker.');
 
-                if CmdResult = 'Client exception: Connect timed out.' then
+            if CmdResult = 'Client exception: Connect timed out.' then
+            begin
+              AResponse := '$ExecAction_Err$=Timeout sending vars to UIClicker.';
+              AErrMsg := 'Cannot respond with FindSubControl result on sending vars to UIClicker.';
+              Result := False;
+              Exit;
+            end;
+
+            ListOfArchiveFiles := TStringList.Create;
+            try
+              ListOfArchiveFiles.LineBreak := #13#10;
+              TempMemArchive.GetListOfFiles(ListOfArchiveFiles);
+              for i := 0 to ListOfArchiveFiles.Count - 1 do
+                if (ListOfArchiveFiles.Strings[i] <> CBackgroundFileNameInArchive) and
+                   (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_Names) and
+                   (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_Values) and
+                   (ListOfArchiveFiles.Strings[i] <> CVarsForWorkersInArchive_EvalBefore) then
                 begin
-                  AResponse := '$ExecAction_Err$=Timeout sending bitmap "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker.';
-                  AErrMsg := 'Cannot respond with FindSubControl result on sending a bitmap to be searched for, to UIClicker.';
-                  Result := False;
-                  Exit;
+                  DecompressedStream.Clear;
+                  TempMemArchive.ExtractToStream(ListOfArchiveFiles.Strings[i], DecompressedStream);
+                  SaveBmpToInMemFS(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+
+                  /////////////////////////////////////////////////////// verify cache here
+
+                  if Pos(CExtBmp_PrefixUpperCase, UpperCase(ListOfArchiveFiles.Strings[i])) = 1 then
+                    CmdResult := SendFileToUIClicker_ExtRndInMem(DecompressedStream, ListOfArchiveFiles.Strings[i])
+                  else
+                    CmdResult := SendFileToUIClicker_SrvInMem(DecompressedStream, ListOfArchiveFiles.Strings[i]);
+
+                  if VerbLevel < 1 then
+                    frmFindSubControlWorkerMain.AddToLog('Sending "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker. Response: ' + CmdResult);
+
+                  if CmdResult = 'Client exception: Connect timed out.' then
+                  begin
+                    AResponse := '$ExecAction_Err$=Timeout sending bitmap "' + ListOfArchiveFiles.Strings[i] + '" to UIClicker.';
+                    AErrMsg := 'Cannot respond with FindSubControl result on sending a bitmap to be searched for, to UIClicker.';
+                    Result := False;
+                    Exit;
+                  end;
                 end;
-              end;
+            finally
+              ListOfArchiveFiles.Free;
+            end;
           finally
-            ListOfArchiveFiles.Free;
+            TempMemArchive.CloseArchive;
           end;
-        finally
-          TempMemArchive.CloseArchive;
+        except
+          on E: Exception do
+          begin
+            frmFindSubControlWorkerMain.AddToLog('Error working with received archive: "' + E.Message + '"  MemStream.Size = ' + IntToStr(MemStream.Size));
+            /////////////////// Set result to False
+          end;
         end;
-      except
-        on E: Exception do
-        begin
-          frmFindSubControlWorkerMain.AddToLog('Error working with received archive: "' + E.Message + '"  MemStream.Size = ' + IntToStr(MemStream.Size));
-          /////////////////// Set result to False
-        end;
-      end;
+      end  //if AThisWorkerTask <> CEmptyWorkTask
+      else
+        AddToLog('Received empty task. Nothing to send to UIClicker.');
     finally
       TempArchiveHandlers.Free;
       TempMemArchive.Free;
@@ -1347,20 +1352,24 @@ begin
 
   //call CRECmd_ExecuteFindSubControlAction   (later, add support for calling CRECmd_ExecutePlugin)
 
-  //if VerbLevel < 2 then
-    frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request...');
+  if AThisWorkerTask <> CEmptyWorkTask then
+  begin
+    //if VerbLevel < 2 then
+      frmFindSubControlWorkerMain.AddToLog('Sending FindSubControl request to UIClicker...');
 
-  AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg, AThisWorkerTask));
+    AResponse := FastReplace_87ToReturn(SendExecuteFindSubControlAction(AAppMsg, AThisWorkerTask));
 
-  frmFindSubControlWorkerMain.AddToLog('Received response from FindSubControl request...');
+    frmFindSubControlWorkerMain.AddToLog('Received response from UIClicker, for FindSubControl request...');
 
-  if VerbLevel < 2 then
-    frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + AResponse);
+    if VerbLevel < 2 then
+      frmFindSubControlWorkerMain.AddToLog('FindSubControl result: ' + #13#10 + AResponse);
 
-  if VerbLevel < 2 then
-    AddToLog('Compressing result image = ' + BoolToStr(UsingCompression, 'True', 'False'));
+    if VerbLevel < 2 then
+      AddToLog('Compressing result image = ' + BoolToStr(UsingCompression, 'True', 'False'));
+  end;
 
-  TempResponseArchiveStr := SendGetDebugImageFromServer(AAppMsg, UsingCompression, CompressionAlgorithm);
+  //The following call should depend on AThisWorkerTask <> CEmptyWorkTask.  Else, use an empty archive.
+  TempResponseArchiveStr := SendGetDebugImageFromServer(AAppMsg, UsingCompression, CompressionAlgorithm);   //this should have an equivalent with an empty archive, in case there is no task
 
   if VerbLevel < 2 then
   begin
@@ -1471,7 +1480,7 @@ begin
     frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID := Copy(frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID, 1, Pos('&', frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID) - 1);
 
     if VerbLevel < 1 then
-      frmFindSubControlWorkerMain.AddToLog('SendBackground Msg: "' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID + '"');
+      frmFindSubControlWorkerMain.AddToLog('FindSubControl Msg: "' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID + '"');
 
     if VerbLevel < 2 then
       frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');

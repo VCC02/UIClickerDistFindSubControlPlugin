@@ -107,6 +107,8 @@ const
   CWorkerTask_BmpPrefix = 'Bmp_';
   CWorkerTask_PmtvPrefix = 'Pmtv_';
 
+  CEmptyWorkTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=0&';
+
 
 type
   TOnAddToLogNoObj = procedure(AMsg: string);
