@@ -127,6 +127,8 @@ type
     FSendBackgroundWorkerRequestID: string;
     FFindSubControlWorkerRequestID: string;
 
+    FListOfFindSubControlWorkerRequestIDs: TStringList;
+
     FPingState, FPingNextState: TPingFSM;
     FPingIntervalCounter: QWord;
 
@@ -161,6 +163,9 @@ type
 
     procedure ShowBrokerIsConnected(ASrcCall: string);
     procedure ShowBrokerIsDisconnected(ASrcCall: string);
+
+    function IsLatestFindSubControlRequestInTheList: Boolean;
+    procedure AddLatestFindSubControlRequestIDToList;
 
     procedure ProcessPingFSM;
   public
@@ -1482,18 +1487,25 @@ begin
     if VerbLevel < 1 then
       frmFindSubControlWorkerMain.AddToLog('FindSubControl Msg: "' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID + '"');
 
-    if VerbLevel < 2 then
-      frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
-
-    ProcessFindSubControlRequest(Msg, frmFindSubControlWorkerMain.FThisWorkerTask, TempFindSubControlResponse, ProcErrMsg);
-    ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
-    if not MQTT_PUBLISH(ClientInstance, 3 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+    if not frmFindSubControlWorkerMain.IsLatestFindSubControlRequestInTheList then
     begin
-      if ProcErrMsg = '' then
-        ProcErrMsg := 'Cannot respond with FindSubControl result.';
+      frmFindSubControlWorkerMain.AddLatestFindSubControlRequestIDToList;
 
-      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
-    end;
+      if VerbLevel < 2 then
+        frmFindSubControlWorkerMain.AddToLog('Executing FindSubControl');
+
+      ProcessFindSubControlRequest(Msg, frmFindSubControlWorkerMain.FThisWorkerTask, TempFindSubControlResponse, ProcErrMsg);
+      ResponseIndex := AddItemToResponses(TempFindSubControlResponse);
+      if not MQTT_PUBLISH(ClientInstance, 3 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+      begin
+        if ProcErrMsg = '' then
+          ProcErrMsg := 'Cannot respond with FindSubControl result.';
+
+        frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+      end;
+    end
+    else
+      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID);
 
     //call CRECmd_GetResultedDebugImage
   end; //if Topic = TopicWithWorkerName
@@ -2019,6 +2031,7 @@ begin
   FGetCapabilitiesWorkerRequestID := 'not set yet';
   FSendBackgroundWorkerRequestID := 'not set yet';
   FFindSubControlWorkerRequestID := 'not set yet';
+  FListOfFindSubControlWorkerRequestIDs := TStringList.Create;
 
   tmrStartup.Enabled := True;
 end;
@@ -2070,6 +2083,7 @@ begin
     IdTCPClient1.Disconnect(False);
   finally
     MQTT_DestroyClient(0);
+    FListOfFindSubControlWorkerRequestIDs.Free;
   end;
 end;
 
@@ -2940,6 +2954,27 @@ begin
   lblBrokerConnectionStatus.Caption := CBrokerIsDisconnectedStatus; //used by UIClicker in tests
   lblBrokerConnectionStatus.Tag := 0; //used by monitoring server
   AddToLog(lblBrokerConnectionStatus.Caption + ' from "' + ASrcCall + '"');
+end;
+
+
+function TfrmFindSubControlWorkerMain.IsLatestFindSubControlRequestInTheList: Boolean;
+begin
+  Result := FListOfFindSubControlWorkerRequestIDs.IndexOf(FFindSubControlWorkerRequestID) > -1;
+  AddToLog('Verified ' + FFindSubControlWorkerRequestID + '. It is ' + BoolToStr(Result, 'in the list', 'available to be added') + '. List len = ' + IntToStr(FListOfFindSubControlWorkerRequestIDs.Count));
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.AddLatestFindSubControlRequestIDToList;
+begin
+  //No need to verify if FListOfFindSubControlWorkerRequestIDs.IndexOf(FFindSubControlWorkerRequestID) = -1, if it already verified before calling AddLatestFindSubControlRequestIDToList.
+  if FListOfFindSubControlWorkerRequestIDs.Count > 9 then
+  begin
+    AddToLog('Deleting ' + FFindSubControlWorkerRequestID);
+    FListOfFindSubControlWorkerRequestIDs.Delete(0);
+  end;
+
+  AddToLog('Adding ' + FFindSubControlWorkerRequestID);
+  FListOfFindSubControlWorkerRequestIDs.Add(FFindSubControlWorkerRequestID);
 end;
 
 
