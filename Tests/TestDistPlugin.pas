@@ -1074,7 +1074,7 @@ type
   TBooleanArr = array of Boolean;
 
 const
-  CEmptyWorkTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=0&';
+  CEmptyWorkTask = 'TxtCnt=0&BmpCnt=0&PmtvCnt=0&';  //this constant is also defined in worker
 
   COneFontProfileTask = 'TxtCnt=1&BmpCnt=0&PmtvCnt=0&';
   CTwoFontProfilesTask = 'TxtCnt=2&BmpCnt=0&PmtvCnt=0&';

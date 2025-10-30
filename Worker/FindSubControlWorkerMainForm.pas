@@ -127,6 +127,7 @@ type
     FSendBackgroundWorkerRequestID: string;
     FFindSubControlWorkerRequestID: string;
 
+    FListOfSendBackgroundWorkerRequestIDs: TStringList;
     FListOfFindSubControlWorkerRequestIDs: TStringList;
 
     FPingState, FPingNextState: TPingFSM;
@@ -164,6 +165,8 @@ type
     procedure ShowBrokerIsConnected(ASrcCall: string);
     procedure ShowBrokerIsDisconnected(ASrcCall: string);
 
+    function IsLatestSendBackgroundRequestInTheList: Boolean;
+    procedure AddLatestSendBackgroundRequestIDToList;
     function IsLatestFindSubControlRequestInTheList: Boolean;
     procedure AddLatestFindSubControlRequestIDToList;
 
@@ -1460,22 +1463,29 @@ begin
     if VerbLevel < 1 then
       frmFindSubControlWorkerMain.AddToLog('SendBackground Msg: "' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID + '"');
 
-    if VerbLevel < 2 then
-      frmFindSubControlWorkerMain.AddToLog('Sending background image');
-
-    ProcessSendBackgroundRequest(Msg, ProcResponse, ProcErrMsg);
-
-    if VerbLevel < 2 then
-      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
-
-    ResponseIndex := AddItemToResponses(ProcResponse);
-    if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+    if not frmFindSubControlWorkerMain.IsLatestSendBackgroundRequestInTheList then
     begin
-      if ProcErrMsg = '' then
-        ProcErrMsg := 'Cannot respond with SendBackground result.';
+      frmFindSubControlWorkerMain.AddLatestSendBackgroundRequestIDToList;
 
-      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
-    end;
+      if VerbLevel < 2 then
+        frmFindSubControlWorkerMain.AddToLog('Sending background image');
+
+      ProcessSendBackgroundRequest(Msg, ProcResponse, ProcErrMsg);
+
+      if VerbLevel < 2 then
+        frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+
+      ResponseIndex := AddItemToResponses(ProcResponse);
+      if not MQTT_PUBLISH(ClientInstance, 1 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+      begin
+        if ProcErrMsg = '' then
+          ProcErrMsg := 'Cannot respond with SendBackground result.';
+
+        frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+      end;
+    end
+    else
+      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID);
   end;
 
   if Topic = TopicWithWorkerName_FindSubControl then
@@ -2031,6 +2041,8 @@ begin
   FGetCapabilitiesWorkerRequestID := 'not set yet';
   FSendBackgroundWorkerRequestID := 'not set yet';
   FFindSubControlWorkerRequestID := 'not set yet';
+
+  FListOfSendBackgroundWorkerRequestIDs := TStringList.Create;
   FListOfFindSubControlWorkerRequestIDs := TStringList.Create;
 
   tmrStartup.Enabled := True;
@@ -2083,6 +2095,7 @@ begin
     IdTCPClient1.Disconnect(False);
   finally
     MQTT_DestroyClient(0);
+    FListOfSendBackgroundWorkerRequestIDs.Free;
     FListOfFindSubControlWorkerRequestIDs.Free;
   end;
 end;
@@ -2957,10 +2970,39 @@ begin
 end;
 
 
+function TfrmFindSubControlWorkerMain.IsLatestSendBackgroundRequestInTheList: Boolean;
+begin
+  Result := FListOfSendBackgroundWorkerRequestIDs.IndexOf(FSendBackgroundWorkerRequestID) > -1;
+
+  if VerbLevel < 1 then
+    AddToLog('Verified ' + FSendBackgroundWorkerRequestID + '. It is ' + BoolToStr(Result, 'in the list', 'available to be added') + '. List len = ' + IntToStr(FListOfSendBackgroundWorkerRequestIDs.Count));
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.AddLatestSendBackgroundRequestIDToList;
+begin
+  //No need to verify if FListOfSendBackgroundWorkerRequestIDs.IndexOf(FSendBackgroundWorkerRequestID) = -1, if it already verified before calling AddLatestSendBackgroundRequestIDToList.
+  if FListOfSendBackgroundWorkerRequestIDs.Count > 9 then
+  begin
+    if VerbLevel < 1 then
+      AddToLog('Deleting ' + FSendBackgroundWorkerRequestID);
+
+    FListOfSendBackgroundWorkerRequestIDs.Delete(0);
+  end;
+
+  if VerbLevel < 1 then
+    AddToLog('Adding ' + FSendBackgroundWorkerRequestID);
+
+  FListOfSendBackgroundWorkerRequestIDs.Add(FSendBackgroundWorkerRequestID);
+end;
+
+
 function TfrmFindSubControlWorkerMain.IsLatestFindSubControlRequestInTheList: Boolean;
 begin
   Result := FListOfFindSubControlWorkerRequestIDs.IndexOf(FFindSubControlWorkerRequestID) > -1;
-  AddToLog('Verified ' + FFindSubControlWorkerRequestID + '. It is ' + BoolToStr(Result, 'in the list', 'available to be added') + '. List len = ' + IntToStr(FListOfFindSubControlWorkerRequestIDs.Count));
+
+  if VerbLevel < 1 then
+    AddToLog('Verified ' + FFindSubControlWorkerRequestID + '. It is ' + BoolToStr(Result, 'in the list', 'available to be added') + '. List len = ' + IntToStr(FListOfFindSubControlWorkerRequestIDs.Count));
 end;
 
 
@@ -2969,11 +3011,15 @@ begin
   //No need to verify if FListOfFindSubControlWorkerRequestIDs.IndexOf(FFindSubControlWorkerRequestID) = -1, if it already verified before calling AddLatestFindSubControlRequestIDToList.
   if FListOfFindSubControlWorkerRequestIDs.Count > 9 then
   begin
-    AddToLog('Deleting ' + FFindSubControlWorkerRequestID);
+    if VerbLevel < 1 then
+      AddToLog('Deleting ' + FFindSubControlWorkerRequestID);
+
     FListOfFindSubControlWorkerRequestIDs.Delete(0);
   end;
 
-  AddToLog('Adding ' + FFindSubControlWorkerRequestID);
+  if VerbLevel < 1 then
+    AddToLog('Adding ' + FFindSubControlWorkerRequestID);
+
   FListOfFindSubControlWorkerRequestIDs.Add(FFindSubControlWorkerRequestID);
 end;
 
