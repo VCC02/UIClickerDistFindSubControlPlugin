@@ -2913,7 +2913,7 @@ var
     DecodedAction: TClkFindSubControlOptions;
     DecodingErr: string;
     ActionOptions: TClkActionOptions;
-    TempBkStr: string;
+    TempArcStr: string;
     Fnm: string;
     TempArchiveHandlers: TArchiveHandlers;
     BkSize: Int64;
@@ -3159,9 +3159,9 @@ var
 
           for i := 0 to Length(AllWorkers) - 1 do
           begin
-            SetLength(TempBkStr, AllWorkers[i].ArchiveStream.Size);
+            SetLength(TempArcStr, AllWorkers[i].ArchiveStream.Size);
             AllWorkers[i].ArchiveStream.Position := 0;
-            AllWorkers[i].ArchiveStream.Read(TempBkStr[1], AllWorkers[i].ArchiveStream.Size);
+            AllWorkers[i].ArchiveStream.Read(TempArcStr[1], AllWorkers[i].ArchiveStream.Size);
 
             if AllWorkers[i].ArchiveStream.Size = 0 then
               AllWorkers[i].ArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
@@ -3171,7 +3171,7 @@ var
                                 '&' + AllWorkers[i].WorkerSpecificTask +
                                 {'&' +} CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                                 '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
-                                '&' + CProtocolParam_ImageSourceRawContent + '=' + TempBkStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
+                                '&' + CProtocolParam_ImageSourceRawContent + '=' + TempArcStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
           end;
 
           if FindSubControlWorkerTimeout - FindSubControlTimeoutDiff < 100 then

@@ -348,6 +348,8 @@ begin
       HashingPluginNameWS := WideString(AHashingPluginName);
       AdditionalInfoWS := WideString(AAdditionalInfo); //for example a list of compression parameters
 
+      SetGeneralConnectTimeout(1500);
+      SetGeneralReadTimeout(40000);
       ResLen := SendMemPluginArchiveFileToServer(@FileNameWS[1],
                                                  @DecryptionPluginNameWS[1],
                                                  @DecompressionPluginNameWS[1],

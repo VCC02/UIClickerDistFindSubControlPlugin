@@ -106,7 +106,7 @@ implementation
 
 uses
   Forms, ClickerActionsClient, UITestUtils, Expectations, WorkerPoolCommonConsts,
-  ClickerUtils, ClickerActionProperties;
+  ClickerUtils, ClickerActionProperties, PitstopTestRunner;
 
 const
   CServiceUIClickerPort = '55444';
@@ -385,7 +385,7 @@ begin
   ExecApp.NoConsole := True;
 
   try
-    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'Send DistInitialDec', 8000, False);
+    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'SendPlugin - ' + APluginToBeSent + '.dll via ' + ASenderApp + '.exe', 8000, True, False);
   except
     on E: Exception do
       Result := 'Ex on starting broker: ' + E.Message;
@@ -470,9 +470,20 @@ begin
   end;
 
   Expect(Send_DistInitialDecDll_Via_DistInitialEnc(DistBitness)).ToBe(CExpectedResponse_Unencrypted);
+  frmPitstopTestRunner.AddToLog('DistInitialDecDll sent.');
+  Application.ProcessMessages;
+
   Expect(Send_DistDecDll_Via_DistInitialEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
+  frmPitstopTestRunner.AddToLog('DistDecDll sent.');
+  Application.ProcessMessages;
+
   Expect(Send_UIClickerDistFindSubControlDll_Via_DistEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
+  frmPitstopTestRunner.AddToLog('UIClickerDistFindSubControlDll sent.');
+  Application.ProcessMessages;
+
   Expect(Send_PoolClientDll_Via_DistEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
+  frmPitstopTestRunner.AddToLog('PoolClientDll sent.');
+  Application.ProcessMessages;
 end;
 
 
@@ -541,10 +552,24 @@ begin
 
   RemoveMachineFromList('127.0.0.1');
   AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
+
+  frmPitstopTestRunner.AddToLog('Waiting for workers and UIClickers to start...');
+  Application.ProcessMessages;
+
   ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 125000);
 
+  frmPitstopTestRunner.AddToLog('Setting keys in UIClicker under test...');
+  Application.ProcessMessages;
+
   SetKeys;
+
+  frmPitstopTestRunner.AddToLog('Sending plugins to UIClicker under test...');
+  Application.ProcessMessages;
+
   SendAllDistPlugins;
+
+  frmPitstopTestRunner.AddToLog('All plugins sent to UIClicker under test...');
+  Application.ProcessMessages;
 end;
 
 
