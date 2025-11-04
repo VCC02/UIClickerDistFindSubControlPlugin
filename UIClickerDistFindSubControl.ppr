@@ -71,6 +71,7 @@ type
           SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
           SGetListOfFonts, SWaitForListOfFonts,
           SUpdateCache, SLoadCache,
+          SUnsubscribeFromResponses, SWaitForResponsesUnsubAck,
           SDisconnectFromBroker,
           SDone
          );
@@ -98,6 +99,7 @@ const
           'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
           'SGetListOfFonts', 'SWaitForListOfFonts',
           'SUpdateCache', 'SLoadCache',
+          'SUnsubscribeFromResponses', 'SWaitForResponsesUnsubAck',
           'SDisconnectFromBroker',
           'SDone'
           );
@@ -113,7 +115,7 @@ var
   WorkerRespondedCountBG: Word; //Background
   WorkerRespondedCountFS: Word; //FindSubControl
   FLatestMsg: string = '';
-  ConnectedSucessfully, ConAckReceived, SubAckReceived, SubscribedSucessfully, DisconnectedSuccessfully: Boolean;
+  ConnectedSucessfully, ConAckReceived, SubAckReceived, UnsubAckReceived, SubscribedSucessfully, UnsubscribedSucessfully, DisconnectedSuccessfully: Boolean;
   WaitingForWorkerCapabilities: Boolean;
   WaitingForWorkerFonts: Boolean;
   FSMDone: Boolean;
@@ -610,6 +612,8 @@ procedure HandleOnAfterReceivingMQTT_UNSUBACK(ClientInstance: DWord; var AUnsubA
 var
   i: Integer;
 begin
+  UnsubAckReceived := True;
+
   if VerbLevel < 1 then
   begin
     AddToLog('Received UNSUBACK');
@@ -1658,7 +1662,9 @@ begin
       ConnectedSucessfully := False;
       ConAckReceived := False;
       SubAckReceived := False;
+      UnsubAckReceived := False;
       SubscribedSucessfully := False;
+      UnsubscribedSucessfully := False;
       DisconnectedSuccessfully := False;
       tk := GetTickCount64;
     end;
@@ -1843,6 +1849,23 @@ begin
           //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
     end;
 
+    SUnsubscribeFromResponses:
+    begin
+      UnsubscribedSucessfully := MQTT_UNSUBSCRIBE(0, 0);     //unsubscribing with CTopicNameResult
+      if not UnsubscribedSucessfully then
+      begin
+        FSMError := 'Can''t unsubscribe from responses.';
+        AddToLog(FSMError);
+      end
+      else
+        tk := GetTickCount64;
+    end;
+
+    SWaitForResponsesUnsubAck:
+    begin
+      //UnsubAckReceived is set by handler
+    end;
+
     SDisconnectFromBroker:
     begin
       FSMDone := True;
@@ -1924,12 +1947,12 @@ begin
               else
                 if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then   //////////// this should not happen in this state
                 begin
-                  NextState := SDisconnectFromBroker; /////////////// set here to a different state when implemented
+                  NextState := SUnsubscribeFromResponses; /////////////// set here to a different state when implemented
                   AddToLog('________' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ' not implemented yet...'); //remove comment
                 end
                 else
                 begin
-                  NextState := SDisconnectFromBroker;
+                  NextState := SUnsubscribeFromResponses;
                   AddToLog('________ Unknown operation: ' + WorkerCapabilitiesSource + '. Exiting plugin.');
                 end;
 
@@ -1944,7 +1967,7 @@ begin
       begin
         FSMError := 'Too many workers (' + IntToStr(Length(AllWorkers)) + '). Please modify the index encoding to raise the limit above 255.';
         AddToLog(FSMError);
-        NextState := SDisconnectFromBroker;
+        NextState := SUnsubscribeFromResponses;
       end
       else
         NextState := SPublishBackgroundImageToAllWorkers;
@@ -1956,7 +1979,7 @@ begin
     SWaitForBackgroundImageResults:
       if GetTickCount64 - tk > FindSubControlWorkerTimeout then   //not sure what timeout to use here
       begin
-        NextState := SDisconnectFromBroker;  //Timeout
+        NextState := SUnsubscribeFromResponses;  //Timeout
 
         if WorkerRespondedCountBG = 0 then
           FSMError := 'Timeout waiting for workers to send the background image to their local UIClicker.'
@@ -1986,11 +2009,11 @@ begin
 
     SWaitForFindSubControlResults:
       if AtLeastOneWorkerFoundTheSubControl then
-        NextState := SDisconnectFromBroker
+        NextState := SUnsubscribeFromResponses
       else
         if GetTickCount64 - tk > FindSubControlWorkerTimeout then
         begin
-          NextState := SDisconnectFromBroker;  //Timeout
+          NextState := SUnsubscribeFromResponses;  //Timeout
 
           if WorkerRespondedCountFS = 0 then
             FSMError := 'Timeout waiting for workers to find the SubControl.'
@@ -2013,7 +2036,7 @@ begin
         if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
           NextState := SGetFindSubControlActionContent
         else
-          NextState := SDisconnectFromBroker;
+          NextState := SUnsubscribeFromResponses;
 
         WaitingForWorkerFonts := False;
       end
@@ -2021,7 +2044,7 @@ begin
         NextState := SWaitForListOfFonts;
 
     SUpdateCache:
-      NextState := SDisconnectFromBroker;
+      NextState := SUnsubscribeFromResponses;
 
     SLoadCache:
     begin
@@ -2029,6 +2052,23 @@ begin
       WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndFindSubControl; //but the list of workers is not updated yet by the cache.  ToDo
       NextState := SRequestCapabilities; //Go and get capabilities, which updates the list of workers and then execute FindSubControl. (Temp solution.)
     end;
+
+    SUnsubscribeFromResponses:
+      if UnsubscribedSucessfully then
+        NextState := SWaitForResponsesUnsubAck
+      else
+        NextState := SDisconnectFromBroker;
+
+    SWaitForResponsesUnsubAck:
+      if UnsubAckReceived then
+        NextState := SDisconnectFromBroker
+      else
+      begin
+        if GetTickCount64 - tk > 1000 then
+          NextState := SDisconnectFromBroker  //Timeout
+        else
+          NextState := SWaitForResponsesUnsubAck;
+      end;
 
     SDisconnectFromBroker:
       NextState := SDone;

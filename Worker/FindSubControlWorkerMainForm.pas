@@ -553,6 +553,7 @@ begin
   end;
 
   frmFindSubControlWorkerMain.tmrSubscribe.Enabled := False;
+  frmFindSubControlWorkerMain.tmrSubscribe.Tag := 1;
   frmFindSubControlWorkerMain.ShowBrokerIsConnected('SUBACK');
   frmFindSubControlWorkerMain.tmrPing.Enabled := True;
 
@@ -2059,6 +2060,27 @@ begin
   try
     if not FSkipSavingIni then
       SaveSettingsToIni;
+  except
+  end;
+
+  try
+    if tmrSubscribe.Tag = 1 then  //successfully subscribed
+    begin
+      if not MQTT_UNSUBSCRIBE(0, 0) then
+      begin
+        AddToLog('Can''t prepare MQTT_UNSUBSCRIBE packet.');
+        //Exit;
+      end;
+
+      AddToLog(DateTimeToStr(Now) + '  Unsubscribing...');
+
+      tk := GetTickCount64;
+      repeat
+        Application.ProcessMessages;
+      until (GetTickCount64 - tk > 5000) or (lblBrokerConnectionStatus.Caption = CBrokerIsDisconnectedStatus);
+
+      AddToLog(DateTimeToStr(Now) + '  Done waiting for unsubscribe response...');
+    end;
   except
   end;
 
