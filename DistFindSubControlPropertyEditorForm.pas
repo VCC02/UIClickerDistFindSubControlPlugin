@@ -109,21 +109,25 @@ function EditCustomFontProfilesProperty(APluginReference: Pointer; AOnActionPlug
 var
   frmDistFindSubControlPropertyEditor: TfrmDistFindSubControlPropertyEditor;
 begin
+  Application.Initialize;
   Application.CreateForm(TfrmDistFindSubControlPropertyEditor, frmDistFindSubControlPropertyEditor);
+  try
+    frmDistFindSubControlPropertyEditor.FPluginReference := APluginReference;
+    frmDistFindSubControlPropertyEditor.FOnActionPlugin_InMemFS := AOnActionPlugin_InMemFS;
 
-  frmDistFindSubControlPropertyEditor.FPluginReference := APluginReference;
-  frmDistFindSubControlPropertyEditor.FOnActionPlugin_InMemFS := AOnActionPlugin_InMemFS;
+    //decode ACurrentValue
+    frmDistFindSubControlPropertyEditor.lbeClkPrfFile.Text := ACurrentValue;
+    frmDistFindSubControlPropertyEditor.lbeClkPrfFile.EditLabel.Caption := frmDistFindSubControlPropertyEditor.lbeClkPrfFile.EditLabel.Caption + ' - ' + CRequiredSubControlPropertyNames[APropertyIndex];
 
-  //decode ACurrentValue
-  frmDistFindSubControlPropertyEditor.lbeClkPrfFile.Text := ACurrentValue;
-  frmDistFindSubControlPropertyEditor.lbeClkPrfFile.EditLabel.Caption := frmDistFindSubControlPropertyEditor.lbeClkPrfFile.EditLabel.Caption + ' - ' + CRequiredSubControlPropertyNames[APropertyIndex];
-
-  frmDistFindSubControlPropertyEditor.ShowModal;
-  Result := frmDistFindSubControlPropertyEditor.Tag = 1;
-  if Result then
-  begin
-    //encode
-    ANewValue := frmDistFindSubControlPropertyEditor.lbeClkPrfFile.Text;
+    frmDistFindSubControlPropertyEditor.ShowModal;
+    Result := frmDistFindSubControlPropertyEditor.Tag = 1;
+    if Result then
+    begin
+      //encode
+      ANewValue := frmDistFindSubControlPropertyEditor.lbeClkPrfFile.Text;
+    end;
+  finally
+    frmDistFindSubControlPropertyEditor.Free;
   end;
 end;
 
