@@ -114,6 +114,7 @@ var
   AtLeastOneWorkerFoundTheSubControl: Boolean;
   WorkerRespondedCountBG: Word; //Background
   WorkerRespondedCountFS: Word; //FindSubControl
+  WorkerRespondedCountLoF: Word; //ListOfFonts
   FLatestMsg: string = '';
   ConnectedSucessfully, ConAckReceived, SubAckReceived, UnsubAckReceived, SubscribedSucessfully, UnsubscribedSucessfully, DisconnectedSuccessfully: Boolean;
   WaitingForWorkerCapabilities: Boolean;
@@ -971,7 +972,7 @@ begin
       begin
         WorkerIndex := GetWorkerIndexByName(WorkerName);
         if WorkerIndex = -1 then
-          AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
+          AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving SendBackground result. This might be a valid worker, which responded too late.')
         else
         begin
           if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
@@ -990,7 +991,7 @@ begin
     begin
       WorkerIndex := GetWorkerIndexByName(WorkerName);
       if WorkerIndex = -1 then
-        AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
+        AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving FindSubControl result. This might be a valid worker, which responded too late.')
       else
       begin
         if WorkerRequestID = AllWorkers[WorkerIndex].FindSubControlRequestID then
@@ -1045,12 +1046,14 @@ begin
     if Topic = CTopicName_WorkerToApp_GetListOfFonts then
       if WaitingForWorkerFonts then
       begin
+        Inc(WorkerRespondedCountLoF);
+
         if VerbLevel < 2 then
           AddToLog('Received fonts from worker: ' + WorkerName);
 
         WorkerIndex := GetWorkerIndexByName(WorkerName);
         if WorkerIndex = -1 then
-          AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving result.')
+          AddToLog('Error: cannot find worker "' + WorkerName + '" on receiving GetListOfFonts result. This might be a valid worker, which responded too late.')
         else
           AllWorkers[WorkerIndex].Fonts := Content.Values[CProtocolParam_Fonts];
       end;
@@ -1800,6 +1803,8 @@ begin
     SGetListOfFonts:
     begin
       WaitingForWorkerFonts := True; //reset below
+      WorkerRespondedCountLoF := 0;
+
       for i := 0 to Length(AllWorkers) - 1 do
       begin
         if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts or (i shl 8), WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
@@ -1933,6 +1938,9 @@ begin
       if (GetTickCount64 - tk > GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
          (Length(AllWorkers) >= MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
       begin
+        if Length(AllWorkers) >= MinExpectedWorkerCount then
+          AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout.');
+
         if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
           NextState := SGetFindSubControlActionContent
         else
@@ -2031,13 +2039,24 @@ begin
       NextState := SWaitForListOfFonts;
 
     SWaitForListOfFonts:
-      if GetTickCount64 - tk > GetWorkerCapabilitiesTimeout then   //Waiting for some time, for all workers to present their fonts.
+      if (GetTickCount64 - tk > GetWorkerCapabilitiesTimeout) or
+         (WorkerRespondedCountLoF >= MinExpectedWorkerCount) then   //Waiting for some time, for all workers to present their fonts.
       begin
         if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
           NextState := SGetFindSubControlActionContent
         else
           NextState := SUnsubscribeFromResponses;
 
+        if WorkerRespondedCountLoF = 0 then
+          FSMError := 'Timeout waiting for workers to respond with lists of fonts.'
+        else
+          if WorkerRespondedCountLoF < Length(AllWorkers) then
+          begin
+            FSMError := 'Not all workers reponded in time with their lists of fonts.';
+            FSMError := FSMError + ' ListOfFontsResponseCount = ' + IntToStr(WorkerRespondedCountLoF) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
+          end;
+
+        AddToLog(FSMError);
         WaitingForWorkerFonts := False;
       end
       else
@@ -3268,6 +3287,7 @@ begin
   SendBackgroundToAllRequestID := 'NotSet';
   WorkerRespondedCountBG := 0;
   WorkerRespondedCountFS := 0;
+  WorkerRespondedCountLoF := 0;
 
   Randomize;
   RequestIDCnt := Random(MaxInt);
@@ -3379,7 +3399,7 @@ begin
       CustomProfilesFnm := PluginSettings.ValueFromIndex[CCustomFontProfilesPropertyIndex];
 
       MinExpectedWorkerCount := StrToIntDef(PluginSettings.ValueFromIndex[CMinExpectedWorkerCountPropertyIndex], 4);
-      MinExpectedWorkerCount := Min(Max(FindSubControlTimeoutDiff, 1), 50);  //limited to 1..50
+      MinExpectedWorkerCount := Min(Max(MinExpectedWorkerCount, 1), 50);  //limited to 1..50
 
       if VerbLevel < 2 then
         AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
