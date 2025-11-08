@@ -127,6 +127,7 @@ type
     FSendBackgroundWorkerRequestID: string;
     FFindSubControlWorkerRequestID: string;
 
+    FListOfGetCapabilitiesWorkerRequestIDs: TStringList;
     FListOfSendBackgroundWorkerRequestIDs: TStringList;
     FListOfFindSubControlWorkerRequestIDs: TStringList;
 
@@ -165,6 +166,8 @@ type
     procedure ShowBrokerIsConnected(ASrcCall: string);
     procedure ShowBrokerIsDisconnected(ASrcCall: string);
 
+    function IsLatestGetCapabilitiesRequestInTheList: Boolean;
+    procedure AddLatestGetCapabilitiesRequestIDToList;
     function IsLatestSendBackgroundRequestInTheList: Boolean;
     procedure AddLatestSendBackgroundRequestIDToList;
     function IsLatestFindSubControlRequestInTheList: Boolean;
@@ -1449,11 +1452,18 @@ begin
     if VerbLevel < 1 then
       frmFindSubControlWorkerMain.AddToLog('GetCapabilities Msg: ' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID);
 
-    ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)
-    if not MQTT_PUBLISH(ClientInstance, 0, QoS) then
-      frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities')
+    if not frmFindSubControlWorkerMain.IsLatestGetCapabilitiesRequestInTheList then
+    begin
+      frmFindSubControlWorkerMain.AddLatestGetCapabilitiesRequestIDToList;
+
+      ////////////////////////////////// respond with something  (i.e. call MQTT_PUBLISH)
+      if not MQTT_PUBLISH(ClientInstance, 0, QoS) then
+        frmFindSubControlWorkerMain.AddToLog('Cannot respond with capabilities')
+      else
+        frmFindSubControlWorkerMain.AddToLog('Responding with capabilities..');
+    end
     else
-      frmFindSubControlWorkerMain.AddToLog('Responding with capabilities..');
+      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID);
   end;
 
   if (Topic = TopicWithWorkerName_Background) or (Topic = CTopicName_AppToWorker_SendBackground) then  //common and individual subscriptions
@@ -2043,6 +2053,7 @@ begin
   FSendBackgroundWorkerRequestID := 'not set yet';
   FFindSubControlWorkerRequestID := 'not set yet';
 
+  FListOfGetCapabilitiesWorkerRequestIDs := TStringList.Create;
   FListOfSendBackgroundWorkerRequestIDs := TStringList.Create;
   FListOfFindSubControlWorkerRequestIDs := TStringList.Create;
 
@@ -2117,6 +2128,7 @@ begin
     IdTCPClient1.Disconnect(False);
   finally
     MQTT_DestroyClient(0);
+    FListOfGetCapabilitiesWorkerRequestIDs.Free;
     FListOfSendBackgroundWorkerRequestIDs.Free;
     FListOfFindSubControlWorkerRequestIDs.Free;
   end;
@@ -2989,6 +3001,33 @@ begin
   lblBrokerConnectionStatus.Caption := CBrokerIsDisconnectedStatus; //used by UIClicker in tests
   lblBrokerConnectionStatus.Tag := 0; //used by monitoring server
   AddToLog(lblBrokerConnectionStatus.Caption + ' from "' + ASrcCall + '"');
+end;
+
+
+function TfrmFindSubControlWorkerMain.IsLatestGetCapabilitiesRequestInTheList: Boolean;
+begin
+  Result := FListOfGetCapabilitiesWorkerRequestIDs.IndexOf(FGetCapabilitiesWorkerRequestID) > -1;
+
+  if VerbLevel < 1 then
+    AddToLog('Verified ' + FGetCapabilitiesWorkerRequestID + '. It is ' + BoolToStr(Result, 'in the list', 'available to be added') + '. List len = ' + IntToStr(FListOfGetCapabilitiesWorkerRequestIDs.Count));
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.AddLatestGetCapabilitiesRequestIDToList;
+begin
+  //No need to verify if FListOfGetCapabilitiesWorkerRequestIDs.IndexOf(FGetCapabilitiesWorkerRequestID) = -1, if it already verified before calling AddLatestGetCapabilitiesRequestIDToList.
+  if FListOfGetCapabilitiesWorkerRequestIDs.Count > 9 then
+  begin
+    if VerbLevel < 1 then
+      AddToLog('Deleting ' + FGetCapabilitiesWorkerRequestID);
+
+    FListOfGetCapabilitiesWorkerRequestIDs.Delete(0);
+  end;
+
+  if VerbLevel < 1 then
+    AddToLog('Adding ' + FGetCapabilitiesWorkerRequestID);
+
+  FListOfGetCapabilitiesWorkerRequestIDs.Add(FGetCapabilitiesWorkerRequestID);
 end;
 
 
