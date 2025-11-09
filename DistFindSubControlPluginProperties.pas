@@ -419,7 +419,7 @@ const
     'False', //EvaluateFileNameBeforeSending
     '', //CustomFontProfiles
     'ufpFromConfiguredAction', //UseFontProfiles
-    '4' //MinExpectedWorkerCount
+    '50' //MinExpectedWorkerCount
   );
 
 
