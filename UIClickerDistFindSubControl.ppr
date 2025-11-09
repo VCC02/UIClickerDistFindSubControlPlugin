@@ -2048,12 +2048,16 @@ begin
           NextState := SUnsubscribeFromResponses;
 
         if WorkerRespondedCountLoF = 0 then
-          FSMError := 'Timeout waiting for workers to respond with lists of fonts.'
+        begin
+          FSMError := 'Timeout waiting for workers to respond with lists of fonts.';
+          NextState := SUnsubscribeFromResponses;
+        end
         else
           if WorkerRespondedCountLoF < Length(AllWorkers) then
           begin
             FSMError := 'Not all workers reponded in time with their lists of fonts.';
             FSMError := FSMError + ' ListOfFontsResponseCount = ' + IntToStr(WorkerRespondedCountLoF) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
+            NextState := SUnsubscribeFromResponses;
           end;
 
         AddToLog(FSMError);
