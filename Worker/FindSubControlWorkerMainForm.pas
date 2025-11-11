@@ -126,10 +126,12 @@ type
     FGetCapabilitiesWorkerRequestID: string;
     FSendBackgroundWorkerRequestID: string;
     FFindSubControlWorkerRequestID: string;
+    FGetListOfFontsWorkerRequestID: string;
 
     FListOfGetCapabilitiesWorkerRequestIDs: TStringList;
     FListOfSendBackgroundWorkerRequestIDs: TStringList;
     FListOfFindSubControlWorkerRequestIDs: TStringList;
+    FListOfGetListOfFontsWorkerRequestIDs: TStringList;
 
     FPingState, FPingNextState: TPingFSM;
     FPingIntervalCounter: QWord;
@@ -172,6 +174,8 @@ type
     procedure AddLatestSendBackgroundRequestIDToList;
     function IsLatestFindSubControlRequestInTheList: Boolean;
     procedure AddLatestFindSubControlRequestIDToList;
+    function IsLatestGetListOfFontsRequestInTheList: Boolean;
+    procedure AddLatestGetListOfFontsRequestIDToList;
 
     procedure ProcessPingFSM;
   public
@@ -695,9 +699,10 @@ begin
         frmFindSubControlWorkerMain.AddToLog('Responding to FindSubControl. FWorkerRequestID: ' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID);
     end;
 
-    4:
+    4:  //GetListOfFonts
     begin
       Msg := CProtocolParam_Name + '=' + AssignedClientID + #13#10 +
+             CProtocolParam_RequestID + '=' + frmFindSubControlWorkerMain.FGetListOfFontsWorkerRequestID + #13#10 +
              CProtocolParam_Fonts + '=' + ProcessResponse(ACallbackID shr 8);
     end;
 
@@ -1533,30 +1538,42 @@ begin
 
   if Topic = CTopicName_AppToWorker_GetListOfFonts then
   begin
-    if VerbLevel < 2 then
-      frmFindSubControlWorkerMain.AddToLog('Getting the list of fonts.');
+    frmFindSubControlWorkerMain.FGetListOfFontsWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
 
-    if frmFindSubControlWorkerMain.FReportedFonts <> '' then
-      ProcResponse := frmFindSubControlWorkerMain.FReportedFonts
-    else
-      if frmFindSubControlWorkerMain.chkCacheFonts.Checked then
-      begin
-        if frmFindSubControlWorkerMain.FChachedFonts = '' then  //not cached yet
-          frmFindSubControlWorkerMain.FChachedFonts := GetListOfFontsFromUIClicker; //cache now
+    if VerbLevel < 1 then
+      frmFindSubControlWorkerMain.AddToLog('GetListOfFonts Msg: ' + frmFindSubControlWorkerMain.FGetListOfFontsWorkerRequestID);
 
-        ProcResponse := frmFindSubControlWorkerMain.FChachedFonts;
-      end
-      else
-        ProcResponse := GetListOfFontsFromUIClicker;
-
-    ResponseIndex := AddItemToResponses(ProcResponse);
-    if not MQTT_PUBLISH(ClientInstance, 4 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+    if not frmFindSubControlWorkerMain.IsLatestGetListOfFontsRequestInTheList then
     begin
-      if ProcErrMsg = '' then
-        ProcErrMsg := 'Cannot respond with FindSubControl result.';
+      frmFindSubControlWorkerMain.AddLatestGetListOfFontsRequestIDToList;
 
-      frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
-    end;
+      if VerbLevel < 2 then
+        frmFindSubControlWorkerMain.AddToLog('Getting the list of fonts.');
+
+      if frmFindSubControlWorkerMain.FReportedFonts <> '' then
+        ProcResponse := frmFindSubControlWorkerMain.FReportedFonts
+      else
+        if frmFindSubControlWorkerMain.chkCacheFonts.Checked then
+        begin
+          if frmFindSubControlWorkerMain.FChachedFonts = '' then  //not cached yet
+            frmFindSubControlWorkerMain.FChachedFonts := GetListOfFontsFromUIClicker; //cache now
+
+          ProcResponse := frmFindSubControlWorkerMain.FChachedFonts;
+        end
+        else
+          ProcResponse := GetListOfFontsFromUIClicker;
+
+      ResponseIndex := AddItemToResponses(ProcResponse);
+      if not MQTT_PUBLISH(ClientInstance, 4 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
+      begin
+        if ProcErrMsg = '' then
+          ProcErrMsg := 'Cannot respond with FindSubControl result.';
+
+        frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
+      end;
+    end
+    else
+      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FGetListOfFontsWorkerRequestID);
   end;
 
   if Topic = CTopicName_WorkerToWorker_Ping + AssignedClientID then
@@ -2056,6 +2073,7 @@ begin
   FListOfGetCapabilitiesWorkerRequestIDs := TStringList.Create;
   FListOfSendBackgroundWorkerRequestIDs := TStringList.Create;
   FListOfFindSubControlWorkerRequestIDs := TStringList.Create;
+  FListOfGetListOfFontsWorkerRequestIDs := TStringList.Create;
 
   tmrStartup.Enabled := True;
 end;
@@ -2131,6 +2149,7 @@ begin
     FListOfGetCapabilitiesWorkerRequestIDs.Free;
     FListOfSendBackgroundWorkerRequestIDs.Free;
     FListOfFindSubControlWorkerRequestIDs.Free;
+    FListOfGetListOfFontsWorkerRequestIDs.Free;
   end;
 end;
 
@@ -3082,6 +3101,33 @@ begin
     AddToLog('Adding ' + FFindSubControlWorkerRequestID);
 
   FListOfFindSubControlWorkerRequestIDs.Add(FFindSubControlWorkerRequestID);
+end;
+
+
+function TfrmFindSubControlWorkerMain.IsLatestGetListOfFontsRequestInTheList: Boolean;
+begin
+  Result := FListOfGetListOfFontsWorkerRequestIDs.IndexOf(FGetListOfFontsWorkerRequestID) > -1;
+
+  if VerbLevel < 1 then
+    AddToLog('Verified ' + FGetListOfFontsWorkerRequestID + '. It is ' + BoolToStr(Result, 'in the list', 'available to be added') + '. List len = ' + IntToStr(FListOfGetListOfFontsWorkerRequestIDs.Count));
+end;
+
+
+procedure TfrmFindSubControlWorkerMain.AddLatestGetListOfFontsRequestIDToList;
+begin
+  //No need to verify if FListOfGetListOfFontsWorkerRequestIDs.IndexOf(FGetListOfFontsWorkerRequestID) = -1, if it already verified before calling AddLatestGetListOfFontsRequestIDToList.
+  if FListOfGetListOfFontsWorkerRequestIDs.Count > 9 then
+  begin
+    if VerbLevel < 1 then
+      AddToLog('Deleting ' + FGetListOfFontsWorkerRequestID);
+
+    FListOfGetListOfFontsWorkerRequestIDs.Delete(0);
+  end;
+
+  if VerbLevel < 1 then
+    AddToLog('Adding ' + FGetListOfFontsWorkerRequestID);
+
+  FListOfGetListOfFontsWorkerRequestIDs.Add(FGetListOfFontsWorkerRequestID);
 end;
 
 

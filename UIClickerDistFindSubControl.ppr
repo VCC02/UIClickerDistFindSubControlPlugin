@@ -159,6 +159,7 @@ var
   RequestIDCnt: Integer;
   GetCapabilitiesRequestID: string;
   SendBackgroundToAllRequestID: string;
+  GetListOfFontsRequestID: string;
 
   RecTh: TMQTTReceiveThread;
 
@@ -729,8 +730,13 @@ begin
 
     CCallbackID_GetListOfFonts:
     begin
+      GetListOfFontsRequestID := IntToStr(GetTickCount64) + '_' + IntToStr(RequestIDCnt);
+      Inc(RequestIDCnt);
+
+      Msg := CProtocolParam_RequestID + '=' + GetListOfFontsRequestID;
+
       CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
-      Msg := 'none'; //not a requirement so far
+      //Msg := 'none'; //not a requirement so far
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_GetListOfFonts, APublishFields.TopicName);
 
       if VerbLevel < 2 then
