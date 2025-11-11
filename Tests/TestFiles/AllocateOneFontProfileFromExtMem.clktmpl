@@ -81,6 +81,9 @@ MatchBitmapText[0].StrikeOut=0
 MatchBitmapText[0].FontQuality=4
 MatchBitmapText[0].FontQualityUsesReplacement=0
 MatchBitmapText[0].FontQualityReplacement=
+MatchBitmapText[0].CharSet=1
+MatchBitmapText[0].Orientation=0
+MatchBitmapText[0].Pitch=0
 MatchBitmapText[0].ProfileName=Profile [0]
 MatchBitmapText[0].CropLeft=0
 MatchBitmapText[0].CropTop=0
@@ -125,6 +128,13 @@ MatchByHistogramSettings.MostSignificantColorCountInBackgroundBmp=15
 EvaluateTextCount=-1
 CropFromScreenshot=1
 ThreadCount=2
+UseTextRenderingInBrowser=0
+RenderingInBrowserSettings.RenderingRequestType=0
+RenderingInBrowserSettings.ReceivingBitmapsTimeout=3000
+RenderingInBrowserSettings.ActionForSendingRequest=
+RenderingInBrowserSettings.UsePluginForReceivingBitmaps=0
+RenderingInBrowserSettings.PluginActionForReceivingBitmaps=
+RenderingInBrowserSettings.FontSizeUnit=0
 
 [Action_3]
 ActionName=OneProfile
@@ -154,6 +164,9 @@ MatchBitmapText[0].StrikeOut=0
 MatchBitmapText[0].FontQuality=0
 MatchBitmapText[0].FontQualityUsesReplacement=0
 MatchBitmapText[0].FontQualityReplacement=
+MatchBitmapText[0].CharSet=1
+MatchBitmapText[0].Orientation=0
+MatchBitmapText[0].Pitch=0
 MatchBitmapText[0].ProfileName=Profile [0]
 MatchBitmapText[0].CropLeft=0
 MatchBitmapText[0].CropTop=0
@@ -198,6 +211,13 @@ MatchByHistogramSettings.MostSignificantColorCountInBackgroundBmp=15
 EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
+UseTextRenderingInBrowser=0
+RenderingInBrowserSettings.RenderingRequestType=0
+RenderingInBrowserSettings.ReceivingBitmapsTimeout=3000
+RenderingInBrowserSettings.ActionForSendingRequest=
+RenderingInBrowserSettings.UsePluginForReceivingBitmaps=0
+RenderingInBrowserSettings.PluginActionForReceivingBitmaps=
+RenderingInBrowserSettings.FontSizeUnit=0
 
 [Action_4]
 ActionName="Plugin"
@@ -209,7 +229,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dll
-ListOfPropertiesAndValues=FindSubControlAction=OneProfileCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=True
+ListOfPropertiesAndValues=FindSubControlAction=OneProfileCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=CustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4
 
 [Notes]
 Content=

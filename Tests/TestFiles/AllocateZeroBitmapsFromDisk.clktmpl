@@ -108,6 +108,13 @@ MatchByHistogramSettings.MostSignificantColorCountInBackgroundBmp=15
 EvaluateTextCount=-1
 CropFromScreenshot=0
 ThreadCount=2
+UseTextRenderingInBrowser=0
+RenderingInBrowserSettings.RenderingRequestType=0
+RenderingInBrowserSettings.ReceivingBitmapsTimeout=3000
+RenderingInBrowserSettings.ActionForSendingRequest=
+RenderingInBrowserSettings.UsePluginForReceivingBitmaps=0
+RenderingInBrowserSettings.PluginActionForReceivingBitmaps=
+RenderingInBrowserSettings.FontSizeUnit=0
 
 [Action_3]
 ActionName="Plugin"
@@ -119,7 +126,7 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dll
-ListOfPropertiesAndValues=FindSubControlAction=ZeroBitmapsCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=True
+ListOfPropertiesAndValues=FindSubControlAction=ZeroBitmapsCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4
 
 [Notes]
 Content=
