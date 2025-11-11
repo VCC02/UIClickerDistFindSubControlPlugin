@@ -819,7 +819,10 @@ begin
 
   Result := ExecuteSetVarAction(GetUIClickerAddr, SetVarOptions);
   if Pos('$RemoteExecResponse$=1', Result) = 0 then
-    Result := ''
+  begin
+    Result := '';
+    frmFindSubControlWorkerMain.AddToLog('Error getting list of fonts from UIClicker: ' + Result);
+  end
   else
   begin
     Result := Copy(Result, Length('$RemoteExecResponse$=1') + 1, MaxInt);
@@ -1450,6 +1453,8 @@ begin
     frmFindSubControlWorkerMain.AddToLog('SubscriptionIdentifier(s): ' + s);
   end;
 
+  ProcErrMsg := '';
+
   if Topic = CTopicName_AppToWorker_GetCapabilities then
   begin
     frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID := Copy(Msg, Pos(CProtocolParam_RequestID + '=', Msg) + Length(CProtocolParam_RequestID + '='), MaxInt);  //if other parameters are added after CProtocolParam_RequestID=<ID>, then MaxInt should be replaced with Pos(#13#10, <remaining string>)
@@ -1468,7 +1473,7 @@ begin
         frmFindSubControlWorkerMain.AddToLog('Responding with capabilities..');
     end
     else
-      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID);
+      AddToLog('Ignoring duplicated request (GetCapabilities): ' + frmFindSubControlWorkerMain.FGetCapabilitiesWorkerRequestID);
   end;
 
   if (Topic = TopicWithWorkerName_Background) or (Topic = CTopicName_AppToWorker_SendBackground) then  //common and individual subscriptions
@@ -1501,7 +1506,7 @@ begin
       end;
     end
     else
-      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID);
+      AddToLog('Ignoring duplicated request (Background): ' + frmFindSubControlWorkerMain.FSendBackgroundWorkerRequestID);
   end;
 
   if Topic = TopicWithWorkerName_FindSubControl then
@@ -1531,7 +1536,7 @@ begin
       end;
     end
     else
-      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID);
+      AddToLog('Ignoring duplicated request (FindSubControl): ' + frmFindSubControlWorkerMain.FFindSubControlWorkerRequestID);
 
     //call CRECmd_GetResultedDebugImage
   end; //if Topic = TopicWithWorkerName
@@ -1567,13 +1572,16 @@ begin
       if not MQTT_PUBLISH(ClientInstance, 4 + ResponseIndex shl 8, QoS) then  //ideally, there should be a single MQTT_PUBLISH call like this
       begin
         if ProcErrMsg = '' then
-          ProcErrMsg := 'Cannot respond with FindSubControl result.';
+          ProcErrMsg := ProcErrMsg + '  ';
 
+        ProcErrMsg := ProcErrMsg + 'Cannot respond with ListOfFonts result. ProcResponse = ' + FastReplace_ReturnTo45(ProcResponse);
         frmFindSubControlWorkerMain.AddToLog(ProcErrMsg);
-      end;
-    end
+      end
+      else
+        frmFindSubControlWorkerMain.AddToLog('Responding with ListOfFonts..');
+    end  //ListOfFonts
     else
-      AddToLog('Ignoring duplicated request: ' + frmFindSubControlWorkerMain.FGetListOfFontsWorkerRequestID);
+      AddToLog('Ignoring duplicated request (GetListOfFonts): ' + frmFindSubControlWorkerMain.FGetListOfFontsWorkerRequestID);
   end;
 
   if Topic = CTopicName_WorkerToWorker_Ping + AssignedClientID then

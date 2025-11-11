@@ -736,12 +736,10 @@ begin
 
       Msg := CProtocolParam_RequestID + '=' + GetListOfFontsRequestID;
 
-      CurrentWorkerIndex := (ACallbackID shr 8) and $FF;  //assuming there are no more than 255 workers
-      //Msg := 'none'; //not a requirement so far
       Result := Result and StringToDynArrayOfByte(CTopicName_AppToWorker_GetListOfFonts, APublishFields.TopicName);
 
       if VerbLevel < 2 then
-        AddToLog('Requesting GetListOfFonts from worker[' + IntToStr(CurrentWorkerIndex) + ']...');
+        AddToLog('Requesting GetListOfFonts from worker...');
     end;
 
     else
@@ -1812,16 +1810,13 @@ begin
       WaitingForWorkerFonts := True; //reset below
       WorkerRespondedCountLoF := 0;
 
-      for i := 0 to Length(AllWorkers) - 1 do
+      if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts, WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
       begin
-        if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts or (i shl 8), WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
-        begin
-          FSMError := 'Can''t send GetListOfFonts settings to broker for worker[' + IntToStr(i) + '].';
-          AddToLog(FSMError);
-        end
-        else
-          tk := GetTickCount64;
-      end;
+        FSMError := 'Can''t send GetListOfFonts settings to broker.';
+        AddToLog(FSMError);
+      end
+      else
+        tk := GetTickCount64;
     end;
 
     SWaitForListOfFonts:
@@ -2906,7 +2901,7 @@ var
             AllWorkers[WorkersIndex].PmtvFilesToSend := AllWorkers[WorkersIndex].PmtvFilesToSend + AListOfPmtvs.Strings[i] + #13#10;
             Inc(AllWorkers[WorkersIndex].PmtvCntW);
           end;
-        end;
+        end;  //for i
       end;  //WillMatchPrimitiveFiles
 
       if VerbLevel < 3 then
