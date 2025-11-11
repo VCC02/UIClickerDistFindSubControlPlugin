@@ -143,6 +143,7 @@ var
   GetAllControls: Boolean;
   WorkerQoS: Integer;
   GetWorkerCapabilitiesTimeout: Integer;
+  GetListOfFontsTimeout: Integer;
   FindSubControlWorkerTimeout: Integer;
   FSMError: string;
   FindSubControlTimeoutDiff: Integer;
@@ -1945,7 +1946,7 @@ begin
          (Length(AllWorkers) >= MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
       begin
         if Length(AllWorkers) >= MinExpectedWorkerCount then
-          AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout.');
+          AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout (Capabilities).');
 
         if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
           NextState := SGetFindSubControlActionContent
@@ -2045,9 +2046,12 @@ begin
       NextState := SWaitForListOfFonts;
 
     SWaitForListOfFonts:
-      if (GetTickCount64 - tk > GetWorkerCapabilitiesTimeout) or
+      if (GetTickCount64 - tk > GetListOfFontsTimeout) or
          (WorkerRespondedCountLoF >= MinExpectedWorkerCount) then   //Waiting for some time, for all workers to present their fonts.
       begin
+        if Length(AllWorkers) >= MinExpectedWorkerCount then
+          AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout (ListOfFonts).');
+
         if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
           NextState := SGetFindSubControlActionContent
         else
@@ -3390,10 +3394,13 @@ begin
       WorkerQoS := StrToIntDef(PluginSettings.ValueFromIndex[CWorkerQoSPropertyIndex], 2);
       WorkerQoS := Min(Max(WorkerQoS, 1), 2);  //limited to 1..2
 
-      GetWorkerCapabilitiesTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CGetWorkerCapabilitiesTimeoutPropertyIndex], 2);
+      GetWorkerCapabilitiesTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CGetWorkerCapabilitiesTimeoutPropertyIndex], 500);
       GetWorkerCapabilitiesTimeout := Min(Max(GetWorkerCapabilitiesTimeout, 50), 60000);  //limited to 50..60000
 
-      FindSubControlWorkerTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlWorkerTimeoutPropertyIndex], 2);
+      GetListOfFontsTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CGetListOfFontsTimeoutPropertyIndex], 500);
+      GetListOfFontsTimeout := Min(Max(GetListOfFontsTimeout, 50), 60000);  //limited to 50..60000
+
+      FindSubControlWorkerTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlWorkerTimeoutPropertyIndex], 3500);
       FindSubControlWorkerTimeout := Min(Max(FindSubControlWorkerTimeout, 50), 60000);  //limited to 50..60000
 
       FindSubControlTimeoutDiff := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlTimeoutDiffPropertyIndex], 2500);

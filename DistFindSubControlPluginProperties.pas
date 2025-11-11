@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 29;
+  CAdditionalPropertiesCount = 30;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -43,35 +43,36 @@ const
   CPortPropertyIndex = 3;
   CWorkerQoSPropertyIndex = 4;
   CGetWorkerCapabilitiesTimeoutPropertyIndex = 5;
-  CFindSubControlWorkerTimeoutPropertyIndex = 6;
-  CFindSubControlTimeoutDiffPropertyIndex = 7;
-  CWorkerCapabilitiesSourcePropertyIndex = 8;
-  CLoadWorkerCapabilitiesCacheActionPropertyIndex = 9;
-  CSaveWorkerCapabilitiesCacheActionPropertyIndex = 10;
+  CGetListOfFontsTimeoutPropertyIndex = 6;
+  CFindSubControlWorkerTimeoutPropertyIndex = 7;
+  CFindSubControlTimeoutDiffPropertyIndex = 8;
+  CWorkerCapabilitiesSourcePropertyIndex = 9;
+  CLoadWorkerCapabilitiesCacheActionPropertyIndex = 10;
+  CSaveWorkerCapabilitiesCacheActionPropertyIndex = 11;
 
-  CTextRenderingOSPropertyIndex = 11;
-  CListOfMultiValuePropertyNamesPropertyIndex = 12;  //reserved - not used for now
-  CUseCompressionPropertyIndex = 13;
-  CCompressionAlgorithmPropertyIndex = 14;
+  CTextRenderingOSPropertyIndex = 12;
+  CListOfMultiValuePropertyNamesPropertyIndex = 13;  //reserved - not used for now
+  CUseCompressionPropertyIndex = 14;
+  CCompressionAlgorithmPropertyIndex = 15;
 
-  CLzmaEndOfStreamPropertyIndex = 15; //EOS
-  CLzmaAlgorithmPropertyIndex = 16;
-  CLzmaNumBenchMarkPassesPropertyIndex = 17;
-  CLzmaDictionarySizePropertyIndex = 18;
-  CLzmaMatchFinderPropertyIndex = 19;
-  CLzmaLiteralContextPropertyIndex = 20;
-  CLzmaLiteralPosBitsPropertyIndex = 21;
-  CLzmaPosBitsPropertyIndex = 22;
-  CLzmaFastBytesPropertyIndex = 23;
+  CLzmaEndOfStreamPropertyIndex = 16; //EOS
+  CLzmaAlgorithmPropertyIndex = 17;
+  CLzmaNumBenchMarkPassesPropertyIndex = 18;
+  CLzmaDictionarySizePropertyIndex = 19;
+  CLzmaMatchFinderPropertyIndex = 20;
+  CLzmaLiteralContextPropertyIndex = 21;
+  CLzmaLiteralPosBitsPropertyIndex = 22;
+  CLzmaPosBitsPropertyIndex = 23;
+  CLzmaFastBytesPropertyIndex = 24;
 
-  CVariablesForWorkersPropertyIndex = 24;
-  CExtraDebuggingInfoPropertyIndex = 25;
-  CEvaluateFileNameBeforeSendingPropertyIndex = 26;
+  CVariablesForWorkersPropertyIndex = 25;
+  CExtraDebuggingInfoPropertyIndex = 26;
+  CEvaluateFileNameBeforeSendingPropertyIndex = 27;
 
-  CCustomFontProfilesPropertyIndex = 27;
-  CUseFontProfilesPropertyIndex = 28;
+  CCustomFontProfilesPropertyIndex = 28;
+  CUseFontProfilesPropertyIndex = 29;
 
-  CMinExpectedWorkerCountPropertyIndex = 29;
+  CMinExpectedWorkerCountPropertyIndex = 30;
 
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
@@ -79,6 +80,7 @@ const
   CPortPropertyName = 'Port';
   CWorkerQoSPropertyName = 'WorkerQoS';  //QoS between plugin and workers
   CGetWorkerCapabilitiesTimeoutPropertyName = 'GetWorkerCapabilitiesTimeout';  //waiting timeout for every worker to present its capabilites
+  CGetListOfFontsTimeoutPropertyName = 'GetListOfFontsTimeout';
   CFindSubControlWorkerTimeoutPropertyName = 'FindSubControlWorkerTimeout'; //waiting timeout for every worker processing
   CFindSubControlTimeoutDiffPropertyName = 'FindSubControlTimeoutDiff';
   CWorkerCapabilitiesSourcePropertyName = 'WorkerCapabilitiesSource';
@@ -125,6 +127,7 @@ const
     CPortPropertyName,
     CWorkerQoSPropertyName,
     CGetWorkerCapabilitiesTimeoutPropertyName,
+    CGetListOfFontsTimeoutPropertyName,
     CFindSubControlWorkerTimeoutPropertyName,
     CFindSubControlTimeoutDiffPropertyName,
     CWorkerCapabilitiesSourcePropertyName,
@@ -164,8 +167,9 @@ const
     'TextWithArrow', //Address
     'SpinText',      //Port
     'SpinText',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
-    'TextWithArrow', //GetWorkerCapabilitiesTimeout
-    'TextWithArrow', //FindSubControlWorkerTimeout
+    'SpinText', //GetWorkerCapabilitiesTimeout
+    'SpinText', //GetListOfFontsTimeout
+    'SpinText', //FindSubControlWorkerTimeout
     'SpinText',      //FindSubControlTimeoutDiff
     'EnumCombo',     //WorkerCapabilitiesSource
     'TextWithArrow', //LoadWorkerCapabilitiesCacheAction
@@ -201,6 +205,7 @@ const
     CDTInteger,      //Port
     CDTInteger,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     CDTInteger, //GetWorkerCapabilitiesTimeout
+    CDTInteger, //GetListOfFontsTimeout
     CDTInteger, //FindSubControlWorkerTimeout
     CDTInteger, //FindSubControlTimeoutDiff
     CDTEnum,    //WorkerCapabilitiesSource
@@ -238,6 +243,7 @@ const
     0,      //Port
     0,      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     0, //GetWorkerCapabilitiesTimeout
+    0, //GetListOfFontsTimeout
     0, //FindSubControlWorkerTimeout
     0, //FindSubControlTimeoutDiff
     5, //'EnumCombo',     //WorkerCapabilitiesSource
@@ -275,6 +281,7 @@ const
     '',      //Port
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '', //GetWorkerCapabilitiesTimeout
+    '', //GetListOfFontsTimeout
     '', //FindSubControlWorkerTimeout
     '', //FindSubControlTimeoutDiff
     CReqCapOperation_wcsReqCapAndFindSubControl + #4#5 +
@@ -316,6 +323,7 @@ const
     'Port number of the MQTT broker, where this plugin connects to.',      //Port
     'Quality of service, used by MQTT communication. Can be 1 or 2.',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     'Timeout in ms, until the plugin no longer waits for all workers to present their capabilities.' + #4#5 + 'Workers which miss this timeout won''t receive work.',
+    'Timeout in ms, until the plugin no longer waits for all workers to present their fonts.' + #4#5 + 'Workers which miss this timeout won''t receive text related work.', //GetListOfFontsTimeout
     'Timeout in ms, until the plugin no longer waits for a remote worker to return the execution results of FindSubControl action.' + #4#5 + 'The actual FindSubControl action is configured to have a timeout, e.g. 1500ms less than this worker waiting timeout.' + #4#5 + 'For example, on a 2000ms FindSubControlWorkerTimeout, the FindSubControl action has only 500ms.' + #4#5 + 'To prevent negative values, the FindSubControl action will have a minimum of 100ms.', //FindSubControlWorkerTimeout
     'Difference between plugin timeout and the actual FindSubControl execution timeout.' + #4#5 + 'Default value: 2500.', //FindSubControlTimeoutDiff
     '- When set to ' + CReqCapOperation_wcsReqCapAndFindSubControl + ', the plugin requests capabilities from workers, then it requests the FindSubControl operation.' + #4#5 +
@@ -356,34 +364,35 @@ const
     '', //Address
     '',      //Port
     '',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
-    '', //GetWorkerCapabilitiesTimeout
-    '', //FindSubControlWorkerTimeout
-    '', //FindSubControlTimeoutDiff                                  [7]
-    '', //WorkerCapabilitiesSource                                   [8]
-    'PropertyValue[8]==wcsLoadCacheAndFindSubControl', //LoadWorkerCapabilitiesCacheAction   [9]
-    'PropertyValue[8]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [10]
+    '', //GetWorkerCapabilitiesTimeout                               [5]
+    '', //GetListOfFontsTimeout                                      [6]
+    '', //FindSubControlWorkerTimeout                                [7]
+    '', //FindSubControlTimeoutDiff                                  [8]
+    '', //WorkerCapabilitiesSource                                   [9]
+    'PropertyValue[9]==wcsLoadCacheAndFindSubControl', //LoadWorkerCapabilitiesCacheAction   [10]
+    'PropertyValue[9]==wcsReqCapAndUpdateCache', //SaveWorkerCapabilitiesCacheAction                          [11]
 
-    '', //'EnumCombo',     //TextRenderingOS    - EnumCombo cannot be used until the plugin API allows defining property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
-    'PropertyValue[12]==Reserved', //ListOfMultiValue   //this is  [13]
-    '', //UseCompression    //this is  [13]
-    'PropertyValue[13]==True',  //CompressionAlgorithm    //this is  [14]
+    '', //'EnumCombo',     //TextRenderingOS    - EnumCombo cannot be used until the plugin API allows defining property details (e.g. enum options, hints, icons, menus, min..max spin intervals etc)   [12]
+    'PropertyValue[13]==Reserved', //ListOfMultiValue   //this is  [13]
+    '', //UseCompression    //this is  [14]
+    'PropertyValue[14]==True',  //CompressionAlgorithm    //this is  [15]
 
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaEndOfStreamPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaAlgorithmPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaDictionarySizePropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaMatchFinderPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaLiteralContextPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaLiteralPosBitsPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaPosBitsPropertyName,
-    'PropertyValue[13]==True' + #5#6 + 'PropertyValue[14]==Lzma',  //LzmaFastBytesPropertyName
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaEndOfStreamPropertyName,         [16]
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaAlgorithmPropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaNumBenchMarkPassesPropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaDictionarySizePropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaMatchFinderPropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaLiteralContextPropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaLiteralPosBitsPropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaPosBitsPropertyName,
+    'PropertyValue[14]==True' + #5#6 + 'PropertyValue[15]==Lzma',  //LzmaFastBytesPropertyName            [24]
 
-    '', //VariablesForWorkers
-    '', //ExtraDebuggingInfo
-    '', //EvaluateFileNameBeforeSending
-    'PropertyValue[28]==ufpFromCustom', //CustomFontProfiles
-    '', //UseFontProfiles
-    ''  //MinExpectedWorkerCount
+    '', //VariablesForWorkers  [25]
+    '', //ExtraDebuggingInfo   [26]
+    '', //EvaluateFileNameBeforeSending  [27]
+    'PropertyValue[29]==ufpFromCustom', //CustomFontProfiles  [28]
+    '', //UseFontProfiles                                     [29]
+    ''  //MinExpectedWorkerCount                              [30]
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -394,6 +403,7 @@ const
     '1883',      //Port
     '1',      //WorkerQoS      (somehow, this should be limited to 1..2    (cannot use 0, because it expects a response)
     '500',  //GetWorkerCapabilitiesTimeout
+    '1200',  //GetListOfFontsTimeout
     '3500', //FindSubControlWorkerTimeout
     '2500', //FindSubControlTimeoutDiff
     CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl, //WorkerCapabilitiesSource
