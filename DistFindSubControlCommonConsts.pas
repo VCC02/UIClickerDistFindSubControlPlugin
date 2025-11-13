@@ -169,18 +169,64 @@ type
 
   TWorkerArr = array of TWorker;
 
+  TDistPluginOptions = record
+    FindSubControlAction: string;
+    CredentialsFullFileName: string;
+    Address: string;
+    Port: string;
+    WorkerQoS: Byte;
+    GetWorkerCapabilitiesTimeout: Integer;
+    GetListOfFontsTimeout: Integer;
+    FindSubControlWorkerTimeout: Integer;
+    FindSubControlTimeoutDiff: Integer;
+    WorkerCapabilitiesSource: string; //enum
+    LoadWorkerCapabilitiesCacheAction: string;
+    SaveWorkerCapabilitiesCacheAction: string;
+
+    TextRenderingOS: string;
+    ListOfMultiValuePropertyNames: string;  //reserved - not used for now
+    UseCompression: Boolean;
+    CompressionAlgorithm: string; //enum
+
+    //LzmaEndOfStream; //EOS
+    //LzmaAlgorithm;
+    //LzmaNumBenchMarkPasses;
+    //LzmaDictionarySize;
+    //LzmaMatchFinder;
+    //LzmaLiteralContext;
+    //LzmaLiteralPosBits;
+    //LzmaPosBits;
+    //LzmaFastBytes;
+    LzmaOptions: TplLzmaOptions;
+
+    VariablesForWorkers: string;
+    ExtraDebuggingInfo: Boolean;
+    EvaluateFileNameBeforeSending: Boolean;
+
+    CustomFontProfiles: string; //Filename of a "font profiles" file
+    UseFontProfiles: Boolean;
+
+    MinExpectedWorkerCount: Integer;
+    UpdateBackgroundInterval: Integer;
+  end;
+
+  TVarsForWorkers = record
+    Names, Values, EvalBefore: string;
+  end;
+
 function CompressionAlgorithmsStrToType(AStr: string): TCompressionAlgorithm;
 procedure FillInLzmaOptionsFromPluginProperties(APluginProperties: TStringList; var ADestLzmaOptions: TplLzmaOptions); overload;
 function FillInLzmaOptionsFromPluginProperties(APluginProperties: TStringList): TplLzmaOptions; overload;
 function FillInDefaultLzmaOptionsFromPluginProperties: TplLzmaOptions;
 
+procedure GetPluginSettingsFromProperties(AProperties: TStringList; AListOfVars: string; out ADistPluginOptions: TDistPluginOptions; out AVarsForWorkers: TVarsForWorkers);
 
 implementation
 
 
 uses
   Math, ClickerExtraUtils, IdGlobal,
-  DistFindSubControlPluginProperties;
+  DistFindSubControlPluginProperties, ClickerUtils;
 
 
 function CompressionAlgorithmsStrToType(AStr: string): TCompressionAlgorithm;
@@ -307,6 +353,98 @@ begin
   end;
 end;
 
+
+procedure GetAllVarsAndValuesFromVarsForWorkers(AVarsForWorkers: string; AListOfAllVars: TStringList; out AAllNames, AAllValues, AAllEvalBefore: string);
+var
+  ListOfVarsForWorkers: TStringList;
+  i: Integer;
+  VarName, VarValue: string;
+begin
+  ListOfVarsForWorkers := TStringList.Create;
+  try
+    ListOfVarsForWorkers.LineBreak := #13#10;
+    AVarsForWorkers := StringReplace(AVarsForWorkers, ', ', #13#10, [rfReplaceAll]);
+    AVarsForWorkers := StringReplace(AVarsForWorkers, ',', #13#10, [rfReplaceAll]);
+
+    ListOfVarsForWorkers.Text := AVarsForWorkers;
+
+    AAllNames := '';
+    AAllValues := '';
+    AAllEvalBefore := '';
+    for i := 0 to ListOfVarsForWorkers.Count - 1 do
+    begin
+      VarName := ListOfVarsForWorkers.Strings[i];
+      VarValue := AListOfAllVars.Values[VarName];
+
+      AAllNames := AAllNames + VarName + #4#5;
+      AAllValues := AAllValues + VarValue + #4#5;
+      AAllEvalBefore := AAllEvalBefore + '0' + #4#5;
+    end;
+  finally
+    ListOfVarsForWorkers.Free;
+  end;
+end;
+
+
+procedure GetPluginSettingsFromProperties(AProperties: TStringList; AListOfVars: string; out ADistPluginOptions: TDistPluginOptions; out AVarsForWorkers: TVarsForWorkers);
+var
+  ListOfVars: TStringList;
+begin
+  ADistPluginOptions.FindSubControlAction := AProperties.ValueFromIndex[CFindSubControlActionPropertyIndex];  //0
+  ADistPluginOptions.CredentialsFullFileName := AProperties.ValueFromIndex[CCredentialsFullFileNamePropertyIndex]; //1 //for connection to broker
+  ADistPluginOptions.Address := AProperties.ValueFromIndex[CAddressPropertyIndex]; //2
+  ADistPluginOptions.Port := AProperties.ValueFromIndex[CPortPropertyIndex];  //3
+
+  ListOfVars := TStringList.Create;
+  try
+    ListOfVars.LineBreak := #13#10;
+    ListOfVars.Text := AListOfVars;
+    ADistPluginOptions.CredentialsFullFileName := EvaluateAllReplacements(ListOfVars, ADistPluginOptions.CredentialsFullFileName);
+    ADistPluginOptions.Address := EvaluateAllReplacements(ListOfVars, ADistPluginOptions.Address);
+    ADistPluginOptions.Port := EvaluateAllReplacements(ListOfVars, ADistPluginOptions.Port);
+
+    // AProperties.Values[CVariablesForWorkersPropertyName] is a comma-separated list of vars
+    GetAllVarsAndValuesFromVarsForWorkers(AProperties.ValueFromIndex[CVariablesForWorkersPropertyIndex], ListOfVars, AVarsForWorkers.Names, AVarsForWorkers.Values, AVarsForWorkers.EvalBefore);
+  finally
+    ListOfVars.Free;
+  end;
+
+  ADistPluginOptions.WorkerQoS := StrToIntDef(AProperties.ValueFromIndex[CWorkerQoSPropertyIndex], 2);  //4
+  ADistPluginOptions.WorkerQoS := Min(Max(ADistPluginOptions.WorkerQoS, 1), 2);  //limited to 1..2
+
+  ADistPluginOptions.GetWorkerCapabilitiesTimeout := StrToIntDef(AProperties.ValueFromIndex[CGetWorkerCapabilitiesTimeoutPropertyIndex], 500);  //5
+  ADistPluginOptions.GetWorkerCapabilitiesTimeout := Min(Max(ADistPluginOptions.GetWorkerCapabilitiesTimeout, 50), 60000);  //limited to 50..60000
+
+  ADistPluginOptions.GetListOfFontsTimeout := StrToIntDef(AProperties.ValueFromIndex[CGetListOfFontsTimeoutPropertyIndex], 500);  //6
+  ADistPluginOptions.GetListOfFontsTimeout := Min(Max(ADistPluginOptions.GetListOfFontsTimeout, 50), 60000);  //limited to 50..60000
+
+  ADistPluginOptions.FindSubControlWorkerTimeout := StrToIntDef(AProperties.ValueFromIndex[CFindSubControlWorkerTimeoutPropertyIndex], 3500);  //7
+  ADistPluginOptions.FindSubControlWorkerTimeout := Min(Max(ADistPluginOptions.FindSubControlWorkerTimeout, 50), 60000);  //limited to 50..60000
+
+  ADistPluginOptions.FindSubControlTimeoutDiff := StrToIntDef(AProperties.ValueFromIndex[CFindSubControlTimeoutDiffPropertyIndex], 2500);  //8
+  ADistPluginOptions.FindSubControlTimeoutDiff := Min(Max(ADistPluginOptions.FindSubControlTimeoutDiff, 1500), 60000);  //limited to 1500..60000
+
+  ADistPluginOptions.WorkerCapabilitiesSource := AProperties.ValueFromIndex[CWorkerCapabilitiesSourcePropertyIndex];  //9
+  ADistPluginOptions.LoadWorkerCapabilitiesCacheAction := AProperties.ValueFromIndex[CLoadWorkerCapabilitiesCacheActionPropertyIndex];  //10
+  ADistPluginOptions.SaveWorkerCapabilitiesCacheAction := AProperties.ValueFromIndex[CSaveWorkerCapabilitiesCacheActionPropertyIndex];  //11
+  ADistPluginOptions.TextRenderingOS := AProperties.ValueFromIndex[CTextRenderingOSPropertyIndex];  //12
+  ADistPluginOptions.ListOfMultiValuePropertyNames := AProperties.ValueFromIndex[CListOfMultiValuePropertyNamesPropertyIndex];  //13
+  ADistPluginOptions.UseCompression := AProperties.ValueFromIndex[CUseCompressionPropertyIndex] = 'True';  //14
+  ADistPluginOptions.CompressionAlgorithm := AProperties.ValueFromIndex[CCompressionAlgorithmPropertyIndex];  //15
+
+  //16..24
+
+  //CVariablesForWorkersPropertyIndex  //25
+  ADistPluginOptions.ExtraDebuggingInfo := AProperties.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';  //26
+  ADistPluginOptions.EvaluateFileNameBeforeSending := AProperties.ValueFromIndex[CEvaluateFileNameBeforeSendingPropertyIndex] = 'True';  //27
+  ADistPluginOptions.UseFontProfiles := AProperties.ValueFromIndex[CUseFontProfilesPropertyIndex] = CUseFontProfiles_FromCustom;  //29
+  ADistPluginOptions.CustomFontProfiles := AProperties.ValueFromIndex[CCustomFontProfilesPropertyIndex];  //28
+
+  ADistPluginOptions.MinExpectedWorkerCount := StrToIntDef(AProperties.ValueFromIndex[CMinExpectedWorkerCountPropertyIndex], 4);  //30
+  ADistPluginOptions.MinExpectedWorkerCount := Min(Max(ADistPluginOptions.MinExpectedWorkerCount, 1), 50);  //limited to 1..50
+  ADistPluginOptions.UpdateBackgroundInterval := StrToIntDef(AProperties.ValueFromIndex[CUpdateBackgroundIntervalPropertyIndex], 4);  //31
+  ADistPluginOptions.UpdateBackgroundInterval := Min(Max(ADistPluginOptions.MinExpectedWorkerCount, -1), 10000);  //limited to 1..10000
+end;
 
 end.
 

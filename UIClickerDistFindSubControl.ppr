@@ -133,29 +133,14 @@ var
   ActionPlugin_AppProcMsgCallback: TOnActionPlugin_AppProcMsg;
   GPluginReference: Pointer;
 
-  FindSubControlActionPropertyValue: string;
-  CredentialsFullFileNamePropertyValue: string;  //for connection to broker
-  AddressPropertyValue: string;
-  PortPropertyValue: string;
-  VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore: string;
-  UpdateCacheActionName, LoadCacheActionName: string;
-
   GetAllControls: Boolean;
-  WorkerQoS: Integer;
-  GetWorkerCapabilitiesTimeout: Integer;
-  GetListOfFontsTimeout: Integer;
-  FindSubControlWorkerTimeout: Integer;
   FSMError: string;
-  FindSubControlTimeoutDiff: Integer;
-  WorkerCapabilitiesSource: string; //set by property at CWorkerCapabilitiesSourcePropertyIndex
-  RequestedTextRenderingOS: string;
   FindSubControlFonts: TClkFindControlMatchBitmapTextArr = nil; //used for sorting
   FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
-  DisplayExtraDebuggingInfo: Boolean;
-  EvaluateFileNameBeforeSending: Boolean;
-  UsingCustomFontProfiles: Boolean;
-  CustomProfilesFnm: string;
-  MinExpectedWorkerCount: Integer;
+  UpdateBackgroundTk: Int64;
+
+  FDistPluginOptions: TDistPluginOptions;
+  FVarsForWorkers: TVarsForWorkers; //the old VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore
 
   RequestIDCnt: Integer;
   GetCapabilitiesRequestID: string;
@@ -367,10 +352,10 @@ begin
   //Id := Chr((ClientInstance and $FF) + 48);
   //ClientId := 'MyClient' + Id;
 
-  if Pos('Mem:\', CredentialsFullFileNamePropertyValue) = 1 then
-    GetCredentialsFromInMemFS(CredentialsFullFileNamePropertyValue, GPluginReference, ActionPlugin_InMemFSCallback, UserName, Password)
+  if Pos('Mem:\', FDistPluginOptions.CredentialsFullFileName) = 1 then
+    GetCredentialsFromInMemFS(FDistPluginOptions.CredentialsFullFileName, GPluginReference, ActionPlugin_InMemFSCallback, UserName, Password)
   else
-    GetCredentials(CredentialsFullFileNamePropertyValue, UserName, Password);
+    GetCredentials(FDistPluginOptions.CredentialsFullFileName, UserName, Password);
 
   //StringToDynArrayOfByte(ClientId, AConnectFields.PayloadContent.ClientID);
   StringToDynArrayOfByte(UserName, AConnectFields.PayloadContent.UserName);
@@ -1527,7 +1512,7 @@ function DoConnectToBroker: Boolean;
 begin
   Result := False;
   try
-    IdTCPClient1.Connect(AddressPropertyValue, StrToIntDef(PortPropertyValue, 12345));
+    IdTCPClient1.Connect(FDistPluginOptions.Address, StrToIntDef(FDistPluginOptions.Port, 12345));
     IdTCPClient1.IOHandler.ReadTimeout := 1;
 
     RecTh := TMQTTReceiveThread.Create(True);
@@ -1601,64 +1586,6 @@ begin
 end;
 
 
-
-procedure GetAllVarsAndValuesFromVarsForWorkers(AVarsForWorkers: string; AListOfAllVars: TStringList; out AAllNames, AAllValues, AAllEvalBefore: string);
-var
-  ListOfVarsForWorkers: TStringList;
-  i: Integer;
-  VarName, VarValue: string;
-begin
-  ListOfVarsForWorkers := TStringList.Create;
-  try
-    ListOfVarsForWorkers.LineBreak := #13#10;
-    AVarsForWorkers := StringReplace(AVarsForWorkers, ', ', #13#10, [rfReplaceAll]);
-    AVarsForWorkers := StringReplace(AVarsForWorkers, ',', #13#10, [rfReplaceAll]);
-
-    ListOfVarsForWorkers.Text := AVarsForWorkers;
-
-    AAllNames := '';
-    AAllValues := '';
-    AAllEvalBefore := '';
-    for i := 0 to ListOfVarsForWorkers.Count - 1 do
-    begin
-      VarName := ListOfVarsForWorkers.Strings[i];
-      VarValue := AListOfAllVars.Values[VarName];
-
-      AAllNames := AAllNames + VarName + #4#5;
-      AAllValues := AAllValues + VarValue + #4#5;
-      AAllEvalBefore := AAllEvalBefore + '0' + #4#5;
-    end;
-  finally
-    ListOfVarsForWorkers.Free;
-  end;
-end;
-
-
-procedure GetPluginSettingsFromProperties(AProperties: TStringList; AListOfVars: string);
-var
-  ListOfVars: TStringList;
-begin
-  FindSubControlActionPropertyValue := AProperties.Values[CFindSubControlActionPropertyName];
-  CredentialsFullFileNamePropertyValue := AProperties.Values[CCredentialsFullFileNamePropertyName];  //for connection to broker
-  AddressPropertyValue := AProperties.Values[CAddressPropertyName];
-  PortPropertyValue := AProperties.Values[CPortPropertyName];
-
-  ListOfVars := TStringList.Create;
-  try
-    ListOfVars.LineBreak := #13#10;
-    ListOfVars.Text := AListOfVars;
-    CredentialsFullFileNamePropertyValue := EvaluateAllReplacements(ListOfVars, CredentialsFullFileNamePropertyValue);
-    AddressPropertyValue := EvaluateAllReplacements(ListOfVars, AddressPropertyValue);
-    PortPropertyValue := EvaluateAllReplacements(ListOfVars, PortPropertyValue);
-
-    // AProperties.Values[CVariablesForWorkersPropertyName] is a comma-separated list of vars
-    GetAllVarsAndValuesFromVarsForWorkers(AProperties.Values[CVariablesForWorkersPropertyName], ListOfVars, VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore);
-  finally
-    ListOfVars.Free;
-  end;
-end;
-
-
 procedure ExecFSM_Part1;
 var
   i: Integer;
@@ -1691,7 +1618,7 @@ begin
       end
       else
       begin
-        FSMError := 'Can''t connect to broker. ' + AddressPropertyValue + ':' + PortPropertyValue;
+        FSMError := 'Can''t connect to broker. ' + FDistPluginOptions.Address + ':' + FDistPluginOptions.Port;
         AddToLog(FSMError);
       end;
     end;
@@ -1721,7 +1648,7 @@ begin
     SRequestCapabilities:
     begin
       WaitingForWorkerCapabilities := True;    //reset below
-      if not MQTT_PUBLISH(0, CCallbackID_GetCapabilities, WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
+      if not MQTT_PUBLISH(0, CCallbackID_GetCapabilities, FDistPluginOptions.WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
       begin
         FSMError := 'Can''t send GetCapabilities request to broker.';
         AddToLog(FSMError);
@@ -1759,7 +1686,7 @@ begin
       if VerbLevel < 2 then
         AddToLog('Sending background image to broker...');
 
-      if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
+      if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
       begin
         FSMError := 'Can''t send background image to all workers.';
         AddToLog(FSMError);
@@ -1786,7 +1713,7 @@ begin
 
       for i := 0 to Length(AllWorkers) - 1 do
       begin
-        if not MQTT_PUBLISH(0, CCallbackID_SendFindSubControl or (i shl 8), WorkerQoS) then   //notice CallbackID = 3     (i.e. 'FindSubControl')
+        if not MQTT_PUBLISH(0, CCallbackID_SendFindSubControl or (i shl 8), FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 3     (i.e. 'FindSubControl')
         begin
           FSMError := 'Can''t send FindSubControl settings to broker for worker[' + IntToStr(i) + '].';
           AddToLog(FSMError);
@@ -1797,12 +1724,36 @@ begin
 
       if VerbLevel < 2 then
         AddToLog('Done sending FindSubControl settings.');
+
+      UpdateBackgroundTk := GetTickCount64;
     end;
 
     SWaitForFindSubControlResults:
     begin
       // It is possible that the plugin may receive "missing files" requests.
       // If that's the case, it should send those files, here in the same state.
+
+      //if (UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= UpdateBackgroundInterval) then
+      //begin
+      //  UpdateBackgroundTk := GetTickCount64;
+      //  /////////////////////////////////////////// Take the screenshot
+      //  //verify if changed, then:
+      //  begin
+      //    if VerbLevel < 2 then
+      //      AddToLog('Sending background image to broker, because it changed...');
+      //
+      //    if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
+      //    begin
+      //      FSMError := 'Can''t send background image to all workers, although it changed.';
+      //      AddToLog(FSMError);
+      //    end
+      //    else
+      //      tk := GetTickCount64;
+      //
+      //    if VerbLevel < 2 then
+      //      AddToLog('Done sending background image, because it changed.');
+      //  end;
+      //end; //new screenshot to take
     end;
 
     SGetListOfFonts:
@@ -1810,7 +1761,7 @@ begin
       WaitingForWorkerFonts := True; //reset below
       WorkerRespondedCountLoF := 0;
 
-      if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts, WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
+      if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
       begin
         FSMError := 'Can''t send GetListOfFonts settings to broker.';
         AddToLog(FSMError);
@@ -1829,14 +1780,14 @@ begin
       if VerbLevel < 2 then
         AddToLog('Updating plugin cache..');
 
-      if UpdateCacheActionName = '' then
+      if FDistPluginOptions.SaveWorkerCapabilitiesCacheAction = '' then
       begin
         FSMError := 'There is no configured action for updating plugin cache.';
         AddToLog(FSMError);
       end
       else
-        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @UpdateCacheActionName[1]) then
-          FSMError := 'Error updating plugin cache. The ' + UpdateCacheActionName + ' action failed.';
+        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @FDistPluginOptions.SaveWorkerCapabilitiesCacheAction[1]) then
+          FSMError := 'Error updating plugin cache. The ' + FDistPluginOptions.SaveWorkerCapabilitiesCacheAction + ' action failed.';
           //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
     end;
 
@@ -1845,14 +1796,14 @@ begin
       if VerbLevel < 2 then
         AddToLog('Loading plugin cache..');
 
-      if LoadCacheActionName = '' then
+      if FDistPluginOptions.LoadWorkerCapabilitiesCacheAction = '' then
       begin
         FSMError := 'There is no configured action for loading plugin cache.';
         AddToLog(FSMError);
       end
       else
-        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @LoadCacheActionName[1]) then
-          FSMError := 'Error loading plugin cache. The ' + LoadCacheActionName + ' action failed.';
+        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @FDistPluginOptions.LoadWorkerCapabilitiesCacheAction[1]) then
+          FSMError := 'Error loading plugin cache. The ' + FDistPluginOptions.LoadWorkerCapabilitiesCacheAction + ' action failed.';
           //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
     end;
 
@@ -1920,7 +1871,7 @@ begin
     SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
       if SubAckReceived then
       begin
-        if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
+        if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
           NextState := SLoadCache
         else
           NextState := SRequestCapabilities;
@@ -1937,25 +1888,25 @@ begin
       NextState := SWaitForCapabilitiesResponse;
 
     SWaitForCapabilitiesResponse:
-      if (GetTickCount64 - tk > GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
-         (Length(AllWorkers) >= MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
+      if (GetTickCount64 - tk > FDistPluginOptions.GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
+         (Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
       begin
-        if Length(AllWorkers) >= MinExpectedWorkerCount then
+        if Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount then
           AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout (Capabilities).');
 
-        if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
+        if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
           NextState := SGetFindSubControlActionContent
         else
-          if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts then
+          if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts then
             NextState := SGetListOfFonts
           else
-            if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
+            if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
               NextState := SGetListOfFonts  //in SWaitForListOfFonts, there is still a verification of WorkerCapabilitiesSource
             else
-              if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndUpdateCache then
+              if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndUpdateCache then
                 NextState := SUpdateCache
               else
-                if WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then   //////////// this should not happen in this state
+                if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then   //////////// this should not happen in this state
                 begin
                   NextState := SUnsubscribeFromResponses; /////////////// set here to a different state when implemented
                   AddToLog('________' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ' not implemented yet...'); //remove comment
@@ -1963,7 +1914,7 @@ begin
                 else
                 begin
                   NextState := SUnsubscribeFromResponses;
-                  AddToLog('________ Unknown operation: ' + WorkerCapabilitiesSource + '. Exiting plugin.');
+                  AddToLog('________ Unknown operation: ' + FDistPluginOptions.WorkerCapabilitiesSource + '. Exiting plugin.');
                 end;
 
         WaitingForWorkerCapabilities := False;
@@ -1987,7 +1938,7 @@ begin
       NextState := SWaitForBackgroundImageResults;
 
     SWaitForBackgroundImageResults:
-      if GetTickCount64 - tk > FindSubControlWorkerTimeout then   //not sure what timeout to use here
+      if GetTickCount64 - tk > FDistPluginOptions.FindSubControlWorkerTimeout then   //not sure what timeout to use here
       begin
         NextState := SUnsubscribeFromResponses;  //Timeout
 
@@ -1999,7 +1950,7 @@ begin
         FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCountBG) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
 
         AddToLog(FSMError);
-        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FindSubControlWorkerTimeout) + 'ms.');
+        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + 'ms.');
       end
       else
       begin
@@ -2021,7 +1972,7 @@ begin
       if AtLeastOneWorkerFoundTheSubControl then
         NextState := SUnsubscribeFromResponses
       else
-        if GetTickCount64 - tk > FindSubControlWorkerTimeout then
+        if GetTickCount64 - tk > FDistPluginOptions.FindSubControlWorkerTimeout then
         begin
           NextState := SUnsubscribeFromResponses;  //Timeout
 
@@ -2041,13 +1992,13 @@ begin
       NextState := SWaitForListOfFonts;
 
     SWaitForListOfFonts:
-      if (GetTickCount64 - tk > GetListOfFontsTimeout) or
-         (WorkerRespondedCountLoF >= MinExpectedWorkerCount) then   //Waiting for some time, for all workers to present their fonts.
+      if (GetTickCount64 - tk > FDistPluginOptions.GetListOfFontsTimeout) or
+         (WorkerRespondedCountLoF >= FDistPluginOptions.MinExpectedWorkerCount) then   //Waiting for some time, for all workers to present their fonts.
       begin
-        if Length(AllWorkers) >= MinExpectedWorkerCount then
+        if Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount then
           AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout (ListOfFonts).');
 
-        if WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
+        if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
           NextState := SGetFindSubControlActionContent
         else
           NextState := SUnsubscribeFromResponses;
@@ -2077,7 +2028,7 @@ begin
     SLoadCache:
     begin
       //NextState := SGetFindSubControlActionContent;  //from SLoadCache, the next state should be SGetFindSubControlActionContent
-      WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndFindSubControl; //but the list of workers is not updated yet by the cache.  ToDo
+      FDistPluginOptions.WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndFindSubControl; //but the list of workers is not updated yet by the cache.  ToDo
       NextState := SRequestCapabilities; //Go and get capabilities, which updates the list of workers and then execute FindSubControl. (Temp solution.)
     end;
 
@@ -2178,7 +2129,7 @@ var
   ActionTypeDWord: DWord;
   ActionType: TClkAction;
   UsingCompression: Boolean;
-  PluginSettings: TStringList;
+  ListOfPluginSettings: TStringList;
 
   procedure SetTemplateVar(AVarName, AVarValue: string);
   begin
@@ -2399,31 +2350,69 @@ var
   end;
 
 
-  function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
+  function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; AAddBackgroundOnlyIfChanged: Boolean; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
   var
-    TempBk: TMemoryStream;
+    TempBk, PreBk: TMemoryStream;
     BkFileNameLocation: TImageSourceFileNameLocation;
     //BkHash: string;
     TempBmp: TBitmap;
   begin
+    Result := True;
     ABackgroundSize := -2; //init with something
     ABackgroundWidth := 1;
     ABackgroundHeight := 1;
 
+    BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+
+    if AAddBackgroundOnlyIfChanged then
+    begin
+      PreBk := TMemoryStream.Create;
+      try
+        if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, PreBk, BkFileNameLocation) then
+        begin
+          if AImageSource = '0' then  //isScreenshot
+          begin  //this updates the background in memory
+            AOnActionPlugin_Screenshot(APluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
+            ASourceFileName := CScreenshotFilename;
+          end;
+
+          TempBk := TMemoryStream.Create;
+          try
+            if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
+            begin
+              if PreBk.Size = TempBk.Size then
+                if CompareMem(PreBk.Memory, TempBk.Memory, PreBk.Size) then
+                begin
+                  Result := False;
+                  Exit;
+                end;
+            end;
+          finally
+            TempBk.Free;  ////////////////// maybe create once, above, then reuse it
+          end;
+        end  //LoadBitmapAsStream - PreBk
+        else
+        begin
+          ABackgroundSize := 0;
+          raise Exception.Create('----------- LoadBitmapAsStream(PreBk) is False. Probably the file does not exist: ' + ASourceFileName);
+        end;
+      finally
+        PreBk.Free;
+      end;
+    end;
+
     if AImageSource = '0' then  //isScreenshot
     begin
       if VerbLevel < 2 then
-        AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
+        AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
 
-      AOnActionPlugin_Screenshot(APluginReference, @string(PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
+      AOnActionPlugin_Screenshot(APluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
 
       if VerbLevel < 2 then
         AddToLog('----------- The screenshot should be found in in-mem FS, as ' + CScreenshotFilename);
 
       ASourceFileName := CScreenshotFilename;
     end;
-
-    BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
 
     if VerbLevel < 2 then
       AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
@@ -2455,8 +2444,6 @@ var
       begin
         ABackgroundSize := 0;
         raise Exception.Create('----------- LoadBitmapAsStream is False. Probably the file does not exist: ' + ASourceFileName);
-        //Result := False;
-        //Exit;
       end;
     finally
       TempBk.Free;
@@ -2589,7 +2576,7 @@ var
                         begin
                           BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
 
-                          if EvaluateFileNameBeforeSending then
+                          if FDistPluginOptions.EvaluateFileNameBeforeSending then
                           begin
                             FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
 
@@ -2635,7 +2622,7 @@ var
                         UsedBmpTempMemFile.Free;
                       end;
 
-                      if EvaluateFileNameBeforeSending then
+                      if FDistPluginOptions.EvaluateFileNameBeforeSending then
                       begin
                         if VerbLevel < 2 then
                           AddToLog('--------------- Updating "' + BmpsInPmtv.Strings[k] + '" to "' + FnmForArchive + '" in pmtv.  Initial pmtv file size: ' + IntToStr(TempMemFile.Size));
@@ -2644,7 +2631,7 @@ var
                       end;
                     end;  //for k
 
-                    if EvaluateFileNameBeforeSending then
+                    if FDistPluginOptions.EvaluateFileNameBeforeSending then
                     begin
                       SetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
                       //PmtvIni.WriteString('[NewSection]', 'For debugging', 'Increased size.');
@@ -2662,7 +2649,7 @@ var
               end; //it's a pmtv file
 
               TempMemFile.Position := 0;
-              if EvaluateFileNameBeforeSending then    //moved from before "UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV'", because the pmtv may be modified here, to have evaluated paths to bmps
+              if FDistPluginOptions.EvaluateFileNameBeforeSending then    //moved from before "UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV'", because the pmtv may be modified here, to have evaluated paths to bmps
               begin
                 FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
 
@@ -2710,15 +2697,15 @@ var
 
         TempMemFile := TMemoryStream.Create;
         try
-          TempMemFile.Write(VarsForWorkers_Names[1], Length(VarsForWorkers_Names));
+          TempMemFile.Write(FVarsForWorkers.Names[1], Length(FVarsForWorkers.Names));
           AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Names, TempMemFile);
           TempMemFile.Clear;
 
-          TempMemFile.Write(VarsForWorkers_Values[1], Length(VarsForWorkers_Values));
+          TempMemFile.Write(FVarsForWorkers.Values[1], Length(FVarsForWorkers.Values));
           AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Values, TempMemFile);
           TempMemFile.Clear;
 
-          TempMemFile.Write(VarsForWorkers_EvalBefore[1], Length(VarsForWorkers_EvalBefore));
+          TempMemFile.Write(FVarsForWorkers.EvalBefore[1], Length(FVarsForWorkers.EvalBefore));
           AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_EvalBefore, TempMemFile);
         finally
           TempMemFile.Free;
@@ -2797,7 +2784,7 @@ var
       //Filter, based on RequestedTextRenderingOS.  - property at CTextRenderingOSPropertyIndex index
       SetLength(WorkersMatchingOS, 0);
       for i := 0 to Length(AllWorkers) - 1 do
-        if Pos(AllWorkers[i].OS, RequestedTextRenderingOS) > 0 then    //RequestedTextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
+        if Pos(AllWorkers[i].OS, FDistPluginOptions.TextRenderingOS) > 0 then    //TextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
         begin
           SetLength(WorkersMatchingOS, Length(WorkersMatchingOS) + 1);
           WorkersMatchingOS[Length(WorkersMatchingOS) - 1] := i;
@@ -3055,16 +3042,16 @@ var
         else
           ;//SetLength(SplitActions, MaxSplitActionsCount);
 
-        if UsingCustomFontProfiles then
+        if FDistPluginOptions.UseFontProfiles then
         begin
           if VerbLevel < 2 then
-            AddToLog('Loading custom font profiles from ' + CustomProfilesFnm);
+            AddToLog('Loading custom font profiles from ' + FDistPluginOptions.CustomFontProfiles);
 
-          if Pos('MEM:', UpperCase(CustomProfilesFnm)) = 0 then
-            if not FileExists(CustomProfilesFnm) then
-              raise Exception.Create('File not found: ' + CustomProfilesFnm);
+          if Pos('MEM:', UpperCase(FDistPluginOptions.CustomFontProfiles)) = 0 then
+            if not FileExists(FDistPluginOptions.CustomFontProfiles) then
+              raise Exception.Create('File not found: ' + FDistPluginOptions.CustomFontProfiles);
 
-          LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, CustomProfilesFnm, CustomProfiles);
+          LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, FDistPluginOptions.CustomFontProfiles, CustomProfiles);
 
           if VerbLevel < 2 then
             AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
@@ -3089,13 +3076,13 @@ var
         FindSubControlFonts := DecodedAction.MatchBitmapText;
         AssignTasksToWorkers(MaxSplitActionsCount, ListOfBmps, ListOfPmtvs, AListOfAllVars, DecodedAction);
 
-        UsingCompression := PluginSettings.ValueFromIndex[CUseCompressionPropertyIndex] = 'True';
+        UsingCompression := FDistPluginOptions.UseCompression;
         if UsingCompression then
         begin
-          TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(PluginSettings.ValueFromIndex[CCompressionAlgorithmPropertyIndex] = CCompressionAlgorithms[caLzma]));  //default min max
+          TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
 
           if TempArchiveHandlers.CompressionAlgorithm = caLzma then
-            TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(PluginSettings);
+            TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
         end;
 
         BackgroundWidth := -3;  //Values used for debugging. Do not change.
@@ -3113,6 +3100,7 @@ var
                                                      ListOfFindSubControlProperties.Values['ImageSource'],
                                                      ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
                                                      ListOfFindSubControlProperties.Values['SourceFileName'],
+                                                     False,
                                                      BkSize,
                                                      BackgroundWidth,
                                                      BackgroundHeight) then
@@ -3143,7 +3131,7 @@ var
             ListOfBmps.Text := AllWorkers[WorkersIndex].BmpFilesToSend;   //use only the worker-specific list
             ListOfPmtvs.Text := AllWorkers[WorkersIndex].PmtvFilesToSend; //use only the worker-specific list
 
-            if EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
+            if FDistPluginOptions.EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
             begin
               if VerbLevel < 2 then
                 AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
@@ -3235,20 +3223,20 @@ var
               AllWorkers[i].ArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
 
             AllWorkers[i].WorkerActionContentStr := AllWorkers[i].WorkerActionContentStr + //ActionContentStr +  //initialized above, with worker-specific action (list of bmps and list of pmtvs)
-                                '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FindSubControlWorkerTimeout - FindSubControlTimeoutDiff)) +
+                                '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff)) +
                                 '&' + AllWorkers[i].WorkerSpecificTask +
                                 {'&' +} CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                                 '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
                                 '&' + CProtocolParam_ImageSourceRawContent + '=' + TempArcStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
           end;
 
-          if FindSubControlWorkerTimeout - FindSubControlTimeoutDiff < 100 then
+          if FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff < 100 then
           begin
-            AddToLog('++++++++++++++++++++++++++++ ActionTimeout = ' + IntToStr(FindSubControlWorkerTimeout) + ' - ' + IntToStr(FindSubControlTimeoutDiff) + ' = ' + IntToStr(FindSubControlWorkerTimeout - FindSubControlTimeoutDiff) + 'ms is too low and will be constrained to ' + IntToStr(CMinFindSubControlActionTimeout) + 'ms.');
+            AddToLog('++++++++++++++++++++++++++++ ActionTimeout = ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + ' - ' + IntToStr(FDistPluginOptions.FindSubControlTimeoutDiff) + ' = ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff) + 'ms is too low and will be constrained to ' + IntToStr(CMinFindSubControlActionTimeout) + 'ms.');
             AddToLog('++++++++++++++++++++++++++++ If the action fails, please increase the difference.');
           end
           else
-            AddToLog('----------- Action timeout set to ' + IntToStr(FindSubControlWorkerTimeout - FindSubControlTimeoutDiff) + 'ms.');
+            AddToLog('----------- Action timeout set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff) + 'ms.');
         end  //if Length(AllWorkers) > 0 then
         else
         begin
@@ -3291,7 +3279,7 @@ begin
   SetLength(AllWorkers, 0);
   FLatestMsg := 'Error message not set.';
   SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, '');
-  WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
+  FDistPluginOptions.WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
   GetCapabilitiesRequestID := 'NotSet';
   SendBackgroundToAllRequestID := 'NotSet';
   WorkerRespondedCountBG := 0;
@@ -3307,10 +3295,10 @@ begin
     RecTh := nil;
     FRecBufFIFO := TPollingFIFO.Create;
     TempPluginMQTTClientHandlers := TPluginMQTTClientHandlers.Create(nil);
-    PluginSettings := TStringList.Create;
+    ListOfPluginSettings := TStringList.Create;
     ListOfAllVars := TStringList.Create;
     try
-      PluginSettings.LineBreak := #13#10;
+      ListOfPluginSettings.LineBreak := #13#10;
       ListOfAllVars.LineBreak := #13#10;
       DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
       DefaultPluginReference := APluginReference;
@@ -3342,9 +3330,9 @@ begin
       end;
 
       PluginSettingsStr := GetPluginSettings;
-      PluginSettings.Text := PluginSettingsStr;
+      ListOfPluginSettings.Text := PluginSettingsStr;
 
-      if PluginSettings.Count <> CPropertiesCount then
+      if ListOfPluginSettings.Count <> CPropertiesCount then
       begin
         FLatestMsg := 'Cannot get the list of plugin properties.';
         SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, FLatestMsg);
@@ -3352,7 +3340,7 @@ begin
       end;
 
       GetAllTemplateVars(AllVarsStr);
-      GetPluginSettingsFromProperties(PluginSettings, AllVarsStr);
+      GetPluginSettingsFromProperties(ListOfPluginSettings, AllVarsStr, FDistPluginOptions, FVarsForWorkers);
       ListOfAllVars.Text := AllVarsStr;
 
       s := 'unset action';
@@ -3369,7 +3357,7 @@ begin
           ActionType := TClkAction(ActionTypeDWord);
 
           if ActionType in [acFindSubControl, acPlugin] then
-            if s = PluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] then   //the current action name ([i]) matches FindSubControl property
+            if s = ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] then   //the current action name ([i]) matches FindSubControl property
             begin
               IndexOfFindSubControlActionProperty := i;
               Break;
@@ -3386,35 +3374,8 @@ begin
         Exit;
       end;
 
-      WorkerQoS := StrToIntDef(PluginSettings.ValueFromIndex[CWorkerQoSPropertyIndex], 2);
-      WorkerQoS := Min(Max(WorkerQoS, 1), 2);  //limited to 1..2
-
-      GetWorkerCapabilitiesTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CGetWorkerCapabilitiesTimeoutPropertyIndex], 500);
-      GetWorkerCapabilitiesTimeout := Min(Max(GetWorkerCapabilitiesTimeout, 50), 60000);  //limited to 50..60000
-
-      GetListOfFontsTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CGetListOfFontsTimeoutPropertyIndex], 500);
-      GetListOfFontsTimeout := Min(Max(GetListOfFontsTimeout, 50), 60000);  //limited to 50..60000
-
-      FindSubControlWorkerTimeout := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlWorkerTimeoutPropertyIndex], 3500);
-      FindSubControlWorkerTimeout := Min(Max(FindSubControlWorkerTimeout, 50), 60000);  //limited to 50..60000
-
-      FindSubControlTimeoutDiff := StrToIntDef(PluginSettings.ValueFromIndex[CFindSubControlTimeoutDiffPropertyIndex], 2500);
-      FindSubControlTimeoutDiff := Min(Max(FindSubControlTimeoutDiff, 1500), 60000);  //limited to 1500..60000
-
-      WorkerCapabilitiesSource := PluginSettings.ValueFromIndex[CWorkerCapabilitiesSourcePropertyIndex];
-      UpdateCacheActionName := PluginSettings.ValueFromIndex[CSaveWorkerCapabilitiesCacheActionPropertyIndex];
-      LoadCacheActionName := PluginSettings.ValueFromIndex[CLoadWorkerCapabilitiesCacheActionPropertyIndex];
-      RequestedTextRenderingOS := PluginSettings.ValueFromIndex[CTextRenderingOSPropertyIndex];
-      DisplayExtraDebuggingInfo := PluginSettings.ValueFromIndex[CExtraDebuggingInfoPropertyIndex] = 'True';
-      EvaluateFileNameBeforeSending := PluginSettings.ValueFromIndex[CEvaluateFileNameBeforeSendingPropertyIndex] = 'True';
-      UsingCustomFontProfiles := PluginSettings.ValueFromIndex[CUseFontProfilesPropertyIndex] = CUseFontProfiles_FromCustom;
-      CustomProfilesFnm := PluginSettings.ValueFromIndex[CCustomFontProfilesPropertyIndex];
-
-      MinExpectedWorkerCount := StrToIntDef(PluginSettings.ValueFromIndex[CMinExpectedWorkerCountPropertyIndex], 4);
-      MinExpectedWorkerCount := Min(Max(MinExpectedWorkerCount, 1), 50);  //limited to 1..50
-
       if VerbLevel < 2 then
-        AddToLog('WorkerCapabilitiesSource: ' + WorkerCapabilitiesSource);
+        AddToLog('WorkerCapabilitiesSource: ' + FDistPluginOptions.WorkerCapabilitiesSource);
 
       MQTT_Init;
       FSMError := '';
@@ -3501,8 +3462,8 @@ begin
 
         //ToDo: set these vars only when their values are known
 
-        if (WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts) or
-           (WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl) then
+        if (FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts) or
+           (FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl) then
         begin
           SetTemplateVar('$WorkerCount$', IntToStr(Length(AllWorkers)));
           for i := 0 to Length(AllWorkers) - 1 do
@@ -3512,7 +3473,7 @@ begin
             SetTemplateVar('$Worker[' + IntToStr(i) + '].Fonts$', AllWorkers[i].Fonts);  //it is possible that on a subsequent run, the workers come up in a different order, so this info will be outdated
             SetTemplateVar('$Worker[' + IntToStr(i) + '].ExtraName$', AllWorkers[i].ExtraName);
 
-            if DisplayExtraDebuggingInfo then
+            if FDistPluginOptions.ExtraDebuggingInfo then
             begin
               SetTemplateVar('$Worker[' + IntToStr(i) + '].WorkerSpecificTask$', AllWorkers[i].WorkerSpecificTask);
             end;
@@ -3525,7 +3486,7 @@ begin
           begin
             FoundMatchingOS := False;
             for i := 0 to Length(AllWorkers) - 1 do
-              if Pos(AllWorkers[i].OS, RequestedTextRenderingOS) > 0 then    //RequestedTextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
+              if Pos(AllWorkers[i].OS, FDistPluginOptions.TextRenderingOS) > 0 then    //TextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
               begin
                 FoundMatchingOS := True;
                 Break;
@@ -3608,7 +3569,7 @@ begin
       FreeAndNil(IdTCPClient1);
       FreeAndNil(FRecBufFIFO);
       FreeAndNil(TempPluginMQTTClientHandlers);
-      FreeAndNil(PluginSettings);
+      FreeAndNil(ListOfPluginSettings);
 
       if Length(AllWorkers) = 0 then
       begin

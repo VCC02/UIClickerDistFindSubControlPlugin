@@ -34,7 +34,7 @@ uses
 
 const
   CMaxRequiredSubControlActions = 1;
-  CAdditionalPropertiesCount = 30;
+  CAdditionalPropertiesCount = 31;
   CPropertiesCount = CMaxRequiredSubControlActions + CAdditionalPropertiesCount;
 
   CFindSubControlActionPropertyIndex = 0;
@@ -73,6 +73,7 @@ const
   CUseFontProfilesPropertyIndex = 29;
 
   CMinExpectedWorkerCountPropertyIndex = 30;
+  CUpdateBackgroundIntervalPropertyIndex = 31;
 
   CFindSubControlActionPropertyName = 'FindSubControlAction';
   CCredentialsFullFileNamePropertyName = 'CredentialsFullFileName';  //for connection to broker
@@ -109,6 +110,7 @@ const
   CUseFontProfilesPropertyName = 'UseFontProfiles';
 
   CMinExpectedWorkerCountName = 'MinExpectedWorkerCount';
+  UpdateBackgroundIntervalName = 'UpdateBackgroundInterval';
 
   CReqCapOperation_wcsReqCapAndFindSubControl = 'wcsReqCapAndFindSubControl';
   CReqCapOperation_wcsReqCapAndGetFonts = 'wcsReqCapAndGetFonts';
@@ -154,7 +156,8 @@ const
     CEvaluateFileNameBeforeSendingPropertyName,
     CCustomFontProfilesPropertyName,
     CUseFontProfilesPropertyName,
-    CMinExpectedWorkerCountName
+    CMinExpectedWorkerCountName,
+    UpdateBackgroundIntervalName
   );
 
   //property details: (e.g. enum options, hints, icons, menus, min..max spin intervals etc)
@@ -175,7 +178,7 @@ const
     'TextWithArrow', //LoadWorkerCapabilitiesCacheAction
     'TextWithArrow', //SaveWorkerCapabilitiesCacheAction
 
-    'EnumCombo',
+    'EnumCombo',     //TextRenderingOS
     'TextWithArrow', //ListOfMultiValue
     'BooleanCombo',  //UseCompression
     'EnumCombo',     //CompressionAlgorithm
@@ -194,7 +197,8 @@ const
     'BooleanCombo',  //EvaluateFileNameBeforeSending
     'UserEditor',    //CustomFontProfiles
     'EnumCombo',     //UseFontProfiles
-    'SpinText'       //MinExpectedWorkerCount
+    'SpinText',      //MinExpectedWorkerCount
+    'SpinText'       //UpdateBackgroundInterval
   );
 
   CRequiredSubControlPropertyDataTypes: array[0..CPropertiesCount - 1] of string = (
@@ -232,7 +236,8 @@ const
     CDTBool,    //EvaluateFileNameBeforeSending
     CDTString,  //CustomFontProfiles
     CDTEnum,    //UseFontProfiles
-    CDTInteger  //MinExpectedWorkerCount
+    CDTInteger, //MinExpectedWorkerCount
+    CDTInteger  //UpdateBackgroundInterval
   );
 
   CPluginEnumCounts: array[0..CPropertiesCount - 1] of Integer = (
@@ -270,7 +275,8 @@ const
     0, //EvaluateFileNameBeforeSending
     0, //CustomFontProfiles
     2, //UseFontProfiles
-    0  //MinExpectedWorkerCount
+    0, //MinExpectedWorkerCount
+    0  //UpdateBackgroundInterval
   );
 
   CPluginEnumStrings: array[0..CPropertiesCount - 1] of string = (
@@ -312,7 +318,8 @@ const
     '', //EvaluateFileNameBeforeSending
     '', //CustomFontProfiles
     CUseFontProfiles_FromConfiguredAction + #4#5 + CUseFontProfiles_FromCustom + #4#5, //UseFontProfiles
-    ''  //MinExpectedWorkerCount
+    '', //MinExpectedWorkerCount
+    ''  //UpdateBackgroundInterval
   );
 
   CPluginHints: array[0..CPropertiesCount - 1] of string = (
@@ -354,7 +361,8 @@ const
     'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.', //EvaluateFileNameBeforeSending
     'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.' + #4#5 + 'For now, this is a path to a .clkprf file.',
     'When UseFontProfiles is ufpFromCustom, the font profiles, configured in CustomFontProfiles property, are used to distribute tasks.',
-    'Minimum number of workers, which respond as available, that stops the waiting, before the time set by the GetWorkerCapabilitiesTimeout property, runs out.' + #4#5 + 'A value of MinExpectedWorkerCount, less than the available number of workers, allows setting a higher timeout value.' + #4#5 + 'Because of this, it is better to have idle workers, than always requiring the available number.' //MinExpectedWorkerCount
+    'Minimum number of workers, which respond as available, that stops the waiting, before the time set by the GetWorkerCapabilitiesTimeout property, runs out.' + #4#5 + 'A value of MinExpectedWorkerCount, less than the available number of workers, allows setting a higher timeout value.' + #4#5 + 'Because of this, it is better to have idle workers, than always requiring the available number.', //MinExpectedWorkerCount
+    'Loop period in [ms] at which the plugin takes new screenshots of the background.' + #4#5 + 'If a new screenshot is different than the previous, it is sent to workers for a new bitmap matching, which might result in a successful match.' + #4#5 + 'This loop is running while waiting for FindSubControl responses, then it stops.' //UpdateBackgroundInterval
   );
 
   CPropertyEnabled: array[0..CPropertiesCount - 1] of string = (  // The 'PropertyValue[<index>]' replacement uses indexes from the following array only. It doesn't count fixed properties.
@@ -392,7 +400,8 @@ const
     '', //EvaluateFileNameBeforeSending  [27]
     'PropertyValue[29]==ufpFromCustom', //CustomFontProfiles  [28]
     '', //UseFontProfiles                                     [29]
-    ''  //MinExpectedWorkerCount                              [30]
+    '', //MinExpectedWorkerCount                              [30]
+    ''  //UpdateBackgroundInterval                            [31]
   );
 
   CPluginDefaultValues: array[0..CPropertiesCount - 1] of string = (
@@ -429,7 +438,8 @@ const
     'False', //EvaluateFileNameBeforeSending
     '', //CustomFontProfiles
     'ufpFromConfiguredAction', //UseFontProfiles
-    '50' //MinExpectedWorkerCount
+    '50', //MinExpectedWorkerCount
+    '100' //UpdateBackgroundInterval
   );
 
 
