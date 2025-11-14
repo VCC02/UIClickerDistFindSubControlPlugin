@@ -442,8 +442,8 @@ begin
 
   ADistPluginOptions.MinExpectedWorkerCount := StrToIntDef(AProperties.ValueFromIndex[CMinExpectedWorkerCountPropertyIndex], 4);  //30
   ADistPluginOptions.MinExpectedWorkerCount := Min(Max(ADistPluginOptions.MinExpectedWorkerCount, 1), 50);  //limited to 1..50
-  ADistPluginOptions.UpdateBackgroundInterval := StrToIntDef(AProperties.ValueFromIndex[CUpdateBackgroundIntervalPropertyIndex], 4);  //31
-  ADistPluginOptions.UpdateBackgroundInterval := Min(Max(ADistPluginOptions.MinExpectedWorkerCount, -1), 10000);  //limited to 1..10000
+  ADistPluginOptions.UpdateBackgroundInterval := StrToIntDef(AProperties.ValueFromIndex[CUpdateBackgroundIntervalPropertyIndex], 200);  //31
+  ADistPluginOptions.UpdateBackgroundInterval := Min(Max(ADistPluginOptions.UpdateBackgroundInterval, 0), 10000);  //limited to 0..10000
 end;
 
 end.

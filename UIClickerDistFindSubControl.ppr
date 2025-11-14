@@ -1732,27 +1732,6 @@ begin
     begin
       // It is possible that the plugin may receive "missing files" requests.
       // If that's the case, it should send those files, here in the same state.
-
-      //if (UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= UpdateBackgroundInterval) then
-      //begin
-      //  UpdateBackgroundTk := GetTickCount64;
-      //  UpdateBkArchiveWithNewBackground(
-      //  begin
-      //    if VerbLevel < 2 then
-      //      AddToLog('Sending background image to broker, because it changed...');
-      //
-      //    if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
-      //    begin
-      //      FSMError := 'Can''t send background image to all workers, although it changed.';
-      //      AddToLog(FSMError);
-      //    end
-      //    else
-      //      tk := GetTickCount64;
-      //
-      //    if VerbLevel < 2 then
-      //      AddToLog('Done sending background image, because it changed.');
-      //  end;
-      //end; //new screenshot to take
     end;
 
     SGetListOfFonts:
@@ -2354,11 +2333,53 @@ var
   end;
 
 
-  function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; AAddBackgroundOnlyIfChanged: Boolean; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
+  function BackgroundChanged(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string): Boolean;
   var
     TempBk, PreBk: TMemoryStream;
     BkFileNameLocation: TImageSourceFileNameLocation;
-    //BkHash: string;
+  begin
+    Result := True;
+    BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+
+    PreBk := TMemoryStream.Create;
+    try
+      ASourceFileName := CScreenshotFilename;
+
+      if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, PreBk, BkFileNameLocation) then
+      begin
+        if AImageSource = '0' then  //isScreenshot
+        begin
+          //this updates the background in memory
+          AOnActionPlugin_Screenshot(APluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
+        end;
+
+        TempBk := TMemoryStream.Create;
+        try
+          if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
+          begin
+            if PreBk.Size = TempBk.Size then
+              if CompareMem(PreBk.Memory, TempBk.Memory, PreBk.Size) then
+              begin
+                Result := False;
+                Exit;
+              end;
+          end;
+        finally
+          TempBk.Free;
+        end;
+      end  //LoadBitmapAsStream - PreBk
+      else
+        raise Exception.Create('----------- LoadBitmapAsStream(PreBk) is False. Probably the file does not exist: ' + ASourceFileName);
+    finally
+      PreBk.Free;
+    end;
+  end;
+
+
+  function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
+  var
+    TempBk: TMemoryStream;
+    BkFileNameLocation: TImageSourceFileNameLocation;
     TempBmp: TBitmap;
   begin
     Result := True;
@@ -2367,43 +2388,6 @@ var
     ABackgroundHeight := 1;
 
     BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
-
-    if AAddBackgroundOnlyIfChanged then
-    begin
-      PreBk := TMemoryStream.Create;
-      try
-        if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, PreBk, BkFileNameLocation) then
-        begin
-          if AImageSource = '0' then  //isScreenshot
-          begin  //this updates the background in memory
-            AOnActionPlugin_Screenshot(APluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
-            ASourceFileName := CScreenshotFilename;
-          end;
-
-          TempBk := TMemoryStream.Create;
-          try
-            if LoadBitmapAsStream(AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
-            begin
-              if PreBk.Size = TempBk.Size then
-                if CompareMem(PreBk.Memory, TempBk.Memory, PreBk.Size) then
-                begin
-                  Result := False;
-                  Exit;
-                end;
-            end;
-          finally
-            TempBk.Free;  ////////////////// maybe create once, above, then reuse it
-          end;
-        end  //LoadBitmapAsStream - PreBk
-        else
-        begin
-          ABackgroundSize := 0;
-          raise Exception.Create('----------- LoadBitmapAsStream(PreBk) is False. Probably the file does not exist: ' + ASourceFileName);
-        end;
-      finally
-        PreBk.Free;
-      end;
-    end;
 
     if AImageSource = '0' then  //isScreenshot
     begin
@@ -2956,7 +2940,7 @@ var
     CloseBkArchive;
   end;
 
-  procedure UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList);
+  function UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList): Boolean; //returns True if should update
   var
     TempArchiveHandlers: TArchiveHandlers;
     BackgroundWidth, BackgroundHeight: Integer;
@@ -2965,74 +2949,89 @@ var
     ActionContentLen: DWord;
     ListOfFindSubControlProperties: TStringList;
     BkSize: Int64;
+    Option_ImageSource: string;
+    Option_ImageSourceFileNameLocation: string;
+    Option_SourceFileName: string;
   begin
     SetLength(ActionContentStr, CMaxSharedStringLength + 1);
     ActionContentPtr := @ActionContentStr[1];
     AOnActionPlugin_GetActionContentByIndex(APluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
     SetLength(ActionContentStr, ActionContentLen);
 
-    BkArchiveStream := TMemoryStream.Create;
-    BkArchive := TMemArchive.Create;
-    TempArchiveHandlers := TArchiveHandlers.Create;
     ListOfFindSubControlProperties := TStringList.Create;
-
     try
       ListOfFindSubControlProperties.LineBreak := #13#10;
       ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
 
-      UsingCompression := FDistPluginOptions.UseCompression;
-      if UsingCompression then
-      begin
-        TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
-
-        if TempArchiveHandlers.CompressionAlgorithm = caLzma then
-          TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
-      end;
-
-      BackgroundWidth := -3;  //Values used for debugging. Do not change.
-      BackgroundHeight := -3;
-
-      TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
-      OpenBkArchiveForAddingBackground(TempArchiveHandlers);   //creates new archive on BkArchiveStream
-      try
-        if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
-                                                   ListOfFindSubControlProperties.Values['ImageSource'],
-                                                   ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
-                                                   ListOfFindSubControlProperties.Values['SourceFileName'],
-                                                   True,   //This is different from the call in GetFindSubControlContent below
-                                                   BkSize,
-                                                   BackgroundWidth,
-                                                   BackgroundHeight) then
-        begin
-          FLatestMsg := 'Error loading background bitmap as stream (for updating).';
-          AddToLog('----------- ' + FLatestMsg);
-          Result := False;
-          Exit;
-        end;
-
-        //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
-
-        SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
-        BkArchiveStream.Position := 0;
-        BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
-
-        if BkArchiveStream.Size = 0 then
-          BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
-
-        AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
-                           '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
-                          '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
-
-      finally
-        CloseWorkerArchives;
-      end;
+      Option_ImageSource := ListOfFindSubControlProperties.Values['ImageSource'];
+      Option_ImageSourceFileNameLocation := ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'];
+      Option_SourceFileName := ListOfFindSubControlProperties.Values['SourceFileName'];
     finally
-      FreeAndNil(BkArchiveStream);
-      FreeAndNil(BkArchive);
-      FreeAndNil(TempArchiveHandlers);
       FreeAndNil(ListOfFindSubControlProperties);
     end;
-  end;
+
+    Result := BackgroundChanged(AListOfAllVars,
+                                Option_ImageSource,
+                                Option_ImageSourceFileNameLocation,
+                                Option_SourceFileName);
+
+    if Result then
+    begin
+      BkArchiveStream := TMemoryStream.Create;
+      BkArchive := TMemArchive.Create;
+      TempArchiveHandlers := TArchiveHandlers.Create;
+      try
+        UsingCompression := FDistPluginOptions.UseCompression;
+        if UsingCompression then
+        begin
+          TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
+
+          if TempArchiveHandlers.CompressionAlgorithm = caLzma then
+            TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
+        end;
+
+        BackgroundWidth := -3;  //Values used for debugging. Do not change.
+        BackgroundHeight := -3;
+
+        TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+        OpenBkArchiveForAddingBackground(TempArchiveHandlers);   //creates new archive on BkArchiveStream
+        try
+          if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
+                                                     Option_ImageSource,
+                                                     Option_ImageSourceFileNameLocation,
+                                                     Option_SourceFileName,
+                                                     BkSize,
+                                                     BackgroundWidth,
+                                                     BackgroundHeight) then
+          begin
+            FLatestMsg := 'Error loading background bitmap as stream (for updating).';
+            AddToLog('----------- ' + FLatestMsg);
+            Result := False;
+            Exit;
+          end;
+
+          //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
+
+          SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
+          BkArchiveStream.Position := 0;
+          BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
+
+          if BkArchiveStream.Size = 0 then
+            BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
+
+          AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                             '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                            '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
+        finally
+          CloseBkArchive;
+        end;
+      finally
+        FreeAndNil(BkArchiveStream);
+        FreeAndNil(BkArchive);
+        FreeAndNil(TempArchiveHandlers);
+      end;
+    end; //BackgroundChanged
+  end; //function
 
   function GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
   const
@@ -3187,7 +3186,6 @@ var
                                                      ListOfFindSubControlProperties.Values['ImageSource'],
                                                      ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
                                                      ListOfFindSubControlProperties.Values['SourceFileName'],
-                                                     False,
                                                      BkSize,
                                                      BackgroundWidth,
                                                      BackgroundHeight) then
@@ -3484,6 +3482,44 @@ begin
                   AddToLog('Stopping FSM, because GetFindSubControlContent returned False.');
                   FSMDone := True;
                 end;
+              except
+                on EFSM: Exception do
+                begin
+                  FSMError := FSMError + 'Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message;
+                  AddToLog(FSMError);
+                  FSMDone := True;
+                end;
+              end;
+            end;
+
+            if State = SWaitForFindSubControlResults then
+            begin
+              try
+                //UpdateBackgroundTk is initialized in SPublishFindSubControlToAllWorkers.
+
+                //if (FDistPluginOptions.UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= FDistPluginOptions.UpdateBackgroundInterval) then
+                //begin
+                //  UpdateBackgroundTk := GetTickCount64;
+                //
+                //  if UpdateBkArchiveWithNewBackground(ListOfAllVars) then
+                //  begin
+                //    if VerbLevel < 2 then
+                //      AddToLog('Sending background image to broker, because it changed...');
+                //
+                //    if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
+                //    begin
+                //      FSMError := 'Can''t send background image to all workers, although it changed.';
+                //      AddToLog(FSMError);
+                //    end
+                //    else
+                //      tk := GetTickCount64;
+                //
+                //    if VerbLevel < 2 then
+                //      AddToLog('Done sending background image, because it changed.');
+                //  end
+                //  else
+                //    AddToLog('Same background...  UpdateBackgroundTk = ' + IntToStr(UpdateBackgroundTk));
+                //end;
               except
                 on EFSM: Exception do
                 begin

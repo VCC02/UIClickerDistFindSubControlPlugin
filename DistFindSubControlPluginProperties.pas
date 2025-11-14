@@ -439,7 +439,7 @@ const
     '', //CustomFontProfiles
     'ufpFromConfiguredAction', //UseFontProfiles
     '50', //MinExpectedWorkerCount
-    '100' //UpdateBackgroundInterval
+    '200' //UpdateBackgroundInterval
   );
 
 
