@@ -1736,8 +1736,7 @@ begin
       //if (UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= UpdateBackgroundInterval) then
       //begin
       //  UpdateBackgroundTk := GetTickCount64;
-      //  /////////////////////////////////////////// Take the screenshot
-      //  //verify if changed, then:
+      //  UpdateBkArchiveWithNewBackground(
       //  begin
       //    if VerbLevel < 2 then
       //      AddToLog('Sending background image to broker, because it changed...');
@@ -2316,6 +2315,17 @@ var
     end;
   end;
 
+  procedure OpenBkArchiveForAddingBackground(AArchiveHandlers: TArchiveHandlers);
+  begin
+    BkArchive.OpenArchive(BkArchiveStream, True);
+    BkArchive.OnCompress := AArchiveHandlers.HandleOnCompress;
+    BkArchive.OnDecompress := AArchiveHandlers.HandleOnDecompress;
+    BkArchive.OnComputeArchiveHash := AArchiveHandlers.HandleOnComputeArchiveHash;
+    BkArchive.Password := '';
+
+    BkArchive.CompressionLevel := 9 * Ord(UsingCompression);
+  end;
+
   procedure OpenWorkerArchivesForAddingBitmaps(AArchiveHandlers: TArchiveHandlers);
   var
     i: Integer;
@@ -2331,13 +2341,7 @@ var
       AllWorkers[i].Archive.CompressionLevel := 9 * Ord(UsingCompression);
     end;
 
-    BkArchive.OpenArchive(BkArchiveStream, True);
-    BkArchive.OnCompress := AArchiveHandlers.HandleOnCompress;
-    BkArchive.OnDecompress := AArchiveHandlers.HandleOnDecompress;
-    BkArchive.OnComputeArchiveHash := AArchiveHandlers.HandleOnComputeArchiveHash;
-    BkArchive.Password := '';
-
-    BkArchive.CompressionLevel := 9 * Ord(UsingCompression);
+    OpenBkArchiveForAddingBackground(AArchiveHandlers);
   end;
 
 
@@ -2906,6 +2910,25 @@ var
     end; //Length(AllWorkers) > 0
   end;
 
+  procedure CloseBkArchive;
+  begin
+    try
+      BkCompressionTime := GetTickCount64;
+      try
+        BkArchive.CloseArchive;
+      finally
+        BkCompressionTime := GetTickCount64 - BkCompressionTime;
+      end;
+    except
+      on E: Exception do
+      begin
+        FLatestMsg := 'Error closing archive with background image.  Ex: ' + E.Message;
+        AddToLog('----------- ' + FLatestMsg);
+        Result := False;
+      end;
+    end;
+  end;
+
   procedure CloseWorkerArchives;
   var
     i: Integer;
@@ -2930,20 +2953,84 @@ var
       end;
     end;
 
+    CloseBkArchive;
+  end;
+
+  procedure UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList);
+  var
+    TempArchiveHandlers: TArchiveHandlers;
+    BackgroundWidth, BackgroundHeight: Integer;
+    ActionContentStr: string;
+    ActionContentPtr: Pointer;
+    ActionContentLen: DWord;
+    ListOfFindSubControlProperties: TStringList;
+    BkSize: Int64;
+  begin
+    SetLength(ActionContentStr, CMaxSharedStringLength + 1);
+    ActionContentPtr := @ActionContentStr[1];
+    AOnActionPlugin_GetActionContentByIndex(APluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
+    SetLength(ActionContentStr, ActionContentLen);
+
+    BkArchiveStream := TMemoryStream.Create;
+    BkArchive := TMemArchive.Create;
+    TempArchiveHandlers := TArchiveHandlers.Create;
+    ListOfFindSubControlProperties := TStringList.Create;
+
     try
-      BkCompressionTime := GetTickCount64;
-      try
-        BkArchive.CloseArchive;
-      finally
-        BkCompressionTime := GetTickCount64 - BkCompressionTime;
-      end;
-    except
-      on E: Exception do
+      ListOfFindSubControlProperties.LineBreak := #13#10;
+      ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
+
+      UsingCompression := FDistPluginOptions.UseCompression;
+      if UsingCompression then
       begin
-        FLatestMsg := 'Error closing archive with background image.  Ex: ' + E.Message;
-        AddToLog('----------- ' + FLatestMsg);
-        Result := False;
+        TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
+
+        if TempArchiveHandlers.CompressionAlgorithm = caLzma then
+          TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
       end;
+
+      BackgroundWidth := -3;  //Values used for debugging. Do not change.
+      BackgroundHeight := -3;
+
+      TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+      OpenBkArchiveForAddingBackground(TempArchiveHandlers);   //creates new archive on BkArchiveStream
+      try
+        if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
+                                                   ListOfFindSubControlProperties.Values['ImageSource'],
+                                                   ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
+                                                   ListOfFindSubControlProperties.Values['SourceFileName'],
+                                                   True,   //This is different from the call in GetFindSubControlContent below
+                                                   BkSize,
+                                                   BackgroundWidth,
+                                                   BackgroundHeight) then
+        begin
+          FLatestMsg := 'Error loading background bitmap as stream (for updating).';
+          AddToLog('----------- ' + FLatestMsg);
+          Result := False;
+          Exit;
+        end;
+
+        //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
+
+        SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
+        BkArchiveStream.Position := 0;
+        BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
+
+        if BkArchiveStream.Size = 0 then
+          BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
+
+        AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                           '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                          '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
+
+      finally
+        CloseWorkerArchives;
+      end;
+    finally
+      FreeAndNil(BkArchiveStream);
+      FreeAndNil(BkArchive);
+      FreeAndNil(TempArchiveHandlers);
+      FreeAndNil(ListOfFindSubControlProperties);
     end;
   end;
 
