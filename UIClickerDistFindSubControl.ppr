@@ -70,6 +70,7 @@ type
           SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
           SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
           SGetListOfFonts, SWaitForListOfFonts,
+          SUpdateBackgroundImageToAllWorkers, SWaitForUpdateBackgroundImageResults,
           SUpdateCache, SLoadCache,
           SUnsubscribeFromResponses, SWaitForResponsesUnsubAck,
           SDisconnectFromBroker,
@@ -98,6 +99,7 @@ const
           'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
           'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
           'SGetListOfFonts', 'SWaitForListOfFonts',
+          'SUpdateBackgroundImageToAllWorkers', 'SWaitForUpdateBackgroundImageResults',
           'SUpdateCache', 'SLoadCache',
           'SUnsubscribeFromResponses', 'SWaitForResponsesUnsubAck',
           'SDisconnectFromBroker',
@@ -138,6 +140,7 @@ var
   FindSubControlFonts: TClkFindControlMatchBitmapTextArr = nil; //used for sorting
   FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
   UpdateBackgroundTk: Int64;
+  WillWaitForUpdateBackgroundResponses: Boolean;
 
   FDistPluginOptions: TDistPluginOptions;
   FVarsForWorkers: TVarsForWorkers; //the old VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore
@@ -150,7 +153,17 @@ var
   RecTh: TMQTTReceiveThread;
 
   State, NextState: TFSM;
-  tk: QWord; //used for timeouts
+
+  ConnectToBroker_tk: QWord; //used for timeouts
+  SubscribeToResponses_tk: QWord; //used for timeouts
+  UnsubscribeFromResponses_tk: QWord; //used for timeouts
+
+  GetCapabilities_tk: QWord; //used for timeouts
+  SendBackgroundToAll_tk: QWord; //used for timeouts
+  //SendBackgroundToSome_tk: QWord; //used for timeouts
+  SendFindSubControl_tk: QWord; //used for timeouts
+  GetListOfFonts_tk: QWord; //used for timeouts
+
   VerbLevel: Integer;        //0 = low-level MQTT logging, 1 = Dist plugin general logging, 2 = Dist plugin important logging.
                              //error messages are displayed regardless of this value
 
@@ -1601,7 +1614,15 @@ begin
       SubscribedSucessfully := False;
       UnsubscribedSucessfully := False;
       DisconnectedSuccessfully := False;
-      tk := GetTickCount64;
+
+      //ConnectToBroker_tk := GetTickCount64;
+      //SubscribeToResponses_tk := GetTickCount64;
+      //UnsubscribeFromResponses_tk := GetTickCount64;
+      GetCapabilities_tk := GetTickCount64;
+      SendBackgroundToAll_tk := GetTickCount64;
+      //SendBackgroundToSome_tk := GetTickCount64;
+      SendFindSubControl_tk := GetTickCount64;
+      GetListOfFonts_tk := GetTickCount64;
     end;
 
     SConnectToBroker:
@@ -1613,7 +1634,7 @@ begin
 
       if ConnectedSucessfully then
       begin
-        tk := GetTickCount64;
+        ConnectToBroker_tk := GetTickCount64;
         DbgPoint('Connected to broker.', '')
       end
       else
@@ -1637,7 +1658,7 @@ begin
         AddToLog(FSMError);
       end
       else
-        tk := GetTickCount64;
+        SubscribeToResponses_tk := GetTickCount64;
     end;
 
     SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
@@ -1654,7 +1675,7 @@ begin
         AddToLog(FSMError);
       end
       else
-        tk := GetTickCount64;
+        GetCapabilities_tk := GetTickCount64;
     end;
 
     SWaitForCapabilitiesResponse:
@@ -1680,7 +1701,7 @@ begin
 
     SPublishBackgroundImageToAllWorkers:
     begin
-      AtLeastOneWorkerFoundTheSubControl := False;
+      //AtLeastOneWorkerFoundTheSubControl := False;   //not sure why this was here (maybe a copy-paste)
       WorkerRespondedCountBG := 0;
 
       if VerbLevel < 2 then
@@ -1692,7 +1713,7 @@ begin
         AddToLog(FSMError);
       end
       else
-        tk := GetTickCount64;
+        SendBackgroundToAll_tk := GetTickCount64;
 
       if VerbLevel < 2 then
         AddToLog('Done sending background image.');
@@ -1707,6 +1728,7 @@ begin
     begin
       AtLeastOneWorkerFoundTheSubControl := False;
       WorkerRespondedCountFS := 0;
+      WillWaitForUpdateBackgroundResponses := False;
 
       if VerbLevel < 2 then
         AddToLog('Sending FindSubControl settings to broker...');
@@ -1719,7 +1741,7 @@ begin
           AddToLog(FSMError);
         end
         else
-          tk := GetTickCount64;
+          SendFindSubControl_tk := GetTickCount64;
       end;
 
       if VerbLevel < 2 then
@@ -1745,10 +1767,22 @@ begin
         AddToLog(FSMError);
       end
       else
-        tk := GetTickCount64;
+        GetListOfFonts_tk := GetTickCount64;
     end;
 
     SWaitForListOfFonts:
+    begin
+
+    end;
+
+    SUpdateBackgroundImageToAllWorkers:
+    begin
+      WillWaitForUpdateBackgroundResponses := False; //Reset here.  Set in main loop.
+      //SendBackgroundToAll_tk := GetTickCount64;  //Set in main loop.
+      WorkerRespondedCountBG := 0;
+    end;
+
+    SWaitForUpdateBackgroundImageResults:
     begin
 
     end;
@@ -1794,7 +1828,7 @@ begin
         AddToLog(FSMError);
       end
       else
-        tk := GetTickCount64;
+        UnsubscribeFromResponses_tk := GetTickCount64;
     end;
 
     SWaitForResponsesUnsubAck:
@@ -1834,7 +1868,7 @@ begin
       if ConAckReceived then  //there should be one ConAckReceived event only (this plugin to broker), unlike multiple workers below
         NextState := SSubscribeToResponses
       else
-        if GetTickCount64 - tk > 1000 then
+        if GetTickCount64 - ConnectToBroker_tk > 1000 then
           NextState := SDisconnectFromBroker  //Timeout
         else
           NextState := SWaitForConAck;
@@ -1856,7 +1890,7 @@ begin
       end
       else
       begin
-        if GetTickCount64 - tk > 1000 then
+        if GetTickCount64 - SubscribeToResponses_tk > 1000 then
           NextState := SDisconnectFromBroker  //Timeout
         else
           NextState := SWaitForResponsesSubAck;
@@ -1866,7 +1900,7 @@ begin
       NextState := SWaitForCapabilitiesResponse;
 
     SWaitForCapabilitiesResponse:
-      if (GetTickCount64 - tk > FDistPluginOptions.GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
+      if (GetTickCount64 - GetCapabilities_tk > FDistPluginOptions.GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
          (Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
       begin
         if Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount then
@@ -1916,7 +1950,7 @@ begin
       NextState := SWaitForBackgroundImageResults;
 
     SWaitForBackgroundImageResults:
-      if GetTickCount64 - tk > FDistPluginOptions.FindSubControlWorkerTimeout then   //not sure what timeout to use here
+      if GetTickCount64 - SendBackgroundToAll_tk > FDistPluginOptions.FindSubControlWorkerTimeout then   //not sure what timeout to use here
       begin
         NextState := SUnsubscribeFromResponses;  //Timeout
 
@@ -1928,7 +1962,7 @@ begin
         FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCountBG) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
 
         AddToLog(FSMError);
-        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + 'ms.');
+        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + 'ms.');
       end
       else
       begin
@@ -1939,7 +1973,7 @@ begin
           NextState := SPublishFindSubControlToAllWorkers;
 
           if VerbLevel < 2 then
-            AddToLog('All workers responded after having the background image in ' + IntToStr(GetTickCount64 - tk) + 'ms.');
+            AddToLog('All workers responded after having the background image in ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.');
         end;
       end;
 
@@ -1950,7 +1984,7 @@ begin
       if AtLeastOneWorkerFoundTheSubControl then
         NextState := SUnsubscribeFromResponses
       else
-        if GetTickCount64 - tk > FDistPluginOptions.FindSubControlWorkerTimeout then
+        if GetTickCount64 - SendFindSubControl_tk > FDistPluginOptions.FindSubControlWorkerTimeout then
         begin
           NextState := SUnsubscribeFromResponses;  //Timeout
 
@@ -1964,13 +1998,18 @@ begin
           AddToLog(FSMError);
         end
         else
-          NextState := SWaitForFindSubControlResults;
+        begin
+          if not WillWaitForUpdateBackgroundResponses then
+            NextState := SWaitForFindSubControlResults
+          else
+            NextState := SUpdateBackgroundImageToAllWorkers;
+        end;
 
     SGetListOfFonts:
       NextState := SWaitForListOfFonts;
 
     SWaitForListOfFonts:
-      if (GetTickCount64 - tk > FDistPluginOptions.GetListOfFontsTimeout) or
+      if (GetTickCount64 - GetListOfFonts_tk > FDistPluginOptions.GetListOfFontsTimeout) or
          (WorkerRespondedCountLoF >= FDistPluginOptions.MinExpectedWorkerCount) then   //Waiting for some time, for all workers to present their fonts.
       begin
         if Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount then
@@ -2000,6 +2039,38 @@ begin
       else
         NextState := SWaitForListOfFonts;
 
+    SUpdateBackgroundImageToAllWorkers:
+      NextState := SWaitForUpdateBackgroundImageResults;
+
+    SWaitForUpdateBackgroundImageResults:
+    begin
+      if GetTickCount64 - SendBackgroundToAll_tk > Max(500, FDistPluginOptions.UpdateBackgroundInterval - 100) then   //not sure what timeout to use here
+      begin
+        //Do not set "NextState := SUnsubscribeFromResponses;"  //Timeout     A timeout on updating the background, should not stop the plugin.
+        NextState := SWaitForFindSubControlResults;   //go back to the main waiting state
+
+        if WorkerRespondedCountBG = 0 then
+          AddToLog('Timeout waiting for workers to send the background image to their local UIClicker.')
+        else
+          AddToLog('Some of the responding workers could not send the background image to their local UIClicker.');
+
+        AddToLog(' ResponseCount = ' + IntToStr(WorkerRespondedCountBG) + ' / ' + IntToStr(Length(AllWorkers)) + '.');  //Do not change this format. It is used later.
+        AddToLog('Updating background image duration: ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + 'ms.');
+      end
+      else
+      begin
+        NextState := SWaitForUpdateBackgroundImageResults;
+
+        if WorkerRespondedCountBG >= Length(AllWorkers) then
+        begin
+          NextState := SWaitForFindSubControlResults;  //go back to the main waiting state
+
+          if VerbLevel < 2 then
+            AddToLog('All workers responded after having the updated background image in ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.');
+        end;
+      end;
+    end;
+
     SUpdateCache:
       NextState := SUnsubscribeFromResponses;
 
@@ -2021,7 +2092,7 @@ begin
         NextState := SDisconnectFromBroker
       else
       begin
-        if GetTickCount64 - tk > 1000 then
+        if GetTickCount64 - UnsubscribeFromResponses_tk > 1000 then
           NextState := SDisconnectFromBroker  //Timeout
         else
           NextState := SWaitForResponsesUnsubAck;
@@ -3497,29 +3568,32 @@ begin
               try
                 //UpdateBackgroundTk is initialized in SPublishFindSubControlToAllWorkers.
 
-                //if (FDistPluginOptions.UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= FDistPluginOptions.UpdateBackgroundInterval) then
-                //begin
-                //  UpdateBackgroundTk := GetTickCount64;
-                //
-                //  if UpdateBkArchiveWithNewBackground(ListOfAllVars) then
-                //  begin
-                //    if VerbLevel < 2 then
-                //      AddToLog('Sending background image to broker, because it changed...');
-                //
-                //    if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
-                //    begin
-                //      FSMError := 'Can''t send background image to all workers, although it changed.';
-                //      AddToLog(FSMError);
-                //    end
-                //    else
-                //      tk := GetTickCount64;
-                //
-                //    if VerbLevel < 2 then
-                //      AddToLog('Done sending background image, because it changed.');
-                //  end
-                //  else
-                //    AddToLog('Same background...  UpdateBackgroundTk = ' + IntToStr(UpdateBackgroundTk));
-                //end;
+                if (FDistPluginOptions.UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= FDistPluginOptions.UpdateBackgroundInterval) then
+                begin
+                  UpdateBackgroundTk := GetTickCount64;
+
+                  if UpdateBkArchiveWithNewBackground(ListOfAllVars) then
+                  begin
+                    if VerbLevel < 2 then
+                      AddToLog('Sending background image to broker, because it changed...');
+
+                    if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
+                    begin
+                      FSMError := 'Can''t send background image to all workers, although it changed.';
+                      AddToLog(FSMError);
+                    end
+                    else
+                    begin
+                      SendBackgroundToAll_tk := GetTickCount64;
+                      WillWaitForUpdateBackgroundResponses := True;
+                    end;
+
+                    if VerbLevel < 2 then
+                      AddToLog('Done sending background image, because it changed.');
+                  end
+                  else
+                    AddToLog('Same background...  UpdateBackgroundTk = ' + IntToStr(UpdateBackgroundTk));
+                end;
               except
                 on EFSM: Exception do
                 begin
