@@ -26,6 +26,9 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="pl_Indy"/>
+      </Item>
+      <Item>
         <PackageName Value="adLCL"/>
       </Item>
     </RequiredPackages>

@@ -109,6 +109,7 @@ type
     procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; virtual;
     procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; virtual;
     procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; virtual;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly_ChangingBackground; virtual;
 
     procedure AfterAll_AlwaysExecute; virtual;
   end;
@@ -131,6 +132,7 @@ type
     procedure Test_AllocationOfSevenFontProfiles_WinFontsOnly; override;
     procedure Test_AllocationOfEightFontProfiles_WinFontsOnly; override;
     procedure Test_AllocationOfNineFontProfiles_WinFontsOnly; override;
+    procedure Test_AllocationOfOneFontProfile_WinFontsOnly_ChangingBackground; override;
 
     procedure AfterAll_AlwaysExecute; override;
   end;
@@ -1433,6 +1435,12 @@ begin
 end;
 
 
+procedure TTestDistPluginFullOSes.Test_AllocationOfOneFontProfile_WinFontsOnly_ChangingBackground;
+begin
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneBlueFontProfile.clktmpl');
+end;
+
+
 procedure TTestDistPluginFullOSes.AfterAll_AlwaysExecute;
 begin
   AfterAll;
@@ -1532,6 +1540,14 @@ begin
   inherited;
   ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
   ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [0, 3, 1]);  //COneFontProfileTask should be found 0 times.  CTwoFontProfilesTask should be found 3 times.  CThreeFontProfilesTask should be found 1 time.
+end;
+
+
+procedure TTestDistPluginWinDefaultFonts.Test_AllocationOfOneFontProfile_WinFontsOnly_ChangingBackground;
+begin
+  inherited;
+  ExpectWorkAtPluginSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&'], 3, [COneFontProfileTask], [1]);
 end;
 
 

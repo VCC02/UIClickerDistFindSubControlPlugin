@@ -854,7 +854,10 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     Font.Quality = fqDraft
     ParentColor = False
     ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
     Transparent = False
+    OnDblClick = Label35DblClick
   end
   object Label36: TLabel
     Left = 41
@@ -1228,5 +1231,22 @@ object frmCommonFontsMain: TfrmCommonFontsMain
     OnTimer = tmrStartupTimer
     Left = 277
     Top = 294
+  end
+  object IdHTTPServer1: TIdHTTPServer
+    Bindings = <>
+    DefaultPort = 54433
+    ListenQueue = 30
+    ReuseSocket = rsFalse
+    UseNagle = False
+    KeepAlive = True
+    OnCommandGet = IdHTTPServer1CommandGet
+    Left = 296
+    Top = 240
+  end
+  object tmrDelay: TTimer
+    Enabled = False
+    OnTimer = tmrDelayTimer
+    Left = 344
+    Top = 296
   end
 end

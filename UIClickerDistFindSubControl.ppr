@@ -3082,20 +3082,20 @@ var
           end;
 
           //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
-
-          SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
-          BkArchiveStream.Position := 0;
-          BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
-
-          if BkArchiveStream.Size = 0 then
-            BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
-
-          AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
-                             '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
-                            '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
         finally
           CloseBkArchive;
         end;
+
+        SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
+        BkArchiveStream.Position := 0;
+        BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
+
+        if BkArchiveStream.Size = 0 then
+          BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
+
+        AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                           '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                          '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
       finally
         FreeAndNil(BkArchiveStream);
         FreeAndNil(BkArchive);

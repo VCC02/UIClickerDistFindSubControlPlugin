@@ -29,13 +29,15 @@ unit CommonFontsMainForm;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls;
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
+  IdHTTPServer, IdCustomHTTPServer, IdContext, IdSync;
 
 type
 
   { TfrmCommonFontsMain }
 
   TfrmCommonFontsMain = class(TForm)
+    IdHTTPServer1: TIdHTTPServer;
     Image1: TImage;
     imgWinLinResults: TImage;
     Label1: TLabel;
@@ -103,15 +105,33 @@ type
     Label8: TLabel;
     Label9: TLabel;
     lblNonAntialiased: TLabel;
+    tmrDelay: TTimer;
     tmrStartup: TTimer;
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
+    procedure IdHTTPServer1CommandGet(AContext: TIdContext;
+      ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+    procedure Label35DblClick(Sender: TObject);
+    procedure tmrDelayTimer(Sender: TObject);
     procedure tmrStartupTimer(Sender: TObject);
   private
+    FNewLabelColor: TColor;
+
     procedure LoadSettingsFromIni;
     procedure SaveSettingsToIni;
+
+    procedure UpdateLabelColorFromServer(ANewColor: TColor; ADelayMs: Integer = 0);
   public
 
+  end;
+
+
+  TSyncObj = class(TIdSync)
+  private
+    FNewColor: TColor;
+    FDelayMs: Integer;
+  protected
+    procedure DoSynchronize; override;
   end;
 
 var
@@ -122,7 +142,22 @@ implementation
 {$R *.frm}
 
 uses
-  IniFiles;
+  IniFiles, Math;
+
+
+procedure TSyncObj.DoSynchronize;
+begin
+  if FDelayMs <> 0 then
+  begin
+    frmCommonFontsMain.FNewLabelColor := FNewColor;
+    frmCommonFontsMain.tmrDelay.Interval := Min(Max(0, FDelayMs), 60000);
+    frmCommonFontsMain.tmrDelay.Enabled := True;
+  end
+  else
+    frmCommonFontsMain.Label35.Color := FNewColor;
+
+  frmCommonFontsMain.Label35.Hint := 'Double-click to reset.';
+end;
 
 
 procedure TfrmCommonFontsMain.LoadSettingsFromIni;
@@ -162,13 +197,73 @@ end;
 procedure TfrmCommonFontsMain.tmrStartupTimer(Sender: TObject);
 begin
   tmrStartup.Enabled := False;
+  FNewLabelColor := clGray;
   LoadSettingsFromIni;
+
+  try
+    IdHTTPServer1.Active := True;
+  except
+    on E: Exception do
+    begin
+      Label35.ShowHint := True;
+      Label35.Hint := 'Can''t start server module:' + #13#10 + E.Message;
+      UpdateLabelColorFromServer(clFuchsia);
+    end;
+  end;
 end;
 
 
 procedure TfrmCommonFontsMain.FormCreate(Sender: TObject);
 begin
   tmrStartup.Enabled := True;
+end;
+
+
+procedure TfrmCommonFontsMain.UpdateLabelColorFromServer(ANewColor: TColor; ADelayMs: Integer = 0);
+var
+  SyncObj: TSyncObj;
+begin
+  SyncObj := TSyncObj.Create;
+  try
+    SyncObj.FNewColor := ANewColor;
+    SyncObj.FDelayMs := ADelayMs;
+    SyncObj.Synchronize;
+  finally
+    SyncObj.Free;
+  end;
+end;
+
+
+procedure TfrmCommonFontsMain.IdHTTPServer1CommandGet(AContext: TIdContext;
+  ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+var
+  Cmd: string;
+begin
+  Cmd := ARequestInfo.Document;
+  ARequestInfo.Params.LineBreak := #13#10;
+  AResponseInfo.ContentType := 'text/plain'; // 'text/html';  default type
+  AResponseInfo.ContentText := 'Unknown command';
+
+  if Cmd = '/SetSingleLabelColor' then   //this has priority over other commands  (it is used with KeepAlive)
+  begin
+    Randomize;
+    AResponseInfo.ContentText := 'Done ' + IntToStr(Random(MaxInt));
+    UpdateLabelColorFromServer(StrToIntDef(ARequestInfo.Params.Values['Color'], clWindowText),
+                               StrToIntDef(ARequestInfo.Params.Values['Delay'], 0));
+  end;
+end;
+
+
+procedure TfrmCommonFontsMain.Label35DblClick(Sender: TObject);
+begin
+  Label35.Color := clGreen;
+end;
+
+
+procedure TfrmCommonFontsMain.tmrDelayTimer(Sender: TObject);
+begin
+  tmrDelay.Enabled := False;
+  Label35.Color := FNewLabelColor;
 end;
 
 
