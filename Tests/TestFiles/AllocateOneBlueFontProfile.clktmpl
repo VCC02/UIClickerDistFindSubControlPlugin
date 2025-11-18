@@ -1,5 +1,5 @@
 [Actions]
-Count=9
+Count=10
 Version=2
 
 [Action_0]
@@ -68,7 +68,7 @@ NewPositionEnabled=0
 NewSizeEnabled=0
 
 [Action_3]
-ActionName=Set label to aqua
+ActionName=Set label to yellow
 Action=SetVar
 ActionTimeout=0
 ActionEnabled=1
@@ -77,12 +77,12 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 ListOfVarNames=$Res$
-ListOfVarValues=$http://127.0.0.1:54433/SetSingleLabelColor?Color=16776960$
+ListOfVarValues=$http://127.0.0.1:54433/SetSingleLabelColor?Color=65535$
 ListOfVarEvalBefore=1
 FailOnException=0
 
 [Action_4]
-ActionName=OneBlueProfile
+ActionName=OneYellowProfile
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=1
@@ -99,7 +99,7 @@ WaitForControlToGoAway=0
 MatchBitmapTextArr=1
 MatchBitmapText_Count=1
 MatchBitmapText[0].ForegroundColor=$Color_WindowText$
-MatchBitmapText[0].BackgroundColor=FFFF00
+MatchBitmapText[0].BackgroundColor=00FFFF
 MatchBitmapText[0].FontName=Terminal
 MatchBitmapText[0].FontSize=9
 MatchBitmapText[0].Bold=0
@@ -199,7 +199,7 @@ PrecisionTimeout=0
 EvaluateTextCount=-1
 
 [Action_6]
-ActionName=Set label to green
+ActionName=Set label to aqua
 Action=SetVar
 ActionTimeout=0
 ActionEnabled=1
@@ -208,12 +208,12 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 ListOfVarNames=$Res$
-ListOfVarValues=$http://127.0.0.1:54433/SetSingleLabelColor?Color=32768&Delay=1000$
+ListOfVarValues=$http://127.0.0.1:54433/SetSingleLabelColor?Color=16776960&Delay=1500$
 ListOfVarEvalBefore=1
 FailOnException=0
 
 [Action_7]
-ActionName=OneProfile
+ActionName=OneBlueProfile
 Action=FindSubControl
 ActionTimeout=1000
 ActionEnabled=0
@@ -230,7 +230,7 @@ WaitForControlToGoAway=0
 MatchBitmapTextArr=1
 MatchBitmapText_Count=1
 MatchBitmapText[0].ForegroundColor=$Color_WindowText$
-MatchBitmapText[0].BackgroundColor=008000
+MatchBitmapText[0].BackgroundColor=FFFF00
 MatchBitmapText[0].FontName=Terminal
 MatchBitmapText[0].FontSize=9
 MatchBitmapText[0].Bold=0
@@ -305,7 +305,21 @@ BreakpointExists=0
 BreakpointEnabled=0
 BreakpointCondition=
 FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dll
-ListOfPropertiesAndValues=FindSubControlAction=OneProfileCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=7000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=CustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4UpdateBackgroundInterval=
+ListOfPropertiesAndValues=FindSubControlAction=OneBlueProfileCredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=500GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=7000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=CustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4UpdateBackgroundInterval=
+
+[Action_9]
+ActionName=Reset label to green for other test
+Action=SetVar
+ActionTimeout=0
+ActionEnabled=1
+ActionCondition=
+BreakpointExists=0
+BreakpointEnabled=0
+BreakpointCondition=
+ListOfVarNames=$Res$
+ListOfVarValues=$http://127.0.0.1:54433/SetSingleLabelColor?Color=32768&Delay=10$
+ListOfVarEvalBefore=1
+FailOnException=0
 
 [Notes]
 Content=
