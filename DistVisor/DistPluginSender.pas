@@ -180,7 +180,7 @@ begin
   if AUIClickerDistBitness = '32' then
     DistBitness := 'i386-win32'
   else
-    if AUIClickerDistBitness = '32' then
+    if AUIClickerDistBitness = '64' then
       DistBitness := 'x86_64-win64'
     else
       raise Exception.Create('Invalid bitness: "' + AUIClickerDistBitness + '".');
