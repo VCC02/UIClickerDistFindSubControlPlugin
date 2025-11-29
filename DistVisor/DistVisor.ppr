@@ -48,7 +48,7 @@ begin
   UIClickerPort := GetCmdLineOptionValue('--UIClickerPort', '5444');         //The UIClicker port, where DistFindSubControl is used.  //see doc
   UIClickerBitness := GetCmdLineOptionValue('--UIClickerBitness', '32');        //Defaults to 32, at least until the plugin loader is fixed on 64
 
-  UIClickerAddress := Copy(UIClickerAddress, 1, 15); //IP addresses only ###.###.###.###    //change this validation is required
+  UIClickerAddress := Copy(UIClickerAddress, 1, 15); //IP addresses only ###.###.###.###    //change this validation if required
 
   PortAsInt := StrToIntDef(UIClickerPort, -1);
   if PortAsInt = -1 then
@@ -57,4 +57,5 @@ begin
   SetKeys;
   SendAllDistPlugins(UIClickerAddress, UIClickerPort, UIClickerBitness); //bitness expected at
 end.
+
 
