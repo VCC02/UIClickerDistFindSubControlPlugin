@@ -25,16 +25,36 @@
 program DistVisor;
 
 uses
-  Interfaces, SysUtils, Classes, DistPluginSender;
+  Interfaces, SysUtils, Classes,
+  DistPluginSender, ClickerUtils;
 
 var
-  Bitness: string = '32'; //defaults to 32, at least until the plugin loader is fixed on 64
+  UIClickerAddress: string;
+  UIClickerPort: string;
+  UIClickerBitness: string;
+  PortAsInt: Integer;
 
 begin
-  if ParamCount > 0 then
-    Bitness := ParamStr(1);
+  if UpperCase(ParamStr(1)) = '--HELP' then
+  begin
+    WriteLn('Options:');
+    WriteLn('  --UIClickerAddress <Address>');
+    WriteLn('  --UIClickerPort <Port>');
+    WriteLn('  --UIClickerBitness <32,64>');
+    Exit;
+  end;
+
+  UIClickerAddress := GetCmdLineOptionValue('--UIClickerAddress', '127.0.0.1'); //The UIClicker address, where DistFindSubControl is used.  //see doc
+  UIClickerPort := GetCmdLineOptionValue('--UIClickerPort', '5444');         //The UIClicker port, where DistFindSubControl is used.  //see doc
+  UIClickerBitness := GetCmdLineOptionValue('--UIClickerBitness', '32');        //Defaults to 32, at least until the plugin loader is fixed on 64
+
+  UIClickerAddress := Copy(UIClickerAddress, 1, 15); //IP addresses only ###.###.###.###    //change this validation is required
+
+  PortAsInt := StrToIntDef(UIClickerPort, -1);
+  if PortAsInt = -1 then
+    UIClickerPort := '5444';
 
   SetKeys;
-  SendAllDistPlugins(Bitness); //bitness expected at
+  SendAllDistPlugins(UIClickerAddress, UIClickerPort, UIClickerBitness); //bitness expected at
 end.
 

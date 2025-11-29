@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <MultiProject FileVersion="1">
-    <Elements Count="12">
+    <Elements Count="13">
       <Element0 FileName="..\UIClicker\Tools\ClkDbgSym\ClkDbgSym.ctpr">
         <BuildModes Count="1"/>
         <Mode1 Name="Default"/>
@@ -47,6 +47,10 @@
         <Mode1 Name="Default"/>
       </Element10>
       <Element11 FileName="Tests\UIClickerDistFindSubControlPluginTests.ctmpr"/>
+      <Element12 FileName="DistVisor\DistVisor.ctpr">
+        <BuildModes Count="1"/>
+        <Mode1 Name="Default"/>
+      </Element12>
     </Elements>
   </MultiProject>
 </CONFIG>
