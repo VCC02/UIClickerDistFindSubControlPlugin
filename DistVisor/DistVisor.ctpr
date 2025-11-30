@@ -26,6 +26,12 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="pl_DCP"/>
+      </Item>
+      <Item>
+        <PackageName Value="pl_Indy"/>
+      </Item>
+      <Item>
         <PackageName Value="adLCLBase"/>
       </Item>
       <Item>
@@ -50,6 +56,22 @@
         <Filename Value="..\..\UIClicker\ClickerUtils\ClickerUtils.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="DistVisorCommands.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerActionsClient.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\MiscUtils\InMemFileSystem.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\..\UIClicker\ClickerUtils\ClickerActionProperties.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -60,7 +82,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils"/>
+      <OtherUnitFiles Value="..\..\UIClicker\ClickerUtils;..\..\MiscUtils"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>
@@ -68,6 +90,9 @@
         <GenerateDebugInfo Value="False"/>
       </Debugging>
     </Linking>
+    <Other>
+      <CustomOptions Value="-d_TestBuild"/>
+    </Other>
   </CompilerOptions>
   <Debugging>
     <Exceptions>

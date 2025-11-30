@@ -32,7 +32,8 @@ uses
   Classes, SysUtils, ClickerUtils;
 
 
-procedure SendAllDistPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerDistBitness: string);  //expected '32' or '64' for Bitness
+procedure SendAllDistPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerBitness: string);  //expected '32' or '64' for Bitness
+procedure SendAllServicePlugins(AUIClickerAddress, AUIClickerPort, AUIClickerBitness: string);  //expected '32' or '64' for Bitness
 procedure SetKeys;
 
 
@@ -65,8 +66,9 @@ begin
 
     TempStringList := TStringList.Create;
     try
-      TempStringList.LineBreak := #13#10;    //TBD on Lin
+      TempStringList.LineBreak := #13#10;    //leave #13#10 here for conversion from #4#5.
       TempStringList.Text := FastReplace_45ToReturn(AExeInput);
+      //replace #13#10 with #9 on Lin ???
       TempStringList.SaveToStream(Proc.Input);
     finally
       TempStringList.Free;
@@ -130,6 +132,11 @@ begin
 end;
 
 
+const
+  CDecryptionPluginName = 'DistDec';
+  CSenderApp_DistInitialEnc = 'DistInitialEnc';
+  CSenderApp_DistEnc = 'DistEnc';
+
 var
   InitialTransmissionKey: string = 'dummy_key';
   InitialTrasmissionIV: string = 'dummy_iv';
@@ -140,74 +147,121 @@ var
   FindSubControlKey: string = 'ABCDEFFindSubControl';
   FindSubControlIV: string = 'IVFindSubControl';
 
-function Send_DistInitialDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+
+function Send_DistInitialDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistInitialEnc', ADistBitness + '\DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistInitialEnc, ABitnessDir + '\DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
 end;
 
 
-function Send_DistDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+function Send_DistDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistInitialEnc', ADistBitness + '\DistDec', 'DistDec', InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV);
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistInitialEnc, ABitnessDir + '\' + CDecryptionPluginName, CDecryptionPluginName, InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV, 'DistInitialDec');
 end;
 
 
-function Send_UIClickerDistFindSubControlDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+function Send_UIClickerDistFindSubControlDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistEnc', ADistBitness + '\UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + '\UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
 end;
 
 
-function Send_PoolClientDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+function Send_PoolClientDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistEnc', ADistBitness + '\PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + '\PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
 end;
 
 
-procedure SendAllDistPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerDistBitness: string);  //expected '32' or '64' for Bitness
-var
-  DistBitness, Res: string;   //plugin dir bitness
-  Prefix, Operation, ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted: string;
+function Send_BrokerParamsDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
+begin
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + '\BrokerParams', 'BrokerParams', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
+end;
+
+
+function GetBitnessDir(AUIClickerDistBitness: string): string;
 begin
   if AUIClickerDistBitness = '32' then
-    DistBitness := 'i386-win32'
+    Result := 'i386-win32'
   else
     if AUIClickerDistBitness = '64' then
-      DistBitness := 'x86_64-win64'
+      Result := 'x86_64-win64'
     else
       raise Exception.Create('Invalid bitness: "' + AUIClickerDistBitness + '".');
+end;
 
+
+procedure GetExpectedResponses(AUIClickerAddress, AUIClickerPort: string; out AExpectedResponse_Unencrypted, AExpectedResponse_Encrypted: string);
+var
+  Prefix, Operation: string;
+begin
   Prefix := 'Trasmission Key=Trasmission IV=Subsequent Key=Subsequent IV=';
   Operation := 'Sending plugin to http://' + AUIClickerAddress + ':' + AUIClickerPort + '/';
-  ExpectedResponse_Unencrypted := Prefix + 'Sending unencrypted...' + Operation + 'Response: OK';
-  ExpectedResponse_Encrypted := Prefix + Operation + 'Using archive encryption..Response: OK';
+  AExpectedResponse_Unencrypted := Prefix + 'Sending unencrypted...' + Operation + 'Response: OK';
+  AExpectedResponse_Encrypted := Prefix + Operation + 'Using archive encryption..Response: OK';
+end;
 
-  WriteLn('Sending DistInitialDecDll...');
-  Res := Send_DistInitialDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, DistBitness);
-  if Res <> ExpectedResponse_Unencrypted then
+
+procedure SendDecPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerDistBitness, ABitnessDir, AExpectedResponse_Unencrypted, AExpectedResponse_Encrypted: string);
+var
+  Res: string;
+begin
+  WriteLn('Sending DistInitialDecDll to ' + AUIClickerAddress + ':' + AUIClickerPort + '...');
+  Res := Send_DistInitialDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir);
+  if Res <> AExpectedResponse_Unencrypted then
     raise Exception.Create('Error sending DistInitialDecDll: ' + Res);
   WriteLn('DistInitialDecDll sent.');
   WriteLn;
 
-  WriteLn('Sending DistDecDll...');
-  Res := Send_DistDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, DistBitness);
-  if Res <> ExpectedResponse_Encrypted then
+  WriteLn('Sending DistDecDll to ' + AUIClickerAddress + ':' + AUIClickerPort + '...');
+  Res := Send_DistDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir);
+  if Res <> AExpectedResponse_Encrypted then
     raise Exception.Create('Error sending DistDecDll: ' + Res);
   WriteLn('DistDecDll sent.');
   WriteLn;
+end;
 
-  WriteLn('Sending UIClickerDistFindSubControlDll...');
-  Res := Send_UIClickerDistFindSubControlDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, DistBitness);
+
+procedure SendAllDistPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerBitness: string);  //expected '32' or '64' for Bitness
+var
+  BitnessDir, Res: string;   //plugin dir bitness
+  ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted: string;
+begin
+  BitnessDir := GetBitnessDir(AUIClickerBitness);
+  GetExpectedResponses(AUIClickerAddress, AUIClickerPort, ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted);
+
+  SendDecPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerBitness, BitnessDir, ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted);
+
+  WriteLn('Sending UIClickerDistFindSubControlDll to ' + AUIClickerAddress + ':' + AUIClickerPort + '...');
+  Res := Send_UIClickerDistFindSubControlDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, BitnessDir);
   if Res <> ExpectedResponse_Encrypted then
     raise Exception.Create('Error sending UIClickerDistFindSubControlDll: ' + Res);
   WriteLn('UIClickerDistFindSubControlDll sent.');
   WriteLn;
 
-  WriteLn('Sending PoolClientDll...');
-  Res := Send_PoolClientDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, DistBitness);
+  WriteLn('Sending PoolClientDll to ' + AUIClickerAddress + ':' + AUIClickerPort + '...');
+  Res := Send_PoolClientDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, BitnessDir);
   if Res <> ExpectedResponse_Encrypted then
     raise Exception.Create('Error sending PoolClientDll: ' + Res);
   WriteLn('PoolClientDll sent.');
+  WriteLn;
+end;
+
+
+procedure SendAllServicePlugins(AUIClickerAddress, AUIClickerPort, AUIClickerBitness: string);  //expected '32' or '64' for Bitness
+var
+  BitnessDir, Res: string;   //plugin dir bitness
+  ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted: string;
+begin
+  BitnessDir := GetBitnessDir(AUIClickerBitness);
+  GetExpectedResponses(AUIClickerAddress, AUIClickerPort, ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted);
+
+  SendDecPlugins(AUIClickerAddress, AUIClickerPort, AUIClickerBitness, BitnessDir, ExpectedResponse_Unencrypted, ExpectedResponse_Encrypted);
+
+  WriteLn('Sending BrokerParamsDll to ' + AUIClickerAddress + ':' + AUIClickerPort + '...');
+  Res := Send_BrokerParamsDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, BitnessDir);
+  if Res <> ExpectedResponse_Encrypted then
+    raise Exception.Create('Error sending BrokerParamsDll: ' + Res);
+  WriteLn('BrokerParamsDll sent.');
   WriteLn;
 end;
 
