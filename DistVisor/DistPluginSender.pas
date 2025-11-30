@@ -68,7 +68,7 @@ begin
     try
       TempStringList.LineBreak := #13#10;    //leave #13#10 here for conversion from #4#5.
       TempStringList.Text := FastReplace_45ToReturn(AExeInput);
-      //replace #13#10 with #9 on Lin ???
+      //replace #13#10 with #10 on Lin ???
       TempStringList.SaveToStream(Proc.Input);
     finally
       TempStringList.Free;
