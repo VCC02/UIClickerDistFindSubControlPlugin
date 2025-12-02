@@ -29,7 +29,8 @@ uses
     cthreads,
   {$ENDIF}
   Interfaces, SysUtils, Classes,
-  DistPluginSender, ClickerUtils, DistVisorCommands;
+  ClickerUtils, ClickerActionsClient,
+  DistPluginSender, DistVisorCommands, DistVisorFSM;
 
 const
   CAutosendPluginsOnStartup = '--AutosendPluginsOnStartup';
@@ -103,7 +104,7 @@ begin
 end;
 
 var
-  AutosendPluginsOnStartup: Boolean;
+  FSMExecCnt: Integer;
 
 {ToDo
 - Implement a FSM, which starts various processes, including WorkerPoolManager (with StartWorkerPoolManager command)
@@ -117,10 +118,12 @@ begin
     Exit;
   end;
 
+  GeneralConnectTimeout := 1500;   //expected to connect to local machines only
+
   SetKeys;
   GetCmdLineOptions(AutosendPluginsOnStartup);
 
-  if AutosendPluginsOnStartup then
+  if AutosendPluginsOnStartup then     //move this to FSM
   begin
     SendAllDistPlugins(DistUIClickerAddress, DistUIClickerPort, DistUIClickerBitness);
     SendAllServicePlugins(ServiceUIClickerAddress, ServiceUIClickerPort, ServiceUIClickerBitness);
@@ -133,9 +136,17 @@ begin
 
   CreateServerModule;
   try
+    FSMExecCnt := 0;
     repeat
-      //Run FSM here
-      Sleep(10);
+      Inc(FSMExecCnt);
+
+      if FSMExecCnt >= 50 then  //this constant depends on the below sleep value
+      begin
+        FSMExecCnt := 0;
+        ExecuteFSM;
+      end;
+
+      Sleep(100);  // a value, greater than 33, because of poor resolution
     until False;
   finally
     DestroyServerModule;
