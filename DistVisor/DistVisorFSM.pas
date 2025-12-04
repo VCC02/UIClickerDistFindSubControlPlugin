@@ -52,6 +52,10 @@ procedure ExecuteFSM;
 implementation
 
 
+uses
+  ClickerActionsClient, DistVisorCommands;
+
+
 var
   MonitoringUIClickerIsRunning: Boolean;
   ServiceUIClickerIsRunning: Boolean;
@@ -60,6 +64,9 @@ var
   MonitoringUIClicker_tk: QWord;
   ServiceUIClicker_tk: QWord;
   WPM_tk: QWord;
+
+  StartMonitoringUIClickerResult: string;
+
 
 procedure ExecuteFSM_Part1;
 begin
@@ -71,16 +78,21 @@ begin
       WPMIsRunning := False;
     end;
 
-    SCheckForMonitoringUIClicker:
-      ;
+    SCheckForMonitoringUIClicker:      //DistVisor expects that ServiceUIClicker is started automatically by the OS or a startup app/script.
+    begin
+      MonitoringUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', False) = CREResp_ConnectionOK;
+      if not MonitoringUIClickerIsRunning then
+        WriteLn('The MonitoringUIClicker is not running. Attempting to start it.');
+    end;
 
     SStartMonitoringUIClicker:
     begin
       MonitoringUIClicker_tk := GetTickCount64;
+      StartMonitoringUIClickerResult := StartMonitoringUIClicker; //sends a command to the Service UIClicker, to start the Monitoring one.
     end;
 
     SWaitForMonitoringUIClicker:
-      ;
+      MonitoringUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForServiceUIClicker:
       ;
@@ -123,13 +135,27 @@ begin
         NextState := SStartMonitoringUIClicker;      //maybe report an error if entering here too often
 
     SStartMonitoringUIClicker:
-      NextState := SWaitForMonitoringUIClicker;
-
-    SWaitForMonitoringUIClicker:
-      if MonitoringUIClicker_tk < 10000 then
+    begin
+      if StartMonitoringUIClickerResult = '' then
         NextState := SWaitForMonitoringUIClicker
       else
+      begin
+        WriteLn('Error starting MonitoringUIClicker: "' + StartMonitoringUIClickerResult + '".');
         NextState := SCheckForServiceUIClicker;
+      end;
+    end;
+
+    SWaitForMonitoringUIClicker:
+      if MonitoringUIClickerIsRunning then
+        NextState := SCheckForServiceUIClicker
+      else
+        if MonitoringUIClicker_tk < 10000 then
+        begin
+          NextState := SWaitForMonitoringUIClicker;
+          WriteLn('Error: Timeout (' + IntToStr(MonitoringUIClicker_tk) + ' ms) waiting for MonitoringUIClicker to become available.');
+        end
+        else
+          NextState := SCheckForServiceUIClicker;
 
     SCheckForServiceUIClicker:
       ;

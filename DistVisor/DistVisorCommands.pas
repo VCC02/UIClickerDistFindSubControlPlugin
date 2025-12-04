@@ -44,8 +44,9 @@ type
 procedure CreateServerModule;
 procedure DestroyServerModule;
 
-procedure StartWorkerPoolManager;
-procedure StartMonitoringUIClicker;
+function StartWorkerPoolManager: string;
+function StartMonitoringUIClicker: string;
+
 
 const
   CDVCmd_SendDistPlugins = 'SendDistPlugins';
@@ -80,7 +81,27 @@ var
   ServerHandlers: TCmdHandlers;
 
 
-procedure StartWorkerPoolManager;
+function Get_ExecAction_Err_FromExecutionResult(ARes: string): string;
+var
+  ListOfVars: TStringList;
+begin
+  if Pos('$RemoteExecResponse$', ARes) <> 1 then
+  begin
+    Result := ARes; //probably a connection error
+    Exit;
+  end;
+
+  ListOfVars := TStringList.Create;
+  try
+    ListOfVars.Text := FastReplace_87ToReturn(ARes);
+    Result := ListOfVars.Values['$ExecAction_Err$'];
+  finally
+    ListOfVars.Free
+  end;
+end;
+
+
+function StartWorkerPoolManager: string;
 var
   ExecApp: TClkExecAppOptions;
   Res: string;
@@ -89,11 +110,11 @@ begin
   ExecApp.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\WorkerPoolManager\WorkerPoolManager.exe';
 
   Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', ExecApp, 'Start WorkerPoolManager', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
-  //WriteLn('StartWorkerPoolManager result: ' + Res);
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
 end;
 
 
-procedure StartMonitoringUIClicker;
+function StartMonitoringUIClicker: string;
 var
   ExecApp: TClkExecAppOptions;
   Res: string;
@@ -103,7 +124,7 @@ begin
   ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + CMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
 
   Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', ExecApp, 'Start Monitoring UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
-  //WriteLn('StartMonitoringUIClicker result: ' + Res);
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
 end;
 
 
