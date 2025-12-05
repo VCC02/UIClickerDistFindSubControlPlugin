@@ -36,8 +36,17 @@ type
   TDistVisorFSM = (SInit,
                    SCheckForMonitoringUIClicker, SStartMonitoringUIClicker, SWaitForMonitoringUIClicker,
                    SCheckForServiceUIClicker, SStartServiceUIClicker, SWaitForServiceUIClicker,
-                   SCheckForWPM, SStartWPM, SWaitForWPM, //WPM = WorkePoolManager
-                   SSendPlugins
+                   SCheckForWPM, SStartWPM, SWaitForWPM //WPM = WorkePoolManager
+                   //SSendDistPlugins, SSendServicePlugins
+                   );
+
+const
+  CDistVisorFSMStr: array[TDistVisorFSM] of string = (
+                   'SInit',
+                   'SCheckForMonitoringUIClicker', 'SStartMonitoringUIClicker', 'SWaitForMonitoringUIClicker',
+                   'SCheckForServiceUIClicker', 'SStartServiceUIClicker', 'SWaitForServiceUIClicker',
+                   'SCheckForWPM', 'SStartWPM', 'SWaitForWPM'
+                   //'SSendDistPlugins', 'SSendServicePlugins'
                    );
 
 var
@@ -66,6 +75,8 @@ var
   WPM_tk: QWord;
 
   StartMonitoringUIClickerResult: string;
+  StartServiceUIClickerResult: string;
+  StartWPMResult: string;
 
 
 procedure ExecuteFSM_Part1;
@@ -95,29 +106,44 @@ begin
       MonitoringUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForServiceUIClicker:
-      ;
+    begin
+      ServiceUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
+      if not ServiceUIClickerIsRunning then
+        WriteLn('The ServiceUIClicker is not running. Attempting to start it.');
+    end;
 
     SStartServiceUIClicker:
     begin
       ServiceUIClicker_tk := GetTickCount64;
+      StartServiceUIClickerResult := StartServiceUIClicker; //sends a command to the Monitoring UIClicker, to start the Service one.
     end;
 
     SWaitForServiceUIClicker:
-      ;
+      ServiceUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForWPM:
-      ;
+    begin
+      WPMIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
+      if not WPMIsRunning then
+        WriteLn('The WorkerPoolManager is not running. Attempting to start it.');
+    end;
 
     SStartWPM:
     begin
       WPM_tk := GetTickCount64;
+      StartWPMResult := StartWorkerPoolManager; //sends a command to the Service UIClicker, to start the WPM.
     end;
 
     SWaitForWPM:
-      ;
+      WPMIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
 
-    SSendPlugins:
-      ;
+    //SSendPlugins:
+    //  if AutosendPluginsOnStartup then
+    //  begin
+    //    AutosendPluginsOnStartup := False;
+    //    SendAllDistPlugins(DistUIClickerAddress, DistUIClickerPort, DistUIClickerBitness);
+    //    SendAllServicePlugins(ServiceUIClickerAddress, ServiceUIClickerPort, ServiceUIClickerBitness);
+    //  end;
   end;
 end;
 
@@ -146,6 +172,7 @@ begin
     end;
 
     SWaitForMonitoringUIClicker:
+    begin
       if MonitoringUIClickerIsRunning then
         NextState := SCheckForServiceUIClicker
       else
@@ -156,27 +183,72 @@ begin
         end
         else
           NextState := SCheckForServiceUIClicker;
+    end;
 
     SCheckForServiceUIClicker:
-      ;
+      if ServiceUIClickerIsRunning then
+        NextState := SCheckForWPM  //next tool
+      else
+        NextState := SStartServiceUIClicker;      //maybe report an error if entering here too often
 
     SStartServiceUIClicker:
-      ;
+    begin
+      if StartServiceUIClickerResult = '' then
+        NextState := SWaitForServiceUIClicker
+      else
+      begin
+        WriteLn('Error starting ServiceUIClicker: "' + StartServiceUIClickerResult + '".');
+        NextState := SCheckForWPM;
+      end;
+    end;
 
     SWaitForServiceUIClicker:
-      ;
+    begin
+      if ServiceUIClickerIsRunning then
+        NextState := SCheckForWPM
+      else
+        if ServiceUIClicker_tk < 10000 then
+        begin
+          NextState := SWaitForServiceUIClicker;
+          WriteLn('Error: Timeout (' + IntToStr(ServiceUIClicker_tk) + ' ms) waiting for ServiceUIClicker to become available.');
+        end
+        else
+          NextState := SCheckForWPM;
+    end;
 
     SCheckForWPM:
-      ;
+      if WPMIsRunning then
+        NextState := SCheckForMonitoringUIClicker  //next tool
+      else
+        NextState := SStartWPM;      //maybe report an error if entering here too often
 
     SStartWPM:
-      ;
+    begin
+      if StartWPMResult = '' then
+        NextState := SWaitForWPM
+      else
+      begin
+        WriteLn('Error starting WPM: "' + StartWPMResult + '".');
+        NextState := SCheckForMonitoringUIClicker;
+      end;
+    end;
 
     SWaitForWPM:
-      ;               //somewhere, enter AutosendPluginsOnStartup
+    begin
+      if WPMIsRunning then
+        NextState := SCheckForMonitoringUIClicker
+      else
+        if WPM_tk < 10000 then
+        begin
+          NextState := SWaitForWPM;
+          WriteLn('Error: Timeout (' + IntToStr(WPM_tk) + ' ms) waiting for WorkerPoolManager to become available.');
+        end
+        else
+          NextState := SCheckForMonitoringUIClicker;
+    end;               //somewhere, enter AutosendPluginsOnStartup
 
-    SSendPlugins:
-      ;
+    //SSendPlugins:
+    //  NextState := SCheckForMonitoringUIClicker;
   end;
 end;
 

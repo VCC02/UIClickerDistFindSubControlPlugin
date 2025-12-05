@@ -107,8 +107,8 @@ var
   FSMExecCnt: Integer;
 
 {ToDo
-- Implement a FSM, which starts various processes, including WorkerPoolManager (with StartWorkerPoolManager command)
-- If needed, implement command for starting UIClicker instance:  'Service'  (CServiceExtraCaption)
+- Implement states in the FSM, for starting the Dist UIClickers.
+- Have a clear distinction between the Dist machine, the WorkerPoolManager machine and the worker machines - which tool has to run on each.
 }
 
 begin
@@ -143,6 +143,7 @@ begin
       if FSMExecCnt >= 50 then  //this constant depends on the below sleep value
       begin
         FSMExecCnt := 0;
+        //WriteLn('FSM: ' + CDistVisorFSMStr[State]);
         ExecuteFSM;
       end;
 

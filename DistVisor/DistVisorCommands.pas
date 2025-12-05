@@ -46,6 +46,7 @@ procedure DestroyServerModule;
 
 function StartWorkerPoolManager: string;
 function StartMonitoringUIClicker: string;
+function StartServiceUIClicker: string;
 
 
 const
@@ -56,6 +57,8 @@ const
 
   CMonitoringPort = '54400';  //monitoring UIClicker instance
   CMonitoringExtraCaption = 'Monitor';
+
+  CWPMPort = '11884';
 
   CServiceExtraCaption = 'Service';
 
@@ -122,8 +125,22 @@ begin
   GetDefaultPropertyValues_ExecApp(ExecApp);
   ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
   ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + CMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
-
+                                                                        //sending the command to service, to start the monitor
   Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', ExecApp, 'Start Monitoring UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
+end;
+
+
+function StartServiceUIClicker: string;
+var
+  ExecApp: TClkExecAppOptions;
+  Res: string;
+begin
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + ServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+                                                                          //sending the command to monitor, to start the service
+  Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', ExecApp, 'Start Service UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
   Result := Get_ExecAction_Err_FromExecutionResult(Res);
 end;
 
