@@ -321,6 +321,12 @@ begin
     FResult := frmWorkerPoolManagerMain.SendPoolCredentialsOnDemand(FParams.Values[CWorkerMachineAddress]);
     Exit;
   end;
+
+  if Pos('/' + CRECmd_TestConnection, FCmd) = 1 then
+  begin
+    FResult := CREResp_ConnectionOK;
+    Exit;
+  end;
 end;
 
 
