@@ -119,6 +119,194 @@ var
   WorkerPoolManager_Proc: TAsyncProcess;
 
 
+function SendPlugin(AUIClickerAddress, AUIClickerPort, ASenderApp, APluginToBeSent, APluginToBeSentDir, ATXKey, ATXIV, ANextKey, ANextIV: string; ADecryptionPluginName: string = ''): string;
+var
+  ExecApp: TClkExecAppOptions;
+  DistPath: string;
+  ExecResults: TStringList;
+begin
+  DistPath := ExtractFilePath(ParamStr(0)) + '..\';
+  if (APluginToBeSentDir > '') and (APluginToBeSentDir[Length(APluginToBeSentDir)] <> '\') then
+    APluginToBeSentDir := APluginToBeSentDir + '\';
+
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := DistPath + ASenderApp + '\' + ASenderApp + '.exe';
+  ExecApp.ListOfParams := '--ClickerClient' + #4#5 + DistPath + '..\UIClicker\ClickerClient\ClickerClient.dll' + #4#5 +
+                          '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib\' + APluginToBeSent + '.dll' + #4#5 +
+                          '--PluginToBeSentDestName' + #4#5 + APluginToBeSent + '.dll' + #4#5 +
+                          '--UIClickerAddress' + #4#5 + AUIClickerAddress + #4#5 +
+                          '--UIClickerPort' + #4#5 + AUIClickerPort;
+
+  if ADecryptionPluginName <> '' then
+    ExecApp.ListOfParams := ExecApp.ListOfParams + #4#5 + '--DecryptionPluginName' + #4#5 + ADecryptionPluginName + '.dllarc|Mem:\' + ADecryptionPluginName + '.dll';
+
+  ExecApp.WaitForApp := True;
+  ExecApp.AppStdIn := ATXKey + #4#5 +      //This is provided when DistInitialEnc.exe prints "Trasmission Key" on StdOut.
+                      ATXIV + #4#5 +       //This is provided when DistInitialEnc.exe prints "Trasmission IV" on StdOut.
+                      ANextKey + #4#5 +    //This is provided when DistInitialEnc.exe prints "Subsequent Key" on StdOut.
+                      ANextIV + #4#5;      //This is provided when DistInitialEnc.exe prints "Subsequent IV" on StdOut.
+  ExecApp.CurrentDir := ExtractFileDir(ExecApp.PathToApp);
+  ExecApp.UseInheritHandles := uihYes;
+  ExecApp.VerifyFileExistence := True;
+  ExecApp.WaitForApp := True;
+  ExecApp.NoConsole := True;
+
+  try
+    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'SendPlugin - ' + APluginToBeSent + '.dll via ' + ASenderApp + '.exe', 8000, True, False);
+  except
+    on E: Exception do
+      Result := 'Ex on starting broker: ' + E.Message;
+  end;
+
+  ExecResults := TStringList.Create;
+  try
+    ExecResults.Text := FastReplace_87ToReturn(Result);
+    if ExecResults.Values['$ExecAction_Err$'] <> '' then
+    begin
+      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
+      Exit;
+    end;
+
+    if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
+    begin
+      Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
+      Exit;
+    end;
+  finally
+    ExecResults.Free;
+  end;
+end;
+
+
+var
+  InitialTransmissionKey: string = 'dummy_key';
+  InitialTrasmissionIV: string = 'dummy_iv';
+  InitialSubsequentKey: string = 'ABCDEF';
+  InitialSubsequentIV: string = 'IV.IV';
+  DistDecSubsequentKey: string = 'ABCDEFDistDec';
+  DistDecSubsequentIV: string = 'IVDistDec.IV';
+  FindSubControlKey: string = 'ABCDEFFindSubControl';
+  FindSubControlIV: string = 'IVFindSubControl';
+
+function Send_DistInitialDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+begin
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistInitialEnc', ADistBitness + '\DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
+end;
+
+
+function Send_DistDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+begin
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistInitialEnc', ADistBitness + '\DistDec', 'DistDec', InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV);
+end;
+
+
+function Send_UIClickerDistFindSubControlDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+begin
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistEnc', ADistBitness + '\UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+end;
+
+
+function Send_PoolClientDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+begin
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistEnc', ADistBitness + '\PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+end;
+
+
+function Send_BrokerParamsDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ADistBitness: string): string;
+begin
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, 'DistEnc', ADistBitness + '\BrokerParams', 'BrokerParams', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
+end;
+
+
+function GetDistBitnessDir: string;
+var
+  AllVars: TStringList;
+begin
+  AllVars := TStringList.Create;
+  try
+    AllVars.Text := FastReplace_87ToReturn(GetAllReplacementVars(CTestClientAddress, 0));
+    Result := AllVars.Values['$AppBitness$'] + '-' + AllVars.Values['$OSBitness$'];   // i386-win32 or x86_64-win64
+
+    try
+      Expect(Result).ToBe('i386-win32', 'Expecting 32-bit');
+    except
+      Expect(Result).ToBe('x86_64-win64', 'Expecting 64-bit'); //if not 32-bit, then it has to be 64-bit
+    end;
+  finally
+    AllVars.Free;
+  end;
+end;
+
+
+const
+  CPrefix = '$ExecAction_StdOut$=Trasmission Key=Trasmission IV=Subsequent Key=Subsequent IV=';
+  COperation_CUT = 'Sending plugin to http://127.0.0.1:' + CClientUnderTestServerPort + '/';
+  COperation_SU = 'Sending plugin to http://127.0.0.1:' + CServiceUIClickerPort + '/';
+
+  CExpectedResponse_Unencrypted_CUT = CPrefix + 'Sending unencrypted...' + COperation_CUT + 'Response: OK';
+  CExpectedResponse_Encrypted_CUT = CPrefix + COperation_CUT + 'Using archive encryption..Response: OK';
+
+  CExpectedResponse_Unencrypted_SU = CPrefix + 'Sending unencrypted...' + COperation_SU + 'Response: OK';
+  CExpectedResponse_Encrypted_SU = CPrefix + COperation_SU + 'Using archive encryption..Response: OK';
+
+
+procedure SendAllDistPlugins;    //for the "Dist UIClicker" instance:
+var
+  DistBitness: string;
+begin
+  DistBitness := GetDistBitnessDir;
+
+  Expect(Send_DistInitialDecDll_Via_DistInitialEnc('127.0.0.1', CClientUnderTestServerPort, DistBitness)).ToBe(CExpectedResponse_Unencrypted_CUT);
+  frmPitstopTestRunner.AddToLog('DistInitialDecDll sent to "Dist UIClicker".');
+  Application.ProcessMessages;
+
+  Expect(Send_DistDecDll_Via_DistInitialEnc('127.0.0.1', CClientUnderTestServerPort, DistBitness)).ToBe(CExpectedResponse_Encrypted_CUT);
+  frmPitstopTestRunner.AddToLog('DistDecDll sent to "Dist UIClicker".');
+  Application.ProcessMessages;
+
+  Expect(Send_UIClickerDistFindSubControlDll_Via_DistEnc('127.0.0.1', CClientUnderTestServerPort, DistBitness)).ToBe(CExpectedResponse_Encrypted_CUT);
+  frmPitstopTestRunner.AddToLog('UIClickerDistFindSubControlDll sent to "Dist UIClicker".');
+  Application.ProcessMessages;
+
+  Expect(Send_PoolClientDll_Via_DistEnc('127.0.0.1', CClientUnderTestServerPort, DistBitness)).ToBe(CExpectedResponse_Encrypted_CUT);
+  frmPitstopTestRunner.AddToLog('PoolClientDll sent to "Dist UIClicker".');
+  Application.ProcessMessages;
+end;
+
+
+procedure SendAllServicePlugins;     //for the "Service UIClicker" instance.
+var
+  DistBitness: string;
+begin
+  DistBitness := GetDistBitnessDir;
+
+  //Three plugins for the "Service UIClicker" instance:
+  Expect(Send_DistInitialDecDll_Via_DistInitialEnc('127.0.0.1', CServiceUIClickerPort, DistBitness)).ToBe(CExpectedResponse_Unencrypted_SU);
+  frmPitstopTestRunner.AddToLog('DistInitialDecDll sent to "Service UIClicker".');
+  Application.ProcessMessages;
+
+  Expect(Send_DistDecDll_Via_DistInitialEnc('127.0.0.1', CServiceUIClickerPort, DistBitness)).ToBe(CExpectedResponse_Encrypted_SU);
+  frmPitstopTestRunner.AddToLog('DistDecDll sent to "Service UIClicker".');
+  Application.ProcessMessages;
+
+  Expect(Send_BrokerParamsDll_Via_DistEnc('127.0.0.1', CServiceUIClickerPort, DistBitness)).ToBe(CExpectedResponse_Encrypted_SU);
+  frmPitstopTestRunner.AddToLog('BrokerParamsDll sent to "Service UIClicker".');
+  Application.ProcessMessages;
+end;
+
+
+procedure SetKeys;
+begin
+  InitialTransmissionKey := 'A new key every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialTrasmissionIV := 'A new IV every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialSubsequentKey := 'A new subsequent key every time ' + IntToHex(GetTickCount64);
+  Sleep(33);
+  InitialSubsequentIV := 'A new subsequent IV every time ' + IntToHex(GetTickCount64);
+end;
+
+
 constructor TTestWorkerPoolManager.Create;
 begin
   inherited Create;  //this will set FIsWine
@@ -314,6 +502,8 @@ end;
 procedure TTestWorkerPoolManager_Resources.BeforeAll_AlwaysExecute;
 begin
   inherited BeforeAll_AlwaysExecute;
+  SetKeys;
+  SendAllServicePlugins;
 end;
 
 
@@ -352,156 +542,13 @@ begin
 end;
 
 
-function SendPlugin(ASenderApp, APluginToBeSent, APluginToBeSentDir, ATXKey, ATXIV, ANextKey, ANextIV: string; ADecryptionPluginName: string = ''): string;
-var
-  ExecApp: TClkExecAppOptions;
-  DistPath: string;
-  ExecResults: TStringList;
-begin
-  DistPath := ExtractFilePath(ParamStr(0)) + '..\';
-  if (APluginToBeSentDir > '') and (APluginToBeSentDir[Length(APluginToBeSentDir)] <> '\') then
-    APluginToBeSentDir := APluginToBeSentDir + '\';
-
-  GetDefaultPropertyValues_ExecApp(ExecApp);
-  ExecApp.PathToApp := DistPath + ASenderApp + '\' + ASenderApp + '.exe';
-  ExecApp.ListOfParams := '--ClickerClient' + #4#5 + DistPath + '..\UIClicker\ClickerClient\ClickerClient.dll' + #4#5 +
-                          '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib\' + APluginToBeSent + '.dll' + #4#5 +
-                          '--PluginToBeSentDestName' + #4#5 + APluginToBeSent + '.dll' + #4#5 +
-                          '--UIClickerAddress' + #4#5 + '127.0.0.1' + #4#5 +
-                          '--UIClickerPort' + #4#5 + CClientUnderTestServerPort;
-
-  if ADecryptionPluginName <> '' then
-    ExecApp.ListOfParams := ExecApp.ListOfParams + #4#5 + '--DecryptionPluginName' + #4#5 + ADecryptionPluginName + '.dllarc|Mem:\' + ADecryptionPluginName + '.dll';
-
-  ExecApp.WaitForApp := True;
-  ExecApp.AppStdIn := ATXKey + #4#5 +      //This is provided when DistInitialEnc.exe prints "Trasmission Key" on StdOut.
-                      ATXIV + #4#5 +       //This is provided when DistInitialEnc.exe prints "Trasmission IV" on StdOut.
-                      ANextKey + #4#5 +    //This is provided when DistInitialEnc.exe prints "Subsequent Key" on StdOut.
-                      ANextIV + #4#5;      //This is provided when DistInitialEnc.exe prints "Subsequent IV" on StdOut.
-  ExecApp.CurrentDir := ExtractFileDir(ExecApp.PathToApp);
-  ExecApp.UseInheritHandles := uihYes;
-  ExecApp.VerifyFileExistence := True;
-  ExecApp.WaitForApp := True;
-  ExecApp.NoConsole := True;
-
-  try
-    Result := ExecuteExecAppAction('http://127.0.0.1' + ':' + CServiceUIClickerPort + '/', ExecApp, 'SendPlugin - ' + APluginToBeSent + '.dll via ' + ASenderApp + '.exe', 8000, True, False);
-  except
-    on E: Exception do
-      Result := 'Ex on starting broker: ' + E.Message;
-  end;
-
-  ExecResults := TStringList.Create;
-  try
-    ExecResults.Text := FastReplace_87ToReturn(Result);
-    if ExecResults.Values['$ExecAction_Err$'] <> '' then
-    begin
-      Result := '$ExecAction_Err$=' + ExecResults.Values['$ExecAction_Err$'];
-      Exit;
-    end;
-
-    if ExecResults.Values['$ExecAction_StdOut$'] <> '' then
-    begin
-      Result := '$ExecAction_StdOut$=' + ExecResults.Values['$ExecAction_StdOut$'];
-      Exit;
-    end;
-  finally
-    ExecResults.Free;
-  end;
-end;
-
-
-var
-  InitialTransmissionKey: string = 'dummy_key';
-  InitialTrasmissionIV: string = 'dummy_iv';
-  InitialSubsequentKey: string = 'ABCDEF';
-  InitialSubsequentIV: string = 'IV.IV';
-  DistDecSubsequentKey: string = 'ABCDEFDistDec';
-  DistDecSubsequentIV: string = 'IVDistDec.IV';
-  FindSubControlKey: string = 'ABCDEFFindSubControl';
-  FindSubControlIV: string = 'IVFindSubControl';
-
-function Send_DistInitialDecDll_Via_DistInitialEnc(ADistBitness: string): string;
-begin
-  Result := SendPlugin('DistInitialEnc', ADistBitness + '\DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
-end;
-
-
-function Send_DistDecDll_Via_DistInitialEnc(ADistBitness: string): string;
-begin
-  Result := SendPlugin('DistInitialEnc', ADistBitness + '\DistDec', 'DistDec', InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV);
-end;
-
-
-function Send_UIClickerDistFindSubControlDll_Via_DistEnc(ADistBitness: string): string;
-begin
-  Result := SendPlugin('DistEnc', ADistBitness + '\UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
-end;
-
-
-function Send_PoolClientDll_Via_DistEnc(ADistBitness: string): string;
-begin
-  Result := SendPlugin('DistEnc', ADistBitness + '\PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, 'DistDec');
-end;
-
-
-procedure SendAllDistPlugins;
-const
-  CPrefix = '$ExecAction_StdOut$=Trasmission Key=Trasmission IV=Subsequent Key=Subsequent IV=';
-  COperation = 'Sending plugin to http://127.0.0.1:' + CClientUnderTestServerPort + '/';
-  CExpectedResponse_Unencrypted = CPrefix + 'Sending unencrypted...' + COperation + 'Response: OK';
-  CExpectedResponse_Encrypted = CPrefix + COperation + 'Using archive encryption..Response: OK';
-var
-  DistBitness: string;
-  AllVars: TStringList;
-begin
-  AllVars := TStringList.Create;
-  try
-    AllVars.Text := FastReplace_87ToReturn(GetAllReplacementVars(CTestClientAddress, 0));
-    DistBitness := AllVars.Values['$AppBitness$'] + '-' + AllVars.Values['$OSBitness$'];   // i386-win32 or x86_64-win64
-
-    try
-      Expect(DistBitness).ToBe('i386-win32', 'Expecting 32-bit');
-    except
-      Expect(DistBitness).ToBe('x86_64-win64', 'Expecting 64-bit'); //if not 32-bit, then it has to be 64-bit
-    end;
-  finally
-    AllVars.Free;
-  end;
-
-  Expect(Send_DistInitialDecDll_Via_DistInitialEnc(DistBitness)).ToBe(CExpectedResponse_Unencrypted);
-  frmPitstopTestRunner.AddToLog('DistInitialDecDll sent.');
-  Application.ProcessMessages;
-
-  Expect(Send_DistDecDll_Via_DistInitialEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
-  frmPitstopTestRunner.AddToLog('DistDecDll sent.');
-  Application.ProcessMessages;
-
-  Expect(Send_UIClickerDistFindSubControlDll_Via_DistEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
-  frmPitstopTestRunner.AddToLog('UIClickerDistFindSubControlDll sent.');
-  Application.ProcessMessages;
-
-  Expect(Send_PoolClientDll_Via_DistEnc(DistBitness)).ToBe(CExpectedResponse_Encrypted);
-  frmPitstopTestRunner.AddToLog('PoolClientDll sent.');
-  Application.ProcessMessages;
-end;
-
-
-procedure SetKeys;
-begin
-  InitialTransmissionKey := 'A new key every time ' + IntToHex(GetTickCount64);
-  Sleep(33);
-  InitialTrasmissionIV := 'A new IV every time ' + IntToHex(GetTickCount64);
-  Sleep(33);
-  InitialSubsequentKey := 'A new subsequent key every time ' + IntToHex(GetTickCount64);
-  Sleep(33);
-  InitialSubsequentIV := 'A new subsequent IV every time ' + IntToHex(GetTickCount64);
-end;
-
-
 procedure TTestWorkerPoolManager_DistFindSubControl.BeforeAll_AlwaysExecute;
 begin
   inherited BeforeAll_AlwaysExecute;
+
+  SetKeys;
+  SendAllDistPlugins;
+  SendAllServicePlugins;
 
   SetBrokerCountOnWorkerPoolManager(1);
   SetWorkerCountOnWorkerPoolManager(4, 3);
@@ -509,9 +556,6 @@ begin
   RemoveMachineFromList('127.0.0.1');
   AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
   ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning);
-
-  SetKeys;
-  SendAllDistPlugins;
 end;
 
 
@@ -547,17 +591,6 @@ begin
   StartAdditionalWorkers := True;   //start two additional workers
   inherited BeforeAll_AlwaysExecute;
 
-  SetBrokerCountOnWorkerPoolManager(1);
-  SetWorkerCountOnWorkerPoolManager(6, 3);
-
-  RemoveMachineFromList('127.0.0.1');
-  AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
-
-  frmPitstopTestRunner.AddToLog('Waiting for workers and UIClickers to start...');
-  Application.ProcessMessages;
-
-  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 125000);
-
   frmPitstopTestRunner.AddToLog('Setting keys in UIClicker under test...');
   Application.ProcessMessages;
 
@@ -570,6 +603,25 @@ begin
 
   frmPitstopTestRunner.AddToLog('All plugins sent to UIClicker under test...');
   Application.ProcessMessages;
+
+  frmPitstopTestRunner.AddToLog('Sending plugins to Service UIClicker...');
+  Application.ProcessMessages;
+
+  SendAllServicePlugins;
+
+  frmPitstopTestRunner.AddToLog('All plugins sent to Service UIClicker...');
+  Application.ProcessMessages;
+
+  SetBrokerCountOnWorkerPoolManager(1);
+  SetWorkerCountOnWorkerPoolManager(6, 3);
+
+  RemoveMachineFromList('127.0.0.1');
+  AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
+
+  frmPitstopTestRunner.AddToLog('Waiting for workers and UIClickers to start...');
+  Application.ProcessMessages;
+
+  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 125000);
 end;
 
 
@@ -606,6 +658,7 @@ begin
 
   SetKeys;
   SendAllDistPlugins;
+  SendAllServicePlugins;
 end;
 
 

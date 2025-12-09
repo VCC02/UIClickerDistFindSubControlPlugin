@@ -85,7 +85,7 @@ begin
       end;
     until not Proc.Active;
 
-    if Assigned(Proc.Output) and (Proc.Output <> nil) and (Proc.Output.NumBytesAvailable > 0) then     //read once more (in case the timeout stopped the reading)
+    if Assigned(Proc.Output) and (Proc.Output <> nil) and (Proc.Output.NumBytesAvailable > 0) then
     begin
       Proc.Output.Position := 0;
       SetLength(Result, Proc.Output.NumBytesAvailable);

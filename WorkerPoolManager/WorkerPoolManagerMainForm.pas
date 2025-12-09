@@ -1963,7 +1963,7 @@ begin
   end; //for j
 
   //update pp_' + ABrokerPort + '.txt'
-  PluginOptions.FileName := '$AppDir$\..\UIClickerDistFindSubControlPlugin\BrokerParams\lib\$AppBitness$-$OSBitness$\BrokerParams.dll';
+  PluginOptions.FileName := 'Mem:\BrokerParams.dll';  //using 'Mem:\BrokerParams.dll' instead of '$AppDir$\..\UIClickerDistFindSubControlPlugin\BrokerParams\lib\$AppBitness$-$OSBitness$\BrokerParams.dll'
   PluginOptions.ListOfPropertiesAndValues := ''; //to be set
   PluginOptions.ListOfPropertiesAndTypes := '';
   try
@@ -2058,7 +2058,7 @@ begin
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
   try
-    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
+    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run UIClicker', 5000, False);
   except
     on E: Exception do
       AddToLog('Ex on starting broker: ' + E.Message);
@@ -2107,7 +2107,7 @@ begin                                                                           
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
   try
-    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Broker', 5000, False);
+    Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run Worker', 5000, False);
   except
     on E: Exception do
       AddToLog('Ex on starting broker: ' + E.Message);
