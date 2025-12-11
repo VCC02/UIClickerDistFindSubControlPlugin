@@ -44,6 +44,10 @@ uses
   These are also used for restarting UIClicker in case of crashing, but the Service one will receive the BrokerParams plugin (from DistVisor)
   and execute it by WorkerPoolManager, when starting the MQTT broker.
   It is also possible to have multiple pools of credentials on the same worker machine, where every pool belongs to a different user. The AddMachine and RemoveMachine functions don't support this yet.
+- WorkerPoolManager requires that a MachineOnline request will have the address of the Dist machine and the address of the paired worker machine.
+  That means the mkDist machine must be created before the mkWorker machine, so that the address is already available.
+  The pairing is done by DistVisor, based on UserID of the already available mkDist machines in the list.
+  This is one more reason to have this machine available, before the mkWorker one.
 }
 
 type
@@ -52,7 +56,7 @@ type
                    SCheckForServiceUIClicker, SStartServiceUIClicker, SWaitForServiceUIClicker,            //present on all machine types
                    SCheckForDistUIClicker, SStartDistUIClicker, SWaitForDistUIClicker,  //For starters, there is one Dist UIClicker / user, with its own machine.
                    SCheckForWPM, SStartWPM, SWaitForWPM, //WPM = WorkePoolManager   - only a single machine should have WorkePoolManager
-                   SSendServicePlugins,  //should be used after starting Service on worker machine only
+                   SSendServicePlugins, SPairWithDist,  //should be used after starting Service on worker machine only
                    SSendDistPlugins    //should be used after starting Dist
                    );
 
@@ -63,7 +67,7 @@ const
                    'SCheckForServiceUIClicker', 'SStartServiceUIClicker', 'SWaitForServiceUIClicker',
                    'SCheckForDistUIClicker', 'SStartDistUIClicker', 'SWaitForDistUIClicker',
                    'SCheckForWPM', 'SStartWPM', 'SWaitForWPM',
-                   'SSendServicePlugins',
+                   'SSendServicePlugins', 'SPairWithDist',
                    'SSendDistPlugins'
                    );
 
@@ -100,6 +104,7 @@ type
     StartToolResult: string;
 
     MachineAddress: string; //same address for all tools
+    PairedDistMachineAddress: string; //set for mkWorker machines
 
     MonitoringUIClickerPort: string;
     ServiceUIClickerPort: string;
@@ -107,22 +112,28 @@ type
 
     ServiceUIClickerBitness: string;
     DistUIClickerBitness: string;
+
+    UserID: string;
   end;
 
   TTargetMachineArr = array of TTargetMachine;
 
 
+const
+  CMachineKindStr: array[TMachineKind] of string = ('mkDist', 'mkWorker', 'mkWPM');
+
 procedure ExecuteFSM;
-procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort: string);
-procedure RemoveMachine(AMachineAddress: string);
+procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort, AUserID: string);
+procedure RemoveMachine(AMachineAddress, AUserID: string);
+function SendRemoveWorkerMachineRequestToWPM(AWorkerMachineAddress: string): string;
 
 
 implementation
 
 
 uses
-  ClickerActionsClient, DistPluginSender,
-  ClickerUtils, ClickerActionProperties;
+  ClickerActionsClient, ClickerUtils, ClickerActionProperties,
+  DistPluginSender, WorkerPoolCommonConsts;
 
 
 var
@@ -130,13 +141,13 @@ var
   CritSec: TRTLCriticalSection;
 
 
-function GetMachineIndexByAddress(AMachineAddress: string): Integer;
+function GetMachineIndexByAddress(AMachineAddress, AUserID: string): Integer;  //should be called from CritSec only
 var
   i: Integer;
 begin
   Result := -1;
   for i := 0 to Length(Machines) - 1 do
-    if Machines[i].MachineAddress = AMachineAddress then
+    if (Machines[i].MachineAddress = AMachineAddress) and (Machines[i].UserID = AUserID) then
     begin
       Result := i;
       Exit;
@@ -144,15 +155,34 @@ begin
 end;
 
 
-procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort: string);
+function GetDistMachineIndexByUserID(AUserID: string): Integer;   //should be called from CritSec only
+var
+  i: Integer;
+begin
+  Result := -1;
+  for i := 0 to Length(Machines) - 1 do
+    if (Machines[i].UserID = AUserID) and (Machines[i].MachineKind = mkDist) then
+    begin
+      Result := i;
+      Exit;
+    end;
+end;
+
+
+procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort, AUserID: string);
 const
-  CErr = 'Machine already exists.';
+  CErr = 'Machine already exists when adding.';
+  CPairErr = 'Pair Dist machine does not exist.'; //The Dist machine is not yet in the list (identified by UserID).
 var
   n: Integer;
+  DistMachineAddressIdx: Integer;
 begin
   EnterCriticalSection(CritSec);
   try
-    if GetMachineIndexByAddress(AMachineAddress) > -1 then
+    if AKind = mkWPM then
+      AUserID := '';       //this allows running a WPM on the same machine as the other tools, because they require a valid user ID.
+
+    if GetMachineIndexByAddress(AMachineAddress, AUserID) > -1 then
     begin
       WriteLn(CErr);
       raise Exception.Create(CErr); //if not handled, this results in HTTP error 500
@@ -170,23 +200,38 @@ begin
     Machines[n].ServiceUIClickerBitness := CDefaultServiceUIClickerBitness;
     Machines[n].DistUIClickerBitness := CDefaultDistUIClickerBitness;
 
+    Machines[n].UserID := AUserID;
+
     Machines[n].State := SInit;
     Machines[n].NextState := SInit;
+
+    if AKind = mkWorker then //do the pairing with a Dist machine
+    begin
+      DistMachineAddressIdx := GetDistMachineIndexByUserID(AUserID);
+
+      if DistMachineAddressIdx > -1 then
+        Machines[n].PairedDistMachineAddress := Machines[DistMachineAddressIdx].MachineAddress
+      else
+      begin
+        WriteLn(CPairErr);
+        raise Exception.Create(CPairErr); //if not handled, this results in HTTP error 500
+      end
+    end;
   finally
     LeaveCriticalSection(CritSec);
   end;
 end;
 
 
-procedure RemoveMachine(AMachineAddress: string);
+procedure RemoveMachine(AMachineAddress, AUserID: string);
 const
-  CErr = 'Machine not found.';
+  CErr = 'Machine not found when removing.';
 var
   Idx, i: Integer;
 begin
   EnterCriticalSection(CritSec);
   try
-    Idx := GetMachineIndexByAddress(AMachineAddress);
+    Idx := GetMachineIndexByAddress(AMachineAddress, AUserID);
     if Idx = -1 then
     begin
       WriteLn(CErr);
@@ -197,6 +242,25 @@ begin
       Machines[i] := Machines[i + 1];
 
     SetLength(Machines, Length(Machines) - 1);
+  finally
+    LeaveCriticalSection(CritSec);
+  end;
+end;
+
+
+function GetWPMMachineAddress: string;
+var
+  i: Integer;
+begin
+  EnterCriticalSection(CritSec);
+  try
+    Result := '';
+    for i := 0 to Length(Machines) - 1 do
+      if Machines[i].MachineKind = mkWPM then
+      begin
+        Result := Machines[i].MachineAddress;
+        Exit;
+      end;
   finally
     LeaveCriticalSection(CritSec);
   end;
@@ -230,7 +294,7 @@ var
 begin
   GetDefaultPropertyValues_ExecApp(ExecApp);
   ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes --SkipSavingSettings Yes', ' ', #4#5, [rfReplaceAll]);
                                                                         //sending the command to service, to start the monitor
   Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AServiceUIClickerPort + '/', ExecApp, 'Start Monitoring UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
   Result := Get_ExecAction_Err_FromExecutionResult(Res);
@@ -244,7 +308,7 @@ var
 begin
   GetDefaultPropertyValues_ExecApp(ExecApp);
   ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption + ' --AddAppArgsToLog Yes --SkipSavingSettings Yes', ' ', #4#5, [rfReplaceAll]);
                                                                           //sending the command to monitor, to start the service
   Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AMonitoringPort + '/', ExecApp, 'Start Service UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
   Result := Get_ExecAction_Err_FromExecutionResult(Res);
@@ -258,7 +322,7 @@ var
 begin
   GetDefaultPropertyValues_ExecApp(ExecApp);
   ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + ADistPort + ' ' + '--ExtraCaption ' + CDistExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + ADistPort + ' ' + '--ExtraCaption ' + CDistExtraCaption + ' --AddAppArgsToLog Yes --SkipSavingSettings Yes', ' ', #4#5, [rfReplaceAll]);
                                                                         //sending the command to service, to start the dist UIClicker
   Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AServiceUIClickerPort + '/', ExecApp, 'Start Dist UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
   Result := Get_ExecAction_Err_FromExecutionResult(Res);
@@ -278,7 +342,45 @@ begin
 end;
 
 
+function SendPairingRequestToWPM(AWorkerMachine: TTargetMachine): string;
+var
+  WPMMachineAddress: string;
+begin
+  WPMMachineAddress := GetWPMMachineAddress;
+  if WPMMachineAddress = '' then  //if sending an HTTP request with an empty address, then an exception occurs: 'A Host is required'
+  begin
+    Result := 'No WPM machine found in the list. This has to be added before all the others.';
+    Exit;
+  end;
+
+  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CMachineOnline + '?' +
+                                    CWorkerMachineAddress + '=' + AWorkerMachine.MachineAddress + '&' +
+                                    CMachineOSParam + '=' + CWinParam + '&' + //Win only for now.
+                                    CDistPluginMachineAddress + '=' + AWorkerMachine.PairedDistMachineAddress
+                                    , False);
+end;
+
+
+function SendRemoveWorkerMachineRequestToWPM(AWorkerMachineAddress: string): string;
+var
+  WPMMachineAddress: string;
+begin
+  WPMMachineAddress := GetWPMMachineAddress;
+  if WPMMachineAddress = '' then  //if sending an HTTP request with an empty address, then an exception occurs: 'A Host is required'
+  begin
+    Result := 'No WPM machine found in the list. This has to be added before all the others.';
+    Exit;
+  end;
+
+  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CRemoveWorkerMachine + '?' +
+                                    CWorkerMachineAddress + '=' + AWorkerMachineAddress
+                                    , False);
+end;
+
+
 procedure ExecuteFSM_Part1(var ATargetMachine: TTargetMachine);
+var
+  PairingResult: string;
 begin
   case ATargetMachine.State of
     SInit:
@@ -308,7 +410,7 @@ begin
     begin
       ATargetMachine.ServiceUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
       if not ATargetMachine.ServiceUIClickerIsRunning then
-        WriteLn('The ServiceUIClicker is not running. Attempting to start it.');
+        WriteLn('The ServiceUIClicker is not running. Attempting to start it. MachineKind: ' + CMachineKindStr[ATargetMachine.MachineKind] + '.');
     end;
 
     SStartServiceUIClicker:
@@ -321,11 +423,12 @@ begin
       ATargetMachine.ServiceUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForDistUIClicker:
-    begin
-      ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ToolPort + '/', False) = CREResp_ConnectionOK;
-      if not ATargetMachine.ToolIsRunning then
-        WriteLn('The DistUIClicker is not running. Attempting to start it.');
-    end;
+      if ATargetMachine.MachineKind = mkDist then
+      begin
+        ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ToolPort + '/', False) = CREResp_ConnectionOK;
+        if not ATargetMachine.ToolIsRunning then
+          WriteLn('The DistUIClicker is not running. Attempting to start it.');
+      end;
 
     SStartDistUIClicker:
     begin
@@ -337,11 +440,12 @@ begin
       ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ToolPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForWPM:
-    begin
-      ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
-      if not ATargetMachine.ToolIsRunning then
-        WriteLn('The WorkerPoolManager is not running. Attempting to start it.');
-    end;
+      if ATargetMachine.MachineKind = mkWPM then
+      begin
+        ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
+        if not ATargetMachine.ToolIsRunning then
+          WriteLn('The WorkerPoolManager is not running. Attempting to start it.');
+      end;
 
     SStartWPM:
     begin
@@ -353,12 +457,28 @@ begin
       ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
 
     SSendServicePlugins:
-      if ATargetMachine.MachineKind = mkWorker then
+      if ATargetMachine.MachineKind in [mkWorker, mkDist] then
+      begin
         SendAllServicePlugins(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.ServiceUIClickerBitness);
+        //This plugin is not needed on the mkDist machine, but when testin and having all tools running on the same machine,
+        //then there is only one instance of the ServiceUIClicker (usually started for Dist).
+        //When verifying again for the mkWorker machine, the Service UIClicker is already running, so it wouldn't get the plugin.
+      end;
+
+    SPairWithDist:  //entered after SSendServicePlugins, on a mkWorker machine
+      if ATargetMachine.MachineKind = mkWorker then
+      begin
+        //In case of an error message here, it should be reported somehow to the caller (the one which initiated the AddMachine request).
+        PairingResult := SendPairingRequestToWPM(ATargetMachine);
+        WriteLn('Pairing an mkWorker machine (' + ATargetMachine.MachineAddress + ') to an mkDist machine (' + ATargetMachine.PairedDistMachineAddress + '): ' + PairingResult);
+      end;
 
     SSendDistPlugins:
       if ATargetMachine.MachineKind = mkDist then
+      begin
         SendAllDistPlugins(ATargetMachine.MachineAddress, ATargetMachine.ToolPort, ATargetMachine.DistUIClickerBitness);
+        //Currently, WPM implements an HTTP command for calling SendPoolCredentials, but it seems that is can call this automatically.
+      end;
   end;
 end;
 
@@ -402,7 +522,7 @@ begin
 
     SCheckForServiceUIClicker:
       if ATargetMachine.ServiceUIClickerIsRunning then
-        ATargetMachine.NextState := SCheckForWPM  //next tool
+        ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
       else
         ATargetMachine.NextState := SStartServiceUIClicker;      //maybe report an error if entering here too often
 
@@ -500,6 +620,9 @@ begin
     end;               //somewhere, enter AutosendPluginsOnStartup
 
     SSendServicePlugins:
+      ATargetMachine.NextState := SPairWithDist;
+
+    SPairWithDist:
       ATargetMachine.NextState := SCheckForDistUIClicker;
 
     SSendDistPlugins:

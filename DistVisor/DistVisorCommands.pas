@@ -48,16 +48,17 @@ const
   CDVCmd_AddMachine = 'AddMachine';
   CDVCmd_RemoveMachine = 'RemoveMachine';
 
-  CDVCmdMachineKindParam = 'MachineKind';
+  CDVCmdMachineKindParam = 'MachineKind';    //0 - mkDist, 1 - mkWorker, 2 - mkWPM
   CDVCmdMachineAddressParam = 'MachineAddress';
   CDVCmdMonitoringUIClickerPortParam = 'MonitoringUIClickerPort';
   CDVCmdServiceUIClickerPortParam = 'ServiceUIClickerPort';
   CDVCmdToolPortParam = 'ToolPort';  //When MachineKind is 0, this is Dist port. When MachineKind is 1 or 2, this is igonred.
-
+  CDVCmdUserIDParam = 'UserID'; //A unique string in the list of users, so that DistVisor can pair an mkDist to an mkWorker machine. It can be Hash(e-mail address) or Hash(DB ID) etc, something that identifies the user who started the creation of these two machines. It is not required on an mkWPM machine.
 
 // Examples:
-//  http://127.0.0.1:54000/AddMachine?MachineKind=0&MachineAddress=10.0.3.7&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444
-//  http://127.0.0.1:54000/RemoveMachine?MachineKind=0&MachineAddress=10.0.3.7
+//  http://127.0.0.1:54000/AddMachine?MachineKind=0&MachineAddress=10.0.3.7&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444&UserID=wrgf0i54g30i9
+//  http://127.0.0.1:54000/AddMachine?MachineKind=1&MachineAddress=10.0.3.8&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444&UserID=wrgf0i54g30i9
+//  http://127.0.0.1:54000/RemoveMachine?MachineKind=0&MachineAddress=10.0.3.7&UserID=wrgf0i54g30i9
 
 
 implementation
@@ -128,6 +129,7 @@ var
   MonitoringUIClickerPort: string;
   ServiceUIClickerPort: string;
   ToolPort: string;
+  UserID: string;
 begin
   Cmd := ARequestInfo.Document;
   ARequestInfo.Params.LineBreak := #13#10;
@@ -141,6 +143,7 @@ begin
     MonitoringUIClickerPort := ARequestInfo.Params.Values[CDVCmdMonitoringUIClickerPortParam];
     ServiceUIClickerPort := ARequestInfo.Params.Values[CDVCmdServiceUIClickerPortParam];
     ToolPort := ARequestInfo.Params.Values[CDVCmdToolPortParam];
+    UserID := ARequestInfo.Params.Values[CDVCmdUserIDParam];
 
     if not (MachineKindInt in [0, 1, 2]) then    //mkDist, mkWorker, mkWPM
     begin
@@ -174,10 +177,16 @@ begin
       Exit;
     end;
 
+    if (MachineKind in [mkDist, mkWorker]) and (UserID = '') then
+    begin
+      AResponseInfo.ContentText := 'UserID must not be empty.';
+      Exit;
+    end;
+
     try
-      AddMachine(MachineKind, MachineAddress, MonitoringUIClickerPort, ServiceUIClickerPort, ToolPort);
+      AddMachine(MachineKind, MachineAddress, MonitoringUIClickerPort, ServiceUIClickerPort, ToolPort, UserID);
       AResponseInfo.ContentText := 'Done';
-      WriteLn('Machine added: ' + MachineAddress + '  MachineKind: ' + IntToStr(MachineKindInt));
+      WriteLn('Machine added: ' + MachineAddress + '  MachineKind: ' + IntToStr(MachineKindInt) + '  (' + CMachineKindStr[MachineKind] + ').');
     except
       on E: Exception do
         AResponseInfo.ContentText := 'Can''t add machine to list. ' + E.Message;
@@ -189,6 +198,7 @@ begin
   if Cmd = '/' + CDVCmd_RemoveMachine then
   begin
     MachineAddress := ARequestInfo.Params.Values[CDVCmdMachineAddressParam];
+    UserID := ARequestInfo.Params.Values[CDVCmdUserIDParam];
 
     if MachineAddress = '' then    //More validations are required here. E.g. should be a local IP address only.
     begin
@@ -196,10 +206,18 @@ begin
       Exit;
     end;
 
+    if (MachineKind in [mkDist, mkWorker]) {and (UserID = '')} then  //although not needed, when removing a machine, this is required by identifying it in the list
+    begin                                  //Commented, because GetMachineIndexByAddress still compares the UserID. If empty, the machine is not found.
+      AResponseInfo.ContentText := 'UserID must not be empty.';
+      Exit;
+    end;
+
     try
-      RemoveMachine(MachineAddress);
+      RemoveMachine(MachineAddress, UserID);
       AResponseInfo.ContentText := 'Done';
       WriteLn('Machine removed: ' + MachineAddress);
+
+      WriteLn('Removing also from WPM: ' + SendRemoveWorkerMachineRequestToWPM(MachineAddress));
     except
       on E: Exception do
         AResponseInfo.ContentText := 'Can''t remove machine from list. ' + E.Message;
