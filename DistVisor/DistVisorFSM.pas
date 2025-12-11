@@ -31,13 +31,29 @@ interface
 uses
   Classes, SysUtils;
 
+{To some extent, depending on how expensive it is to run multiple machines, this is the recommended machine allocation matrix:
+
+- DistVisor runs (preferably) on a Lin machine, where it has all the plugins on disk, that it has to send to the other machines.
+  If possible, this machine should be the one which hold the information about which VM is created and which is destroyed.
+- For every user, there is a Win VM (Dist machine) with a Dist UCIClicker. As a future design, if a single Dist UIClicker cannot handle user actions,
+  then multiple instances should run on the same machine, belonging to the same pool of credentials (i.e. same user).
+  In addition to this Dist UIClicker, there has to be two more UIClicker instances, one called Service and the other Monitor.
+  These additional instances are used to restart UIClicker and each other, in case of crashing.
+- For every user, there is a Win VM (worker machine) with a broker (MQTT), and several workers (worker exes and UIClickers).
+  In addition to these, there has to be two more UIClicker instances, Service and Monitor.
+  These are also used for restarting UIClicker in case of crashing, but the Service one will receive the BrokerParams plugin (from DistVisor)
+  and execute it by WorkerPoolManager, when starting the MQTT broker.
+  It is also possible to have multiple pools of credentials on the same worker machine, where every pool belongs to a different user. The AddMachine and RemoveMachine functions don't support this yet.
+}
 
 type
   TDistVisorFSM = (SInit,
-                   SCheckForMonitoringUIClicker, SStartMonitoringUIClicker, SWaitForMonitoringUIClicker,
-                   SCheckForServiceUIClicker, SStartServiceUIClicker, SWaitForServiceUIClicker,
-                   SCheckForWPM, SStartWPM, SWaitForWPM //WPM = WorkePoolManager
-                   //SSendDistPlugins, SSendServicePlugins
+                   SCheckForMonitoringUIClicker, SStartMonitoringUIClicker, SWaitForMonitoringUIClicker,   //present on all machine types
+                   SCheckForServiceUIClicker, SStartServiceUIClicker, SWaitForServiceUIClicker,            //present on all machine types
+                   SCheckForDistUIClicker, SStartDistUIClicker, SWaitForDistUIClicker,  //For starters, there is one Dist UIClicker / user, with its own machine.
+                   SCheckForWPM, SStartWPM, SWaitForWPM, //WPM = WorkePoolManager   - only a single machine should have WorkePoolManager
+                   SSendServicePlugins,  //should be used after starting Service on worker machine only
+                   SSendDistPlugins    //should be used after starting Dist
                    );
 
 const
@@ -45,220 +61,478 @@ const
                    'SInit',
                    'SCheckForMonitoringUIClicker', 'SStartMonitoringUIClicker', 'SWaitForMonitoringUIClicker',
                    'SCheckForServiceUIClicker', 'SStartServiceUIClicker', 'SWaitForServiceUIClicker',
-                   'SCheckForWPM', 'SStartWPM', 'SWaitForWPM'
-                   //'SSendDistPlugins', 'SSendServicePlugins'
+                   'SCheckForDistUIClicker', 'SStartDistUIClicker', 'SWaitForDistUIClicker',
+                   'SCheckForWPM', 'SStartWPM', 'SWaitForWPM',
+                   'SSendServicePlugins',
+                   'SSendDistPlugins'
                    );
 
-var
-  State: TDistVisorFSM = SInit;
-  NextState: TDistVisorFSM = SCheckForMonitoringUIClicker;
+  CDefaultMonitoringPort = '54400';  //monitoring UIClicker instance
+  CDefaultServiceUIClickerPort = '55444';
+  CDefaultDistUIClickerPort = '5444';
+  CWPMPort = '11884';
 
-  AutosendPluginsOnStartup: Boolean;
+  CDefaultDistUIClickerBitness = '32';
+  CDefaultServiceUIClickerBitness = '32';
+
+  CMonitoringExtraCaption = 'Monitor';
+  CServiceExtraCaption = 'Service';
+  CDistExtraCaption = 'Dist';
+
+type
+  TMachineKind = (mkDist, mkWorker, mkWPM);
+
+  TTargetMachine = record
+    State: TDistVisorFSM;
+    NextState: TDistVisorFSM;
+    MachineKind: TMachineKind;
+
+    MonitoringUIClicker_tk: QWord;
+    ServiceUIClicker_tk: QWord;
+    Tool_tk: QWord; //a tool can be the Dist UIClicker, or WPM.
+
+    MonitoringUIClickerIsRunning: Boolean;
+    ServiceUIClickerIsRunning: Boolean;
+    ToolIsRunning: Boolean; //a tool can be the Dist UIClicker, or WPM.
+
+    StartMonitoringUIClickerResult: string;
+    StartServiceUIClickerResult: string;
+    StartToolResult: string;
+
+    MachineAddress: string; //same address for all tools
+
+    MonitoringUIClickerPort: string;
+    ServiceUIClickerPort: string;
+    ToolPort: string;  // DistUIClicker or WPM
+
+    ServiceUIClickerBitness: string;
+    DistUIClickerBitness: string;
+  end;
+
+  TTargetMachineArr = array of TTargetMachine;
 
 
 procedure ExecuteFSM;
+procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort: string);
+procedure RemoveMachine(AMachineAddress: string);
+
 
 implementation
 
 
 uses
-  ClickerActionsClient, DistVisorCommands;
+  ClickerActionsClient, DistPluginSender,
+  ClickerUtils, ClickerActionProperties;
 
 
 var
-  MonitoringUIClickerIsRunning: Boolean;
-  ServiceUIClickerIsRunning: Boolean;
-  WPMIsRunning: Boolean;
-
-  MonitoringUIClicker_tk: QWord;
-  ServiceUIClicker_tk: QWord;
-  WPM_tk: QWord;
-
-  StartMonitoringUIClickerResult: string;
-  StartServiceUIClickerResult: string;
-  StartWPMResult: string;
+  Machines: TTargetMachineArr;
+  CritSec: TRTLCriticalSection;
 
 
-procedure ExecuteFSM_Part1;
+function GetMachineIndexByAddress(AMachineAddress: string): Integer;
+var
+  i: Integer;
 begin
-  case State of
+  Result := -1;
+  for i := 0 to Length(Machines) - 1 do
+    if Machines[i].MachineAddress = AMachineAddress then
+    begin
+      Result := i;
+      Exit;
+    end;
+end;
+
+
+procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort: string);
+const
+  CErr = 'Machine already exists.';
+var
+  n: Integer;
+begin
+  EnterCriticalSection(CritSec);
+  try
+    if GetMachineIndexByAddress(AMachineAddress) > -1 then
+    begin
+      WriteLn(CErr);
+      raise Exception.Create(CErr); //if not handled, this results in HTTP error 500
+    end;
+
+    n := Length(Machines);
+    SetLength(Machines, n + 1);
+
+    Machines[n].MachineKind := AKind;
+    Machines[n].MachineAddress := AMachineAddress;
+    Machines[n].MonitoringUIClickerPort := AMonitoringUIClickerPort;
+    Machines[n].ServiceUIClickerPort := AServiceUIClickerPort;
+    Machines[n].ToolPort := AToolPort;
+
+    Machines[n].ServiceUIClickerBitness := CDefaultServiceUIClickerBitness;
+    Machines[n].DistUIClickerBitness := CDefaultDistUIClickerBitness;
+
+    Machines[n].State := SInit;
+    Machines[n].NextState := SInit;
+  finally
+    LeaveCriticalSection(CritSec);
+  end;
+end;
+
+
+procedure RemoveMachine(AMachineAddress: string);
+const
+  CErr = 'Machine not found.';
+var
+  Idx, i: Integer;
+begin
+  EnterCriticalSection(CritSec);
+  try
+    Idx := GetMachineIndexByAddress(AMachineAddress);
+    if Idx = -1 then
+    begin
+      WriteLn(CErr);
+      raise Exception.Create(CErr); //if not handled, this results in HTTP error 500
+    end;
+
+    for i := Idx to Length(Machines) - 2 do
+      Machines[i] := Machines[i + 1];
+
+    SetLength(Machines, Length(Machines) - 1);
+  finally
+    LeaveCriticalSection(CritSec);
+  end;
+end;
+
+
+function Get_ExecAction_Err_FromExecutionResult(ARes: string): string;
+var
+  ListOfVars: TStringList;
+begin
+  if Pos('$RemoteExecResponse$', ARes) <> 1 then
+  begin
+    Result := ARes; //probably a connection error
+    Exit;
+  end;
+
+  ListOfVars := TStringList.Create;
+  try
+    ListOfVars.Text := FastReplace_87ToReturn(ARes);
+    Result := ListOfVars.Values['$ExecAction_Err$'];
+  finally
+    ListOfVars.Free
+  end;
+end;
+
+
+function StartMonitoringUIClicker(AServiceUIClickerAddress, AServiceUIClickerPort, AMonitoringPort: string): string;
+var
+  ExecApp: TClkExecAppOptions;
+  Res: string;
+begin
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+                                                                        //sending the command to service, to start the monitor
+  Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AServiceUIClickerPort + '/', ExecApp, 'Start Monitoring UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
+end;
+
+
+function StartServiceUIClicker(AServiceUIClickerAddress, AServiceUIClickerPort, AMonitoringPort: string): string;
+var
+  ExecApp: TClkExecAppOptions;
+  Res: string;
+begin
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+                                                                          //sending the command to monitor, to start the service
+  Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AMonitoringPort + '/', ExecApp, 'Start Service UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
+end;
+
+
+function StartDistUIClicker(AServiceUIClickerAddress, AServiceUIClickerPort, ADistPort: string): string;
+var
+  ExecApp: TClkExecAppOptions;
+  Res: string;
+begin
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + ADistPort + ' ' + '--ExtraCaption ' + CDistExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
+                                                                        //sending the command to service, to start the dist UIClicker
+  Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AServiceUIClickerPort + '/', ExecApp, 'Start Dist UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
+end;
+
+
+function StartWorkerPoolManager(AServiceUIClickerAddress, AServiceUIClickerPort: string): string;
+var
+  ExecApp: TClkExecAppOptions;
+  Res: string;
+begin
+  GetDefaultPropertyValues_ExecApp(ExecApp);
+  ExecApp.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\WorkerPoolManager\WorkerPoolManager.exe';
+
+  Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AServiceUIClickerPort + '/', ExecApp, 'Start WorkerPoolManager', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
+  Result := Get_ExecAction_Err_FromExecutionResult(Res);
+end;
+
+
+procedure ExecuteFSM_Part1(var ATargetMachine: TTargetMachine);
+begin
+  case ATargetMachine.State of
     SInit:
     begin
-      MonitoringUIClickerIsRunning := False;
-      ServiceUIClickerIsRunning := False;
-      WPMIsRunning := False;
+      ATargetMachine.MonitoringUIClickerIsRunning := False;
+      ATargetMachine.ServiceUIClickerIsRunning := False;
+      ATargetMachine.ToolIsRunning := False;
     end;
 
     SCheckForMonitoringUIClicker:      //DistVisor expects that ServiceUIClicker is started automatically by the OS or a startup app/script.
     begin
-      MonitoringUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', False) = CREResp_ConnectionOK;
-      if not MonitoringUIClickerIsRunning then
+      ATargetMachine.MonitoringUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.MonitoringUIClickerPort + '/', False) = CREResp_ConnectionOK;
+      if not ATargetMachine.MonitoringUIClickerIsRunning then
         WriteLn('The MonitoringUIClicker is not running. Attempting to start it.');
     end;
 
     SStartMonitoringUIClicker:
     begin
-      MonitoringUIClicker_tk := GetTickCount64;
-      StartMonitoringUIClickerResult := StartMonitoringUIClicker; //sends a command to the Service UIClicker, to start the Monitoring one.
+      ATargetMachine.MonitoringUIClicker_tk := GetTickCount64;
+      ATargetMachine.StartMonitoringUIClickerResult := StartMonitoringUIClicker(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.MonitoringUIClickerPort); //sends a command to the Service UIClicker, to start the Monitoring one.
     end;
 
     SWaitForMonitoringUIClicker:
-      MonitoringUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', False) = CREResp_ConnectionOK;
+      ATargetMachine.MonitoringUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.MonitoringUIClickerPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForServiceUIClicker:
     begin
-      ServiceUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
-      if not ServiceUIClickerIsRunning then
+      ATargetMachine.ServiceUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
+      if not ATargetMachine.ServiceUIClickerIsRunning then
         WriteLn('The ServiceUIClicker is not running. Attempting to start it.');
     end;
 
     SStartServiceUIClicker:
     begin
-      ServiceUIClicker_tk := GetTickCount64;
-      StartServiceUIClickerResult := StartServiceUIClicker; //sends a command to the Monitoring UIClicker, to start the Service one.
+      ATargetMachine.ServiceUIClicker_tk := GetTickCount64;
+      ATargetMachine.StartServiceUIClickerResult := StartServiceUIClicker(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.MonitoringUIClickerPort); //sends a command to the Monitoring UIClicker, to start the Service one.
     end;
 
     SWaitForServiceUIClicker:
-      ServiceUIClickerIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
+      ATargetMachine.ServiceUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
+
+    SCheckForDistUIClicker:
+    begin
+      ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ToolPort + '/', False) = CREResp_ConnectionOK;
+      if not ATargetMachine.ToolIsRunning then
+        WriteLn('The DistUIClicker is not running. Attempting to start it.');
+    end;
+
+    SStartDistUIClicker:
+    begin
+      ATargetMachine.Tool_tk := GetTickCount64;
+      ATargetMachine.StartToolResult := StartDistUIClicker(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.ToolPort); //sends a command to the Service UIClicker, to start the Dist UIClicker
+    end;
+
+    SWaitForDistUIClicker:
+      ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ToolPort + '/', False) = CREResp_ConnectionOK;
 
     SCheckForWPM:
     begin
-      WPMIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
-      if not WPMIsRunning then
+      ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
+      if not ATargetMachine.ToolIsRunning then
         WriteLn('The WorkerPoolManager is not running. Attempting to start it.');
     end;
 
     SStartWPM:
     begin
-      WPM_tk := GetTickCount64;
-      StartWPMResult := StartWorkerPoolManager; //sends a command to the Service UIClicker, to start the WPM.
+      ATargetMachine.Tool_tk := GetTickCount64;
+      ATargetMachine.StartToolResult := StartWorkerPoolManager(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort); //sends a command to the Service UIClicker, to start the WPM.
     end;
 
     SWaitForWPM:
-      WPMIsRunning := TestConnection('http://' + ServiceUIClickerAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
+      ATargetMachine.ToolIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + CWPMPort + '/', False) = CREResp_ConnectionOK;
 
-    //SSendPlugins:
-    //  if AutosendPluginsOnStartup then
-    //  begin
-    //    AutosendPluginsOnStartup := False;
-    //    SendAllDistPlugins(DistUIClickerAddress, DistUIClickerPort, DistUIClickerBitness);
-    //    SendAllServicePlugins(ServiceUIClickerAddress, ServiceUIClickerPort, ServiceUIClickerBitness);
-    //  end;
+    SSendServicePlugins:
+      if ATargetMachine.MachineKind = mkWorker then
+        SendAllServicePlugins(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.ServiceUIClickerBitness);
+
+    SSendDistPlugins:
+      if ATargetMachine.MachineKind = mkDist then
+        SendAllDistPlugins(ATargetMachine.MachineAddress, ATargetMachine.ToolPort, ATargetMachine.DistUIClickerBitness);
   end;
 end;
 
 
-procedure ExecuteFSM_Part2;
+procedure ExecuteFSM_Part2(var ATargetMachine: TTargetMachine);
 begin
-  case State of
+  case ATargetMachine.State of
     SInit:
-      NextState := SCheckForMonitoringUIClicker;
+      ATargetMachine.NextState := SCheckForMonitoringUIClicker;
 
     SCheckForMonitoringUIClicker:
-      if MonitoringUIClickerIsRunning then
-        NextState := SCheckForServiceUIClicker  //next tool
+      if ATargetMachine.MonitoringUIClickerIsRunning then
+        ATargetMachine.NextState := SCheckForServiceUIClicker  //next tool
       else
-        NextState := SStartMonitoringUIClicker;      //maybe report an error if entering here too often
+        ATargetMachine.NextState := SStartMonitoringUIClicker;      //maybe report an error if entering here too often
 
     SStartMonitoringUIClicker:
     begin
-      if StartMonitoringUIClickerResult = '' then
-        NextState := SWaitForMonitoringUIClicker
+      if ATargetMachine.StartMonitoringUIClickerResult = '' then
+        ATargetMachine.NextState := SWaitForMonitoringUIClicker
       else
       begin
-        WriteLn('Error starting MonitoringUIClicker: "' + StartMonitoringUIClickerResult + '".');
-        NextState := SCheckForServiceUIClicker;
+        WriteLn('Error starting MonitoringUIClicker: "' + ATargetMachine.StartMonitoringUIClickerResult + '".');
+        ATargetMachine.NextState := SCheckForServiceUIClicker;
       end;
     end;
 
     SWaitForMonitoringUIClicker:
     begin
-      if MonitoringUIClickerIsRunning then
-        NextState := SCheckForServiceUIClicker
+      if ATargetMachine.MonitoringUIClickerIsRunning then
+        ATargetMachine.NextState := SCheckForServiceUIClicker
       else
-        if MonitoringUIClicker_tk < 10000 then
+        if ATargetMachine.MonitoringUIClicker_tk < 10000 then
         begin
-          NextState := SWaitForMonitoringUIClicker;
-          WriteLn('Error: Timeout (' + IntToStr(MonitoringUIClicker_tk) + ' ms) waiting for MonitoringUIClicker to become available.');
+          ATargetMachine.NextState := SWaitForMonitoringUIClicker;
+          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.MonitoringUIClicker_tk) + ' ms) waiting for MonitoringUIClicker to become available.');
         end
         else
-          NextState := SCheckForServiceUIClicker;
+          ATargetMachine.NextState := SCheckForServiceUIClicker;
     end;
 
     SCheckForServiceUIClicker:
-      if ServiceUIClickerIsRunning then
-        NextState := SCheckForWPM  //next tool
+      if ATargetMachine.ServiceUIClickerIsRunning then
+        ATargetMachine.NextState := SCheckForWPM  //next tool
       else
-        NextState := SStartServiceUIClicker;      //maybe report an error if entering here too often
+        ATargetMachine.NextState := SStartServiceUIClicker;      //maybe report an error if entering here too often
 
     SStartServiceUIClicker:
     begin
-      if StartServiceUIClickerResult = '' then
-        NextState := SWaitForServiceUIClicker
+      if ATargetMachine.StartServiceUIClickerResult = '' then
+        ATargetMachine.NextState := SWaitForServiceUIClicker
       else
       begin
-        WriteLn('Error starting ServiceUIClicker: "' + StartServiceUIClickerResult + '".');
-        NextState := SCheckForWPM;
+        WriteLn('Error starting ServiceUIClicker: "' + ATargetMachine.StartServiceUIClickerResult + '".');
+        ATargetMachine.NextState := SCheckForDistUIClicker;
       end;
     end;
 
     SWaitForServiceUIClicker:
     begin
-      if ServiceUIClickerIsRunning then
-        NextState := SCheckForWPM
+      if ATargetMachine.ServiceUIClickerIsRunning then
+        ATargetMachine.NextState := SSendServicePlugins   //send plugins if running
       else
-        if ServiceUIClicker_tk < 10000 then
+        if ATargetMachine.ServiceUIClicker_tk < 10000 then
         begin
-          NextState := SWaitForServiceUIClicker;
-          WriteLn('Error: Timeout (' + IntToStr(ServiceUIClicker_tk) + ' ms) waiting for ServiceUIClicker to become available.');
+          ATargetMachine.NextState := SWaitForServiceUIClicker;
+          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.ServiceUIClicker_tk) + ' ms) waiting for ServiceUIClicker to become available.');
         end
         else
-          NextState := SCheckForWPM;
+          ATargetMachine.NextState := SCheckForDistUIClicker;
+    end;
+
+    SCheckForDistUIClicker:
+      if ATargetMachine.ToolIsRunning then
+        ATargetMachine.NextState := SCheckForWPM  //next tool
+      else
+        if ATargetMachine.MachineKind = mkDist then
+          ATargetMachine.NextState := SStartDistUIClicker      //maybe report an error if entering here too often
+        else
+          ATargetMachine.NextState := SCheckForWPM;
+
+    SStartDistUIClicker:
+    begin
+      if ATargetMachine.StartToolResult = '' then
+        ATargetMachine.NextState := SWaitForDistUIClicker
+      else
+      begin
+        WriteLn('Error starting DistUIClicker: "' + ATargetMachine.StartToolResult + '".');
+        ATargetMachine.NextState := SCheckForWPM;
+      end;
+    end;
+
+    SWaitForDistUIClicker:
+    begin
+      if ATargetMachine.ToolIsRunning then
+        ATargetMachine.NextState := SSendDistPlugins //send plugins if running
+      else
+        if ATargetMachine.Tool_tk < 10000 then
+        begin
+          ATargetMachine.NextState := SWaitForDistUIClicker;
+          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.Tool_tk) + ' ms) waiting for DistUIClicker to become available.');
+        end
+        else
+          ATargetMachine.NextState := SCheckForWPM;
     end;
 
     SCheckForWPM:
-      if WPMIsRunning then
-        NextState := SCheckForMonitoringUIClicker  //next tool
+      if ATargetMachine.ToolIsRunning then
+        ATargetMachine.NextState := SCheckForMonitoringUIClicker  //next tool
       else
-        NextState := SStartWPM;      //maybe report an error if entering here too often
+        if ATargetMachine.MachineKind = mkWPM then
+          ATargetMachine.NextState := SStartWPM      //maybe report an error if entering here too often
+        else
+          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
 
     SStartWPM:
     begin
-      if StartWPMResult = '' then
-        NextState := SWaitForWPM
+      if ATargetMachine.StartToolResult = '' then
+        ATargetMachine.NextState := SWaitForWPM
       else
       begin
-        WriteLn('Error starting WPM: "' + StartWPMResult + '".');
-        NextState := SCheckForMonitoringUIClicker;
+        WriteLn('Error starting WPM: "' + ATargetMachine.StartToolResult + '".');
+        ATargetMachine.NextState := SCheckForMonitoringUIClicker;
       end;
     end;
 
     SWaitForWPM:
     begin
-      if WPMIsRunning then
-        NextState := SCheckForMonitoringUIClicker
+      if ATargetMachine.ToolIsRunning then
+        ATargetMachine.NextState := SCheckForMonitoringUIClicker
       else
-        if WPM_tk < 10000 then
+        if ATargetMachine.Tool_tk < 10000 then
         begin
-          NextState := SWaitForWPM;
-          WriteLn('Error: Timeout (' + IntToStr(WPM_tk) + ' ms) waiting for WorkerPoolManager to become available.');
+          ATargetMachine.NextState := SWaitForWPM;
+          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.Tool_tk) + ' ms) waiting for WorkerPoolManager to become available.');
         end
         else
-          NextState := SCheckForMonitoringUIClicker;
+          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
     end;               //somewhere, enter AutosendPluginsOnStartup
 
-    //SSendPlugins:
-    //  NextState := SCheckForMonitoringUIClicker;
+    SSendServicePlugins:
+      ATargetMachine.NextState := SCheckForDistUIClicker;
+
+    SSendDistPlugins:
+     ATargetMachine.NextState := SCheckForWPM;
   end;
 end;
 
 
 procedure ExecuteFSM;
+var
+  i: Integer;
 begin
-  ExecuteFSM_Part1;
-  ExecuteFSM_Part2;
-  State := NextState;
+  EnterCriticalSection(CritSec);
+  try
+    for i := 0 to Length(Machines) - 1 do
+    begin
+      ExecuteFSM_Part1(Machines[i]);           //if there are requests, which take a long time to respond, then this affects the server's response time
+      ExecuteFSM_Part2(Machines[i]);
+      Machines[i].State := Machines[i].NextState;
+    end;
+  finally
+    LeaveCriticalSection(CritSec);
+  end;
 end;
+
+
+initialization
+  InitCriticalSection(CritSec);
+  SetLength(Machines, 0);
+
+finalization
+  DoneCriticalSection(CritSec);  //by now, the server module should be destroyed
+  SetLength(Machines, 0);
 
 end.
 

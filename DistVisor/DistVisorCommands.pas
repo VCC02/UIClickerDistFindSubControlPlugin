@@ -44,105 +44,32 @@ type
 procedure CreateServerModule;
 procedure DestroyServerModule;
 
-function StartWorkerPoolManager: string;
-function StartMonitoringUIClicker: string;
-function StartServiceUIClicker: string;
-
-
 const
-  CDVCmd_SendDistPlugins = 'SendDistPlugins';
-  CDVCmd_SendServicePlugins = 'SendServicePlugins';
-  CDVCmd_StartWorkerPoolManager = 'StartWorkerPoolManager';  //Not sure if this has to be exposed as an HTTP command. Maybe for debugging only.
-  CDVCmd_StartMonitoringUIClicker = 'StartMonitoringUIClicker'; //A safe instance of UIClicker, which is used to start the "Service" instance, in case it crashes. This instance doesn't have to be UIClicker, but it's already available.
+  CDVCmd_AddMachine = 'AddMachine';
+  CDVCmd_RemoveMachine = 'RemoveMachine';
 
-  CMonitoringPort = '54400';  //monitoring UIClicker instance
-  CMonitoringExtraCaption = 'Monitor';
+  CDVCmdMachineKindParam = 'MachineKind';
+  CDVCmdMachineAddressParam = 'MachineAddress';
+  CDVCmdMonitoringUIClickerPortParam = 'MonitoringUIClickerPort';
+  CDVCmdServiceUIClickerPortParam = 'ServiceUIClickerPort';
+  CDVCmdToolPortParam = 'ToolPort';  //When MachineKind is 0, this is Dist port. When MachineKind is 1 or 2, this is igonred.
 
-  CWPMPort = '11884';
 
-  CServiceExtraCaption = 'Service';
-
-var
-  DistUIClickerAddress: string;
-  DistUIClickerPort: string;
-  DistUIClickerBitness: string;
-
-  ServiceUIClickerAddress: string;
-  ServiceUIClickerPort: string;
-  ServiceUIClickerBitness: string;
+// Examples:
+//  http://127.0.0.1:54000/AddMachine?MachineKind=0&MachineAddress=10.0.3.7&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444
+//  http://127.0.0.1:54000/RemoveMachine?MachineKind=0&MachineAddress=10.0.3.7
 
 
 implementation
 
 
 uses
-  DistPluginSender, ClickerUtils, ClickerActionsClient, ClickerActionProperties;
+  DistPluginSender, DistVisorFSM;
 
 
 var
   HTTPServer: TIdHTTPServer;
   ServerHandlers: TCmdHandlers;
-
-
-function Get_ExecAction_Err_FromExecutionResult(ARes: string): string;
-var
-  ListOfVars: TStringList;
-begin
-  if Pos('$RemoteExecResponse$', ARes) <> 1 then
-  begin
-    Result := ARes; //probably a connection error
-    Exit;
-  end;
-
-  ListOfVars := TStringList.Create;
-  try
-    ListOfVars.Text := FastReplace_87ToReturn(ARes);
-    Result := ListOfVars.Values['$ExecAction_Err$'];
-  finally
-    ListOfVars.Free
-  end;
-end;
-
-
-function StartWorkerPoolManager: string;
-var
-  ExecApp: TClkExecAppOptions;
-  Res: string;
-begin
-  GetDefaultPropertyValues_ExecApp(ExecApp);
-  ExecApp.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\WorkerPoolManager\WorkerPoolManager.exe';
-
-  Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', ExecApp, 'Start WorkerPoolManager', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
-  Result := Get_ExecAction_Err_FromExecutionResult(Res);
-end;
-
-
-function StartMonitoringUIClicker: string;
-var
-  ExecApp: TClkExecAppOptions;
-  Res: string;
-begin
-  GetDefaultPropertyValues_ExecApp(ExecApp);
-  ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + CMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
-                                                                        //sending the command to service, to start the monitor
-  Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + ServiceUIClickerPort + '/', ExecApp, 'Start Monitoring UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
-  Result := Get_ExecAction_Err_FromExecutionResult(Res);
-end;
-
-
-function StartServiceUIClicker: string;
-var
-  ExecApp: TClkExecAppOptions;
-  Res: string;
-begin
-  GetDefaultPropertyValues_ExecApp(ExecApp);
-  ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + ServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption + ' --AddAppArgsToLog Yes', ' ', #4#5, [rfReplaceAll]);
-                                                                          //sending the command to monitor, to start the service
-  Res := ExecuteExecAppAction('http://' + ServiceUIClickerAddress + ':' + CMonitoringPort + '/', ExecApp, 'Start Service UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
-  Result := Get_ExecAction_Err_FromExecutionResult(Res);
-end;
 
 
 procedure CreateServerModule;
@@ -195,40 +122,94 @@ end;
 procedure TCmdHandlers.IdHTTPServer1CommandGet(AContext: TIdContext; ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
 var
   Cmd: string;
+  MachineKind: TMachineKind;
+  MachineKindInt: Integer;
+  MachineAddress: string;
+  MonitoringUIClickerPort: string;
+  ServiceUIClickerPort: string;
+  ToolPort: string;
 begin
   Cmd := ARequestInfo.Document;
   ARequestInfo.Params.LineBreak := #13#10;
 
   AResponseInfo.ContentType := 'text/plain'; // 'text/html';  default type
 
-  if Cmd = '/' + CDVCmd_SendDistPlugins then
+  if Cmd = '/' + CDVCmd_AddMachine then
   begin
-    SendAllDistPlugins(DistUIClickerAddress, DistUIClickerPort, DistUIClickerBitness);
-    AResponseInfo.ContentText := 'Done';
+    MachineKindInt := StrToIntDef(ARequestInfo.Params.Values[CDVCmdMachineKindParam], -1);
+    MachineAddress := ARequestInfo.Params.Values[CDVCmdMachineAddressParam];
+    MonitoringUIClickerPort := ARequestInfo.Params.Values[CDVCmdMonitoringUIClickerPortParam];
+    ServiceUIClickerPort := ARequestInfo.Params.Values[CDVCmdServiceUIClickerPortParam];
+    ToolPort := ARequestInfo.Params.Values[CDVCmdToolPortParam];
+
+    if not (MachineKindInt in [0, 1, 2]) then    //mkDist, mkWorker, mkWPM
+    begin
+      AResponseInfo.ContentText := 'Valid values for MachineKind are: 0, 1 and 2.';
+      Exit;
+    end;
+
+    MachineKind := TMachineKind(MachineKindInt);
+
+    if MachineAddress = '' then    //More validations are required here. E.g. should be a local IP address only.
+    begin
+      AResponseInfo.ContentText := 'MachineAddress must not be empty.';
+      Exit;
+    end;
+
+    if StrToIntDef(MonitoringUIClickerPort, 0) = 0 then
+    begin
+      AResponseInfo.ContentText := 'MonitoringUIClickerPort must be a value between 0 and 65535.';
+      Exit;
+    end;
+
+    if StrToIntDef(ServiceUIClickerPort, 0) = 0 then
+    begin
+      AResponseInfo.ContentText := 'ServiceUIClickerPort must be a value between 0 and 65535.';
+      Exit;
+    end;
+
+    if StrToIntDef(ToolPort, 0) = 0 then
+    begin
+      AResponseInfo.ContentText := 'ToolPort must be a value between 0 and 65535.';
+      Exit;
+    end;
+
+    try
+      AddMachine(MachineKind, MachineAddress, MonitoringUIClickerPort, ServiceUIClickerPort, ToolPort);
+      AResponseInfo.ContentText := 'Done';
+      WriteLn('Machine added: ' + MachineAddress + '  MachineKind: ' + IntToStr(MachineKindInt));
+    except
+      on E: Exception do
+        AResponseInfo.ContentText := 'Can''t add machine to list. ' + E.Message;
+    end;
+
     Exit;
   end;
 
-  if Cmd = '/' + CDVCmd_SendServicePlugins then
+  if Cmd = '/' + CDVCmd_RemoveMachine then
   begin
-    SendAllServicePlugins(ServiceUIClickerAddress, ServiceUIClickerPort, ServiceUIClickerBitness);
-    AResponseInfo.ContentText := 'Done';
+    MachineAddress := ARequestInfo.Params.Values[CDVCmdMachineAddressParam];
+
+    if MachineAddress = '' then    //More validations are required here. E.g. should be a local IP address only.
+    begin
+      AResponseInfo.ContentText := 'MachineAddress must not be empty.';
+      Exit;
+    end;
+
+    try
+      RemoveMachine(MachineAddress);
+      AResponseInfo.ContentText := 'Done';
+      WriteLn('Machine removed: ' + MachineAddress);
+    except
+      on E: Exception do
+        AResponseInfo.ContentText := 'Can''t remove machine from list. ' + E.Message;
+    end;
+
     Exit;
   end;
 
   {$IFDEF TestBuild}
-    if Cmd = '/' + CDVCmd_StartWorkerPoolManager then   //This command is more like an internal command, under TestBuild.
-    begin
-      StartWorkerPoolManager;
-      AResponseInfo.ContentText := 'Done';
-      Exit;
-    end;
-
-    if Cmd = '/' + CDVCmd_StartMonitoringUIClicker then   //This command is more like an internal command, under TestBuild.
-    begin
-      StartMonitoringUIClicker;
-      AResponseInfo.ContentText := 'Done';
-      Exit;
-    end;
+    //other commands
   {$ENDIF}
 end;
 

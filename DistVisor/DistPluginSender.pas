@@ -102,13 +102,13 @@ var
   DistPath: string;
   PathToApp, AppParams, AppStdIn: string;
 begin
-  DistPath := ExtractFilePath(ParamStr(0)) + '..\';
-  if (APluginToBeSentDir > '') and (APluginToBeSentDir[Length(APluginToBeSentDir)] <> '\') then
-    APluginToBeSentDir := APluginToBeSentDir + '\';
+  DistPath := ExtractFilePath(ParamStr(0)) + '..' + PathDelim;
+  if (APluginToBeSentDir > '') and (APluginToBeSentDir[Length(APluginToBeSentDir)] <> PathDelim) then
+    APluginToBeSentDir := APluginToBeSentDir + PathDelim;
 
-  PathToApp := DistPath + ASenderApp + '\' + ASenderApp + '.exe';
-  AppParams := '--ClickerClient' + #4#5 + DistPath + '..\UIClicker\ClickerClient\ClickerClient.dll' + #4#5 +
-               '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib\' + APluginToBeSent + '.dll' + #4#5 +
+  PathToApp := DistPath + ASenderApp + PathDelim + ASenderApp {$IFDEF Windows} + '.exe' {$ENDIF};
+  AppParams := '--ClickerClient' + #4#5 + DistPath + '..' + PathDelim + 'UIClicker' + PathDelim + 'ClickerClient' + PathDelim + 'ClickerClient' + {$IFDEF Windows} '.dll' {$ELSE} '.so' {$ENDIF} + #4#5 +
+               '--PluginToBeSent' + #4#5 + DistPath + APluginToBeSentDir + 'lib' + PathDelim + APluginToBeSent + '.dll' + #4#5 +
                '--PluginToBeSentDestName' + #4#5 + APluginToBeSent + '.dll' + #4#5 +
                '--UIClickerAddress' + #4#5 + AUIClickerAddress + #4#5 +
                '--UIClickerPort' + #4#5 + AUIClickerPort;
@@ -150,31 +150,31 @@ var
 
 function Send_DistInitialDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistInitialEnc, ABitnessDir + '\DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistInitialEnc, ABitnessDir + PathDelim + 'DistInitialDec', 'DistInitialDec', InitialTransmissionKey, InitialTrasmissionIV, InitialSubsequentKey, InitialSubsequentIV);
 end;
 
 
 function Send_DistDecDll_Via_DistInitialEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistInitialEnc, ABitnessDir + '\' + CDecryptionPluginName, CDecryptionPluginName, InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV, 'DistInitialDec');
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistInitialEnc, ABitnessDir + PathDelim + CDecryptionPluginName, CDecryptionPluginName, InitialSubsequentKey, InitialSubsequentIV, DistDecSubsequentKey, DistDecSubsequentIV, 'DistInitialDec');
 end;
 
 
 function Send_UIClickerDistFindSubControlDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + '\UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + PathDelim + 'UIClickerDistFindSubControl', '', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
 end;
 
 
 function Send_PoolClientDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + '\PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + PathDelim + 'PoolClient', 'PoolClient', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
 end;
 
 
 function Send_BrokerParamsDll_Via_DistEnc(AUIClickerAddress, AUIClickerPort, ABitnessDir: string): string;
 begin
-  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + '\BrokerParams', 'BrokerParams', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
+  Result := SendPlugin(AUIClickerAddress, AUIClickerPort, CSenderApp_DistEnc, ABitnessDir + PathDelim + 'BrokerParams', 'BrokerParams', DistDecSubsequentKey, DistDecSubsequentIV, FindSubControlKey, FindSubControlIV, CDecryptionPluginName);
 end;
 
 

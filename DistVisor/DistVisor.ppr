@@ -32,104 +32,18 @@ uses
   ClickerUtils, ClickerActionsClient,
   DistPluginSender, DistVisorCommands, DistVisorFSM;
 
-const
-  CAutosendPluginsOnStartup = '--AutosendPluginsOnStartup';
-
-  CDistUIClickerAddressOption = '--DistUIClickerAddress';
-  CDistUIClickerPortOption = '--DistUIClickerPort';
-  CDistUIClickerBitnessOption = '--DistUIClickerBitness';
-
-  CServiceUIClickerAddressOption = '--ServiceUIClickerAddress';
-  CServiceUIClickerPortOption = '--ServiceUIClickerPort';
-  CServiceUIClickerBitnessOption = '--ServiceUIClickerBitness';
-
-  CDefaultUIClickerAddress = '127.0.0.1';
-
-  CDefaultDistUIClickerPort = '5444';
-  CDefaultServiceUIClickerPort = '55444';
-
-  CDefaultDistUIClickerBitness = '32';
-  CDefaultServiceUIClickerBitness = '32';
-
-
-procedure GetCmdLineOptions(out AAutosendPluginsOnStartup: Boolean);   //this sets some global vars
-var
-  PortAsInt: Integer;
-begin
-  AAutosendPluginsOnStartup := GetCmdLineOptionValue(CAutosendPluginsOnStartup, 'No') = 'Yes';
-
-  DistUIClickerAddress := GetCmdLineOptionValue(CDistUIClickerAddressOption, CDefaultUIClickerAddress);     //The UIClicker address, where DistFindSubControl is used.  //see doc
-  DistUIClickerPort := GetCmdLineOptionValue(CDistUIClickerPortOption, CDefaultDistUIClickerPort);          //The UIClicker port, where DistFindSubControl is used.  //see doc
-  DistUIClickerBitness := GetCmdLineOptionValue(CDistUIClickerBitnessOption, CDefaultDistUIClickerBitness); //Defaults to 32, at least until the plugin loader is fixed on 64
-
-  DistUIClickerAddress := Copy(DistUIClickerAddress, 1, 15); //IP addresses only ###.###.###.###    //change this validation if required
-
-  ServiceUIClickerAddress := GetCmdLineOptionValue(CServiceUIClickerAddressOption, CDefaultUIClickerAddress);        //The UIClicker address, where DistFindSubControl is used.  //see doc
-  ServiceUIClickerPort := GetCmdLineOptionValue(CServiceUIClickerPortOption, CDefaultServiceUIClickerPort);          //The UIClicker port, where DistFindSubControl is used.  //see doc
-  ServiceUIClickerBitness := GetCmdLineOptionValue(CServiceUIClickerBitnessOption, CDefaultServiceUIClickerBitness); //Defaults to 32, at least until the plugin loader is fixed on 64
-
-  ServiceUIClickerAddress := Copy(ServiceUIClickerAddress, 1, 15); //IP addresses only ###.###.###.###    //change this validation if required
-
-
-  PortAsInt := StrToIntDef(DistUIClickerPort, -1);
-  if PortAsInt = -1 then
-    DistUIClickerPort := CDefaultDistUIClickerPort;
-
-  PortAsInt := StrToIntDef(ServiceUIClickerPort, -1);
-  if PortAsInt = -1 then
-    ServiceUIClickerPort := CDefaultServiceUIClickerPort;
-end;
-
-
-procedure DisplayHelp;
-begin
-  WriteLn('Options:');
-  WriteLn('  ' + CAutosendPluginsOnStartup + ' <Yes,No>');
-  WriteLn('  ' + CDistUIClickerAddressOption + ' <Address>');
-  WriteLn('  ' + CDistUIClickerPortOption + ' <Port>');
-  WriteLn('  ' + CDistUIClickerBitnessOption + ' <32,64>');
-  WriteLn('  ' + CServiceUIClickerAddressOption + ' <Address>');
-  WriteLn('  ' + CServiceUIClickerPortOption + ' <Port>');
-  WriteLn('  ' + CServiceUIClickerBitnessOption + ' <32,64>');
-  WriteLn;
-
-  WriteLn('HTTP commands:');
-  WriteLn('  ' + CDVCmd_SendDistPlugins);
-  WriteLn('  ' + CDVCmd_SendServicePlugins);
-  {$IFDEF TestBuild}
-    WriteLn('  ' + CDVCmd_StartWorkerPoolManager);
-    WriteLn('  ' + CDVCmd_StartMonitoringUIClicker);
-  {$ENDIF}
-  WriteLn;
-end;
 
 var
   FSMExecCnt: Integer;
 
 {ToDo
-- Implement states in the FSM, for starting the Dist UIClickers.
-- Have a clear distinction between the Dist machine, the WorkerPoolManager machine and the worker machines - which tool has to run on each.
+-
 }
 
 begin
-  if UpperCase(ParamStr(1)) = '--HELP' then
-  begin
-    DisplayHelp;
-    Exit;
-  end;
-
   GeneralConnectTimeout := 1500;   //expected to connect to local machines only
 
   SetKeys;
-  GetCmdLineOptions(AutosendPluginsOnStartup);
-
-  if AutosendPluginsOnStartup then     //move this to FSM
-  begin
-    SendAllDistPlugins(DistUIClickerAddress, DistUIClickerPort, DistUIClickerBitness);
-    SendAllServicePlugins(ServiceUIClickerAddress, ServiceUIClickerPort, ServiceUIClickerBitness);
-  end
-  else
-    WriteLn('AutosendPluginsOnStartup is not set to Yes, so the plugins will not be sent automatically. However, they can be sent later via a command. Run with --help for self doc.');
 
   WriteLn('Now waiting for HTTP commands..');
   WriteLn('Press Ctrl-C to close.');
