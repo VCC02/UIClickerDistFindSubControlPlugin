@@ -511,18 +511,28 @@ begin
       if ATargetMachine.MonitoringUIClickerIsRunning then
         ATargetMachine.NextState := SCheckForServiceUIClicker
       else
-        if ATargetMachine.MonitoringUIClicker_tk < 10000 then
-        begin
-          ATargetMachine.NextState := SWaitForMonitoringUIClicker;
-          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.MonitoringUIClicker_tk) + ' ms) waiting for MonitoringUIClicker to become available.');
-        end
+        if GetTickCount64 - ATargetMachine.MonitoringUIClicker_tk < 10000 then
+          ATargetMachine.NextState := SWaitForMonitoringUIClicker
         else
+        begin
+          WriteLn('Error: Timeout (' + IntToStr(GetTickCount64 - ATargetMachine.MonitoringUIClicker_tk) + ' ms) waiting for MonitoringUIClicker to become available.');
           ATargetMachine.NextState := SCheckForServiceUIClicker;
+        end;
     end;
 
     SCheckForServiceUIClicker:
       if ATargetMachine.ServiceUIClickerIsRunning then
-        ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
+      begin
+        {$IFDEF TestBuild}
+          ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
+        {$ELSE}
+          case ATargetMachine.MachineKind of
+            mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
+            mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
+            mkWPM: ATargetMachine.NextState := SCheckForWPM;
+          end;
+        {$ENDIF}
+      end
       else
         ATargetMachine.NextState := SStartServiceUIClicker;      //maybe report an error if entering here too often
 
@@ -533,7 +543,15 @@ begin
       else
       begin
         WriteLn('Error starting ServiceUIClicker: "' + ATargetMachine.StartServiceUIClickerResult + '".');
-        ATargetMachine.NextState := SCheckForDistUIClicker;
+        {$IFDEF TestBuild}
+          ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
+        {$ELSE}
+          case ATargetMachine.MachineKind of
+            mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
+            mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
+            mkWPM: ATargetMachine.NextState := SCheckForWPM;
+          end;
+        {$ENDIF}
       end;
     end;
 
@@ -542,23 +560,43 @@ begin
       if ATargetMachine.ServiceUIClickerIsRunning then
         ATargetMachine.NextState := SSendServicePlugins   //send plugins if running
       else
-        if ATargetMachine.ServiceUIClicker_tk < 10000 then
-        begin
-          ATargetMachine.NextState := SWaitForServiceUIClicker;
-          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.ServiceUIClicker_tk) + ' ms) waiting for ServiceUIClicker to become available.');
-        end
+        if GetTickCount64 - ATargetMachine.ServiceUIClicker_tk < 10000 then
+          ATargetMachine.NextState := SWaitForServiceUIClicker
         else
-          ATargetMachine.NextState := SCheckForDistUIClicker;
+        begin
+          WriteLn('Error: Timeout (' + IntToStr(GetTickCount64 - ATargetMachine.ServiceUIClicker_tk) + ' ms) waiting for ServiceUIClicker to become available.');
+          {$IFDEF TestBuild}
+            ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
+          {$ELSE}
+            case ATargetMachine.MachineKind of
+              mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
+              mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
+              mkWPM: ATargetMachine.NextState := SCheckForWPM;
+            end;
+          {$ENDIF}
+        end;
     end;
 
     SCheckForDistUIClicker:
       if ATargetMachine.ToolIsRunning then
-        ATargetMachine.NextState := SCheckForWPM  //next tool
+      begin
+        {$IFDEF TestBuild}
+          ATargetMachine.NextState := SCheckForWPM;  //next tool
+        {$ELSE}
+          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
+        {$ENDIF}
+      end
       else
         if ATargetMachine.MachineKind = mkDist then
           ATargetMachine.NextState := SStartDistUIClicker      //maybe report an error if entering here too often
         else
-          ATargetMachine.NextState := SCheckForWPM;
+        begin
+          {$IFDEF TestBuild}
+            ATargetMachine.NextState := SCheckForWPM;  //next tool
+          {$ELSE}
+            ATargetMachine.NextState := SCheckForMonitoringUIClicker;
+          {$ENDIF}
+        end;
 
     SStartDistUIClicker:
     begin
@@ -567,7 +605,11 @@ begin
       else
       begin
         WriteLn('Error starting DistUIClicker: "' + ATargetMachine.StartToolResult + '".');
-        ATargetMachine.NextState := SCheckForWPM;
+        {$IFDEF TestBuild}
+          ATargetMachine.NextState := SCheckForWPM;  //next tool
+        {$ELSE}
+          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
+        {$ENDIF}
       end;
     end;
 
@@ -576,13 +618,17 @@ begin
       if ATargetMachine.ToolIsRunning then
         ATargetMachine.NextState := SSendDistPlugins //send plugins if running
       else
-        if ATargetMachine.Tool_tk < 10000 then
-        begin
-          ATargetMachine.NextState := SWaitForDistUIClicker;
-          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.Tool_tk) + ' ms) waiting for DistUIClicker to become available.');
-        end
+        if GetTickCount64 - ATargetMachine.Tool_tk < 10000 then
+          ATargetMachine.NextState := SWaitForDistUIClicker
         else
-          ATargetMachine.NextState := SCheckForWPM;
+        begin
+          WriteLn('Error: Timeout (' + IntToStr(GetTickCount64 - ATargetMachine.Tool_tk) + ' ms) waiting for DistUIClicker to become available.');
+          {$IFDEF TestBuild}
+            ATargetMachine.NextState := SCheckForWPM;  //next tool
+          {$ELSE}
+            ATargetMachine.NextState := SCheckForMonitoringUIClicker;
+          {$ENDIF}
+        end;
     end;
 
     SCheckForWPM:
@@ -610,20 +656,26 @@ begin
       if ATargetMachine.ToolIsRunning then
         ATargetMachine.NextState := SCheckForMonitoringUIClicker
       else
-        if ATargetMachine.Tool_tk < 10000 then
-        begin
-          ATargetMachine.NextState := SWaitForWPM;
-          WriteLn('Error: Timeout (' + IntToStr(ATargetMachine.Tool_tk) + ' ms) waiting for WorkerPoolManager to become available.');
-        end
+        if GetTickCount64 - ATargetMachine.Tool_tk < 10000 then
+          ATargetMachine.NextState := SWaitForWPM
         else
+        begin
+          WriteLn('Error: Timeout (' + IntToStr(GetTickCount64 - ATargetMachine.Tool_tk) + ' ms) waiting for WorkerPoolManager to become available.');
           ATargetMachine.NextState := SCheckForMonitoringUIClicker;
+        end;
     end;               //somewhere, enter AutosendPluginsOnStartup
 
     SSendServicePlugins:
       ATargetMachine.NextState := SPairWithDist;
 
     SPairWithDist:
-      ATargetMachine.NextState := SCheckForDistUIClicker;
+      {$IFDEF TestBuild}
+        //A test build allows running all the tools on the same machine (with different IP addresses),
+        //but this approach is unstable, as it requires the tools to be started in a particular order: mkWPM -> mkDist -> mkWorker.
+        ATargetMachine.NextState := SCheckForDistUIClicker;
+      {$ELSE}
+        ATargetMachine.NextState := SCheckForMonitoringUIClicker;
+      {$ENDIF}
 
     SSendDistPlugins:
      ATargetMachine.NextState := SCheckForWPM;

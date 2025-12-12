@@ -44,9 +44,12 @@ var
 - Createa queue of operations, which allows setting pool credentials, via WPM, or other operation, which requires two machines (from the same pair), to be present.
   In case one of the machine is not yet created, or it is still booting up, the FSM should put the operation in queue and move on.
   It is also possible that the app/tool, which actually creates the machines, cannot wait for thses machines to properly boot up and then send the request to DistVisor.
-- optimize FSM transitions based on machine kind. For example, after SPairWithDist the next state should not be SCheckForDistUIClicker, because this is a different kind.
 - WPM must close the workers + UIClickers when removing a machine.
 - WPM must allow setting the required number of workers when adding a machine. The default is set from UI.
+- Create a queue of error messages, that the caller app/tool can read via the HTTP API.
+  It is required, because an HTTP request will not wait for the FSM to complete the action, which may result in an error.
+  If the request contains a request ID, then this request ID should be part of the error message, so it can be identified later.
+  Once the queue of error is read by the caller app/tool, it should be flushed from memory.
 }
 
 begin
@@ -63,8 +66,8 @@ begin
     repeat
       Inc(FSMExecCnt);
 
-      if FSMExecCnt >= 50 then  //this constant depends on the below sleep value
-      begin
+      if FSMExecCnt >= 40 then  //This constant depends on the below sleep value.
+      begin                     //A 4s period allows running the FSM in the same waiting state, twice (i.e 8s), before hitting the 10s waiting timeout.
         FSMExecCnt := 0;
         //WriteLn('FSM: ' + CDistVisorFSMStr[State]);
         ExecuteFSM;
