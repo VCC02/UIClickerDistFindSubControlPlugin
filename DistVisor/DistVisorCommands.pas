@@ -56,9 +56,11 @@ const
   CDVCmdUserIDParam = 'UserID'; //A unique string in the list of users, so that DistVisor can pair an mkDist to an mkWorker machine. It can be Hash(e-mail address) or Hash(DB ID) etc, something that identifies the user who started the creation of these two machines. It is not required on an mkWPM machine.
 
 // Examples:
+//  http://127.0.0.1:54000/AddMachine?MachineKind=2&MachineAddress=10.0.3.6&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444
 //  http://127.0.0.1:54000/AddMachine?MachineKind=0&MachineAddress=10.0.3.7&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444&UserID=wrgf0i54g30i9
 //  http://127.0.0.1:54000/AddMachine?MachineKind=1&MachineAddress=10.0.3.8&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444&UserID=wrgf0i54g30i9
 //  http://127.0.0.1:54000/RemoveMachine?MachineKind=0&MachineAddress=10.0.3.7&UserID=wrgf0i54g30i9
+//  http://127.0.0.1:54000/RemoveMachine?MachineKind=1&MachineAddress=10.0.3.8&UserID=wrgf0i54g30i9
 
 
 implementation
@@ -197,8 +199,17 @@ begin
 
   if Cmd = '/' + CDVCmd_RemoveMachine then
   begin
+    MachineKindInt := StrToIntDef(ARequestInfo.Params.Values[CDVCmdMachineKindParam], -1);
     MachineAddress := ARequestInfo.Params.Values[CDVCmdMachineAddressParam];
     UserID := ARequestInfo.Params.Values[CDVCmdUserIDParam];
+
+    if not (MachineKindInt in [0, 1, 2]) then    //mkDist, mkWorker, mkWPM
+    begin
+      AResponseInfo.ContentText := 'Valid values for MachineKind are: 0, 1 and 2.';
+      Exit;
+    end;
+
+    MachineKind := TMachineKind(MachineKindInt);
 
     if MachineAddress = '' then    //More validations are required here. E.g. should be a local IP address only.
     begin
@@ -206,18 +217,22 @@ begin
       Exit;
     end;
 
-    if (MachineKind in [mkDist, mkWorker]) {and (UserID = '')} then  //although not needed, when removing a machine, this is required by identifying it in the list
-    begin                                  //Commented, because GetMachineIndexByAddress still compares the UserID. If empty, the machine is not found.
+    if (MachineKind in [mkDist, mkWorker]) and (UserID = '') then  //If a mkWPM machine was created with an empty UserID (because there is no user for that), then it should be removed with the same empty UserID.
+    begin
       AResponseInfo.ContentText := 'UserID must not be empty.';
       Exit;
     end;
 
     try
+      case MachineKind of
+        mkDist: WriteLn('Removing mkDist machine from WPM: ' + SendRemoveDistMachineRequestToWPM(MachineAddress));
+        mkWorker: WriteLn('Removing mkWorker machine from WPM: ' + SendRemoveWorkerMachineRequestToWPM(MachineAddress));
+        mkWPM: WriteLn('No extra request for now when removing an mkWorker machine.');
+      end;
+
       RemoveMachine(MachineAddress, UserID);
       AResponseInfo.ContentText := 'Done';
       WriteLn('Machine removed: ' + MachineAddress);
-
-      WriteLn('Removing also from WPM: ' + SendRemoveWorkerMachineRequestToWPM(MachineAddress));
     except
       on E: Exception do
         AResponseInfo.ContentText := 'Can''t remove machine from list. ' + E.Message;
