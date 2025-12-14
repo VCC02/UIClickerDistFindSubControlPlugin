@@ -89,6 +89,14 @@
         <Filename Value="..\WorkerPoolManager\WorkerPoolCommonConsts.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="TestDistVisor.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\DistVisor\DistVisorCommands.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -99,7 +107,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\MiscUtils;..\..\UIClicker\Tests;..\..\UIClicker\ClickerUtils;..\..\UIClicker\Tests\UI;..;..\WorkerPoolManager"/>
+      <OtherUnitFiles Value="..\..\MiscUtils;..\..\UIClicker\Tests;..\..\UIClicker\ClickerUtils;..\..\UIClicker\Tests\UI;..;..\WorkerPoolManager;..\DistVisor"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\$(LCLWidgetType)"/>
     </SearchPaths>
     <Linking>
