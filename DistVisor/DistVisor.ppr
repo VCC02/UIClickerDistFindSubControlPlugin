@@ -55,8 +55,9 @@ var
   Another requirement would be to have a SPairWithWorker state, similar to the SPairWithDist state, which also calls SendPairingRequestToWPM.
 - Since there are two separate requests to WPM, to remove a machine, the first one should be the Dist machine, then the worker machine.
   For now, nothing bad happens if removed in a different order, other than displaying the error message of CDistMachineNotFound.
-- Implement a GetMachineStatus command in the HTTP API, which can verify if all the tools are properly running, because the AddMachine request does not wait.
+[in work] - Implement a GetMachineStatus command in the HTTP API, which can verify if all the tools are properly running, because the AddMachine request does not wait.
   It may return different response details, based on a verbosity param.
+  [done] - In case of an mkWorker machine, the command should allow asking WPM about the status of the actual workers.
 }
 
 begin

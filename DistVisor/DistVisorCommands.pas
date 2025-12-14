@@ -47,6 +47,7 @@ procedure DestroyServerModule;
 const
   CDVCmd_AddMachine = 'AddMachine';
   CDVCmd_RemoveMachine = 'RemoveMachine';
+  CDVCmd_GetMachineStatus = 'GetMachineStatus';
 
   CDVCmdMachineKindParam = 'MachineKind';    //0 - mkDist, 1 - mkWorker, 2 - mkWPM
   CDVCmdMachineAddressParam = 'MachineAddress';
@@ -61,6 +62,7 @@ const
 //  http://127.0.0.1:54000/AddMachine?MachineKind=1&MachineAddress=10.0.3.8&MonitoringUIClickerPort=54400&ServiceUIClickerPort=55444&ToolPort=5444&UserID=wrgf0i54g30i9
 //  http://127.0.0.1:54000/RemoveMachine?MachineKind=0&MachineAddress=10.0.3.7&UserID=wrgf0i54g30i9
 //  http://127.0.0.1:54000/RemoveMachine?MachineKind=1&MachineAddress=10.0.3.8&UserID=wrgf0i54g30i9
+//  http://127.0.0.1:54000/GetMachineStatus?MachineKind=1&MachineAddress=10.0.3.8&UserID=wrgf0i54g30i9
 
 
 implementation
@@ -236,6 +238,45 @@ begin
     except
       on E: Exception do
         AResponseInfo.ContentText := 'Can''t remove machine from list. ' + E.Message;
+    end;
+
+    Exit;
+  end;
+
+  if Cmd = '/' + CDVCmd_GetMachineStatus then
+  begin
+    MachineKindInt := StrToIntDef(ARequestInfo.Params.Values[CDVCmdMachineKindParam], -1);
+    MachineAddress := ARequestInfo.Params.Values[CDVCmdMachineAddressParam];
+    UserID := ARequestInfo.Params.Values[CDVCmdUserIDParam];
+
+    if not (MachineKindInt in [0, 1, 2]) then    //mkDist, mkWorker, mkWPM
+    begin
+      AResponseInfo.ContentText := 'Valid values for MachineKind are: 0, 1 and 2.';
+      Exit;
+    end;
+
+    MachineKind := TMachineKind(MachineKindInt);
+
+    if MachineAddress = '' then    //More validations are required here. E.g. should be a local IP address only.
+    begin
+      AResponseInfo.ContentText := 'MachineAddress must not be empty.';
+      Exit;
+    end;
+
+    if (MachineKind in [mkDist, mkWorker]) and (UserID = '') then  //If a mkWPM machine was created with an empty UserID (because there is no user for that), then it should be removed with the same empty UserID.
+    begin
+      AResponseInfo.ContentText := 'UserID must not be empty.';
+      Exit;
+    end;
+
+    try
+      AResponseInfo.ContentText := GetMachineStatus(MachineAddress, UserID);
+    except
+      on E: Exception do
+      begin
+        AResponseInfo.ContentText := 'Can''t get machine status. ' + E.Message;
+        AResponseInfo.ContentText := E.Message;
+      end;
     end;
 
     Exit;

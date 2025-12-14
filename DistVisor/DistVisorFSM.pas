@@ -102,6 +102,7 @@ type
     StartMonitoringUIClickerResult: string;
     StartServiceUIClickerResult: string;
     StartToolResult: string;
+    ToolReceivingPluginsResult: string;
 
     MachineAddress: string; //same address for all tools
     PairedMachineAddress: string; //Address of an mkDist machine, if this is mkWorker machines and viceversa.
@@ -121,12 +122,21 @@ type
 
 const
   CMachineKindStr: array[TMachineKind] of string = ('mkDist', 'mkWorker', 'mkWPM');
+  CMachineStatus_Unknown = 'Unknown';
+  CMachineStatus_ErrorWhenStarting = 'ErrorWhenStarting';
+  CMachineStatus_Starting = 'Starting';
+  CMachineStatus_Online = 'Online';
+  CMachineStatus_MachineNotFound = 'MachineNotFound';  //the machine is unknwon to DistVisor
+
+  CMachineStatusResponseParam = 'MachineStatus';
+
 
 procedure ExecuteFSM;
 procedure AddMachine(AKind: TMachineKind; AMachineAddress, AMonitoringUIClickerPort, AServiceUIClickerPort, AToolPort, AUserID: string);
 procedure RemoveMachine(AMachineAddress, AUserID: string);
 function SendRemoveDistMachineRequestToWPM(ADistMachineAddress: string): string;
 function SendRemoveWorkerMachineRequestToWPM(AWorkerMachineAddress: string): string;
+function GetMachineStatus(AMachineAddress, AUserID: string): string;
 
 
 implementation
@@ -204,6 +214,15 @@ begin
     Machines[n].UserID := AUserID;
     Machines[n].PairedMachineAddress := '';
 
+    Machines[n].MonitoringUIClickerIsRunning := False;
+    Machines[n].ServiceUIClickerIsRunning := False;
+    Machines[n].ToolIsRunning := False;
+
+    Machines[n].StartMonitoringUIClickerResult := '';
+    Machines[n].StartServiceUIClickerResult := '';
+    Machines[n].StartToolResult := '';
+    Machines[n].ToolReceivingPluginsResult := '';
+
     Machines[n].State := SInit;
     Machines[n].NextState := SInit;
 
@@ -218,6 +237,7 @@ begin
       end
       else
       begin
+        SetLength(Machines, n); //delete the machine from list     //Remove this line when implementing a "viceversa" pairing, i.e. verify if this is an mkDist machine, then look for an available mkWorker machine.
         WriteLn(CPairErr);
         raise Exception.Create(CPairErr); //if not handled, this results in HTTP error 500
       end
@@ -430,6 +450,102 @@ begin
 end;
 
 
+function SendGetAppsStatusRequestToWPM(AWorkerMachineAddress: string): string;
+var
+  WPMMachineAddress: string;
+begin
+  WPMMachineAddress := GetWPMMachineAddress;
+  if WPMMachineAddress = '' then  //if sending an HTTP request with an empty address, then an exception occurs: 'A Host is required'
+  begin
+    Result := 'No WPM machine found in the list. This has to be added before all the others.';
+    Exit;
+  end;
+
+  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CGetAppsStatus + '?' +
+                                    CWorkerMachineAddress + '=' + AWorkerMachineAddress
+                                    , False);
+end;
+
+
+function GetMachineStatus(AMachineAddress, AUserID: string): string;
+var
+  Idx: Integer;
+  ExtraToolInfo: string;
+
+  function GetRunningStatus: string;
+  begin
+    Result := 'MonitoringUIClickerIsRunning=' + BoolToStr(Machines[Idx].MonitoringUIClickerIsRunning, True) + #13#10 +
+              'ServiceUIClickerIsRunning=' + BoolToStr(Machines[Idx].ServiceUIClickerIsRunning, True) + #13#10 +
+              'ToolIsRunning=' + BoolToStr(Machines[Idx].ToolIsRunning, True) + #13#10 +
+              'ExtraToolInfo=' + ExtraToolInfo;  //if this is a worker machine, then ExtraToolInfo returns the running status of the actual workers:
+
+  end;
+
+  function GetStartingError: string;
+  begin
+    Result := 'StartMonitoringUIClickerResult=' + Machines[Idx].StartMonitoringUIClickerResult + #13#10 +
+              'StartServiceUIClickerResult=' + Machines[Idx].StartServiceUIClickerResult + #13#10 +
+              'StartToolResult=' + Machines[Idx].StartToolResult + #13#10 +
+              'ToolReceivingPluginsResult=' + Machines[Idx].ToolReceivingPluginsResult;
+  end;
+
+
+begin
+  EnterCriticalSection(CritSec);
+  try
+    Result := CMachineStatusResponseParam + '=' + CMachineStatus_Online;
+    ExtraToolInfo := '';
+
+    Idx := GetMachineIndexByAddress(AMachineAddress, AUserID);
+    if Idx = -1 then
+    begin
+      Result := CMachineStatusResponseParam + '=' + CMachineStatus_MachineNotFound;
+      Exit;
+    end;
+
+    if not Machines[Idx].MonitoringUIClickerIsRunning and
+       not Machines[Idx].ServiceUIClickerIsRunning and
+       not Machines[Idx].ToolIsRunning then
+    begin
+      Result := CMachineStatusResponseParam + '=' + CMachineStatus_Unknown;
+      Exit;
+    end;
+
+    if not Machines[Idx].MonitoringUIClickerIsRunning or
+       not Machines[Idx].ServiceUIClickerIsRunning or
+       not Machines[Idx].ToolIsRunning or
+       (Machines[Idx].ToolReceivingPluginsResult <> '') then
+    begin                                                          //If one of the three apps crashes at some point after being online, then a previous error message is displayed (if any), unless the Start<App>Result fields are reset upon successfully starting.
+      if (Machines[Idx].StartMonitoringUIClickerResult <> '') or
+         (Machines[Idx].StartServiceUIClickerResult <> '') or
+         (Machines[Idx].StartToolResult <> '') or
+         (Machines[Idx].ToolReceivingPluginsResult <> '') then
+        Result := CMachineStatusResponseParam + '=' + CMachineStatus_ErrorWhenStarting + #13#10 +
+                  GetRunningStatus + #13#10 +
+                  GetStartingError  //This string should not be displayed as it is. This is the #8#7-separated list of all variables from the UIClicker instance, which starts the app. It might contain sensitive info or worse, html/js code.
+      else
+        Result := CMachineStatusResponseParam + '=' + CMachineStatus_Starting + #13#10 +
+                  GetRunningStatus;
+
+      Exit;
+    end;
+
+    if Machines[Idx].MachineKind = mkWorker then
+    begin
+      ExtraToolInfo := SendGetAppsStatusRequestToWPM(Machines[Idx].MachineAddress); //can be CWorkerMachineNotFound, CNoAppRunning, CSomeAppsRunning, CAllAppsRunning or a connection error message
+      if ExtraToolInfo <> CAllAppsRunning then
+      begin
+        Result := CMachineStatusResponseParam + '=' + CMachineStatus_Starting + #13#10 +
+                  GetRunningStatus;
+        Exit;
+      end;
+    end;
+  finally
+    LeaveCriticalSection(CritSec);
+  end;
+end;
+
+
 procedure ExecuteFSM_Part1(var ATargetMachine: TTargetMachine);
 var
   PairingResult: string;
@@ -511,8 +627,14 @@ begin
     SSendServicePlugins:
       if ATargetMachine.MachineKind in [mkWorker, mkDist] then
       begin
-        SendAllServicePlugins(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.ServiceUIClickerBitness);
-        //This plugin is not needed on the mkDist machine, but when testin and having all tools running on the same machine,
+        try
+          SendAllServicePlugins(ATargetMachine.MachineAddress, ATargetMachine.ServiceUIClickerPort, ATargetMachine.ServiceUIClickerBitness);
+          ATargetMachine.ToolReceivingPluginsResult := ''; //reset in case of successfully restarting the app.
+        except
+          on E: Exception do
+            ATargetMachine.ToolReceivingPluginsResult := ATargetMachine.ToolReceivingPluginsResult + ', ' + E.Message;
+        end;
+        //This plugin is not needed on the mkDist machine, but when testing and having all tools running on the same machine,
         //then there is only one instance of the ServiceUIClicker (usually started for Dist).
         //When verifying again for the mkWorker machine, the Service UIClicker is already running, so it wouldn't get the plugin.
       end;
@@ -523,12 +645,21 @@ begin
         //In case of an error message here, it should be reported somehow to the caller (the one which initiated the AddMachine request).
         PairingResult := SendPairingRequestToWPM(ATargetMachine);
         WriteLn('Pairing an mkWorker machine (' + ATargetMachine.MachineAddress + ') to an mkDist machine (' + ATargetMachine.PairedMachineAddress + '): ' + PairingResult);
+
+        if PairingResult <> ATargetMachine.PairedMachineAddress then  //WPM may also return CMachineSet
+          ATargetMachine.ToolReceivingPluginsResult := ATargetMachine.ToolReceivingPluginsResult + ', ' + PairingResult;
       end;
 
     SSendDistPlugins:
       if ATargetMachine.MachineKind = mkDist then
       begin
-        SendAllDistPlugins(ATargetMachine.MachineAddress, ATargetMachine.ToolPort, ATargetMachine.DistUIClickerBitness);
+        try
+          SendAllDistPlugins(ATargetMachine.MachineAddress, ATargetMachine.ToolPort, ATargetMachine.DistUIClickerBitness);
+          ATargetMachine.ToolReceivingPluginsResult := ''; //reset in case of successfully restarting the app.
+        except
+          on E: Exception do
+            ATargetMachine.ToolReceivingPluginsResult := ATargetMachine.ToolReceivingPluginsResult + ', ' + E.Message;
+        end;
         //Currently, WPM implements an HTTP command for calling SendPoolCredentials, but it seems that is can call this automatically.
       end;
   end;
