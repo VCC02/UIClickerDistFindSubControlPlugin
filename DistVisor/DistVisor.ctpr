@@ -99,7 +99,7 @@
       </Debugging>
     </Linking>
     <Other>
-      <CustomOptions Value="-d_TestBuild"/>
+      <CustomOptions Value="-dTestBuild"/>
     </Other>
   </CompilerOptions>
   <Debugging>

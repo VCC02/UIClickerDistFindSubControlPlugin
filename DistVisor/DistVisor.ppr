@@ -74,8 +74,8 @@ begin
     repeat
       Inc(FSMExecCnt);
 
-      if FSMExecCnt >= 40 then  //This constant depends on the below sleep value.
-      begin                     //A 4s period allows running the FSM in the same waiting state, twice (i.e 8s), before hitting the 10s waiting timeout.
+      if FSMExecCnt >= 30 then  //This constant depends on the below sleep value.
+      begin                     //A 3s period allows running the FSM in the same waiting state, three times, before hitting the 10s waiting timeout.
         FSMExecCnt := 0;
         //WriteLn('FSM: ' + CDistVisorFSMStr[State]);
         ExecuteFSM;

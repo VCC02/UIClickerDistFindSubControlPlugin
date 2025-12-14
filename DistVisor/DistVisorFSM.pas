@@ -354,7 +354,7 @@ var
 begin
   GetDefaultPropertyValues_ExecApp(ExecApp);
   ExecApp.PathToApp := '$AppDir$\UIClicker.exe';
-  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption + ' --AddAppArgsToLog Yes --SkipSavingSettings Yes --MachineKind ' + AMachineKind, ' ', #4#5, [rfReplaceAll]);
+  ExecApp.ListOfParams := StringReplace('--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + AServiceUIClickerPort + ' ' + '--ExtraCaption ' + CServiceExtraCaption {$IFDEF TestBuild} + '_' + AMachineKind {$ENDIF} + ' --AddAppArgsToLog Yes --SkipSavingSettings Yes --MachineKind ' + AMachineKind, ' ', #4#5, [rfReplaceAll]);
                                                                           //sending the command to monitor, to start the service
   Res := ExecuteExecAppAction('http://' + AServiceUIClickerAddress + ':' + AMonitoringPort + '/', ExecApp, 'Start Service UIClicker', 1000, False); //CallAppProcMsg is set to False, because is called from a server module thread.
   Result := Get_ExecAction_Err_FromExecutionResult(Res);
@@ -500,6 +500,12 @@ begin
     if Idx = -1 then
     begin
       Result := CMachineStatusResponseParam + '=' + CMachineStatus_MachineNotFound;
+
+      //For debugging
+      //Result := Result + '  Looking for ' + AMachineAddress + ' from ' + AUserID;
+      //if Length(Machines) > 0 then
+      //  Result := Result + '  [0] = ' + Machines[0].MachineAddress + ' / ' + Machines[0].UserID;
+
       Exit;
     end;
 
@@ -588,7 +594,11 @@ begin
     end;
 
     SWaitForServiceUIClicker:
+    begin
       ATargetMachine.ServiceUIClickerIsRunning := TestConnection('http://' + ATargetMachine.MachineAddress + ':' + ATargetMachine.ServiceUIClickerPort + '/', False) = CREResp_ConnectionOK;
+      if ATargetMachine.MachineKind = mkWorker then
+        ATargetMachine.ToolIsRunning := True;
+    end;
 
     SCheckForDistUIClicker:
       if ATargetMachine.MachineKind = mkDist then
@@ -706,15 +716,11 @@ begin
     SCheckForServiceUIClicker:
       if ATargetMachine.ServiceUIClickerIsRunning then
       begin
-        {$IFDEF TestBuild}
-          ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
-        {$ELSE}
-          case ATargetMachine.MachineKind of
-            mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
-            mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
-            mkWPM: ATargetMachine.NextState := SCheckForWPM;
-          end;
-        {$ENDIF}
+        case ATargetMachine.MachineKind of
+          mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
+          mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
+          mkWPM: ATargetMachine.NextState := SCheckForWPM;
+        end;
       end
       else
         ATargetMachine.NextState := SStartServiceUIClicker;      //maybe report an error if entering here too often
@@ -726,15 +732,11 @@ begin
       else
       begin
         WriteLn('Error starting ServiceUIClicker: "' + ATargetMachine.StartServiceUIClickerResult + '".');
-        {$IFDEF TestBuild}
-          ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
-        {$ELSE}
-          case ATargetMachine.MachineKind of
-            mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
-            mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
-            mkWPM: ATargetMachine.NextState := SCheckForWPM;
-          end;
-        {$ENDIF}
+        case ATargetMachine.MachineKind of
+          mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
+          mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
+          mkWPM: ATargetMachine.NextState := SCheckForWPM;
+        end;
       end;
     end;
 
@@ -748,38 +750,22 @@ begin
         else
         begin
           WriteLn('Error: Timeout (' + IntToStr(GetTickCount64 - ATargetMachine.ServiceUIClicker_tk) + ' ms) waiting for ServiceUIClicker to become available.');
-          {$IFDEF TestBuild}
-            ATargetMachine.NextState := SCheckForDistUIClicker  //next tool
-          {$ELSE}
-            case ATargetMachine.MachineKind of
-              mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
-              mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
-              mkWPM: ATargetMachine.NextState := SCheckForWPM;
-            end;
-          {$ENDIF}
+          case ATargetMachine.MachineKind of
+            mkDist: ATargetMachine.NextState := SCheckForDistUIClicker;
+            mkWorker: ATargetMachine.NextState := SCheckForMonitoringUIClicker; //there is no other next tool for a worker machine
+            mkWPM: ATargetMachine.NextState := SCheckForWPM;
+          end;
         end;
     end;
 
     SCheckForDistUIClicker:
       if ATargetMachine.ToolIsRunning then
-      begin
-        {$IFDEF TestBuild}
-          ATargetMachine.NextState := SCheckForWPM;  //next tool
-        {$ELSE}
-          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
-        {$ENDIF}
-      end
+        ATargetMachine.NextState := SCheckForMonitoringUIClicker
       else
         if ATargetMachine.MachineKind = mkDist then
           ATargetMachine.NextState := SStartDistUIClicker      //maybe report an error if entering here too often
         else
-        begin
-          {$IFDEF TestBuild}
-            ATargetMachine.NextState := SCheckForWPM;  //next tool
-          {$ELSE}
-            ATargetMachine.NextState := SCheckForMonitoringUIClicker;
-          {$ENDIF}
-        end;
+          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
 
     SStartDistUIClicker:
     begin
@@ -788,11 +774,7 @@ begin
       else
       begin
         WriteLn('Error starting DistUIClicker: "' + ATargetMachine.StartToolResult + '".');
-        {$IFDEF TestBuild}
-          ATargetMachine.NextState := SCheckForWPM;  //next tool
-        {$ELSE}
-          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
-        {$ENDIF}
+        ATargetMachine.NextState := SCheckForMonitoringUIClicker;
       end;
     end;
 
@@ -806,11 +788,7 @@ begin
         else
         begin
           WriteLn('Error: Timeout (' + IntToStr(GetTickCount64 - ATargetMachine.Tool_tk) + ' ms) waiting for DistUIClicker to become available.');
-          {$IFDEF TestBuild}
-            ATargetMachine.NextState := SCheckForWPM;  //next tool
-          {$ELSE}
-            ATargetMachine.NextState := SCheckForMonitoringUIClicker;
-          {$ENDIF}
+          ATargetMachine.NextState := SCheckForMonitoringUIClicker;
         end;
     end;
 
@@ -852,13 +830,7 @@ begin
       ATargetMachine.NextState := SPairWithDist;
 
     SPairWithDist:
-      {$IFDEF TestBuild}
-        //A test build allows running all the tools on the same machine (with different IP addresses),
-        //but this approach is unstable, as it requires the tools to be started in a particular order: mkWPM -> mkDist -> mkWorker.
-        ATargetMachine.NextState := SCheckForDistUIClicker;
-      {$ELSE}
-        ATargetMachine.NextState := SCheckForMonitoringUIClicker;
-      {$ENDIF}
+      ATargetMachine.NextState := SCheckForMonitoringUIClicker;  //For successful pairing, the tools are required to be started in a particular order: mkWPM -> mkDist -> mkWorker.
 
     SSendDistPlugins:
      ATargetMachine.NextState := SCheckForWPM;
