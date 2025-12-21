@@ -42,6 +42,7 @@ type
     procedure ExpectStatusFromMachine(AMachineKind, AMachineAddress, AUserId, AExpectedStatus: string; ATimeout: Integer = 70000);
     procedure WaitForMkWorkerServiceUIClicker(AServiceUIClickerAddressToWaitFor: string);
 
+    procedure RemoveMachineFromWPM(AWorkerMachineAddress: string);
   published
     procedure BeforeAll_AlwaysExecute;
 
@@ -56,7 +57,7 @@ implementation
 
 uses
   UITestUtils, ClickerActionsClient, ClickerUtils, ClickerActionProperties,
-  DistVisorCommands, DistVisorFSM,
+  DistVisorCommands, DistVisorFSM, WorkerPoolCommonConsts,
   Expectations, Forms, PitstopTestRunner, TestHTTPAPI;
 
 
@@ -137,6 +138,23 @@ begin
   PathToDistVisor := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\UIClicker.exe';
   Result := CreateUIClickerProcess(PathToDistVisor, '--SetExecMode Server --AutoSwitchToExecTab Yes --ServerPort ' + CDefaultMonitoringPort + ' ' + '--ExtraCaption ' + CMonitoringExtraCaption + ' --AddAppArgsToLog Yes --SkipSavingSettings Yes');
   Sleep(500);
+end;
+
+
+procedure TTestDistVisor_Resources.RemoveMachineFromWPM(AWorkerMachineAddress: string);
+var
+  Link, Response: string;
+begin
+  Link := 'http://127.0.0.1:11884/' + CRemoveWorkerMachine +  //127.0.0.1 is the address of WorkerPoolManager
+          '?' + CWorkerMachineAddress + '=' + AWorkerMachineAddress;
+
+  Response := SendTextRequestToServer(Link);
+
+  try
+    Expect(Response).ToBe(CMachineRemoved);
+  except
+    Expect(Response).ToBe(CWorkerMachineNotFound);
+  end;
 end;
 
 
@@ -269,6 +287,8 @@ begin
     MonitoringUIClicker_Proc.Terminate(0);
     MonitoringUIClicker_Proc.Free;
   end;
+
+  RemoveMachineFromWPM(FLocalIP);
 
   FIdIPWatch.Free;
   //inherited AfterAll_AlwaysExecute;
