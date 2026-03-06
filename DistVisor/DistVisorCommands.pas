@@ -53,7 +53,7 @@ const
   CDVCmdMachineAddressParam = 'MachineAddress';
   CDVCmdMonitoringUIClickerPortParam = 'MonitoringUIClickerPort';
   CDVCmdServiceUIClickerPortParam = 'ServiceUIClickerPort';
-  CDVCmdToolPortParam = 'ToolPort';  //When MachineKind is 0, this is Dist port. When MachineKind is 1 or 2, this is igonred.
+  CDVCmdToolPortParam = 'ToolPort';  //When MachineKind is 0, this is Dist port. When MachineKind is 1 or 2, this is ignored.
   CDVCmdUserIDParam = 'UserID'; //A unique string in the list of users, so that DistVisor can pair an mkDist to an mkWorker machine. It can be Hash(e-mail address) or Hash(DB ID) etc, something that identifies the user who started the creation of these two machines. It is not required on an mkWPM machine.
 
 // Examples:

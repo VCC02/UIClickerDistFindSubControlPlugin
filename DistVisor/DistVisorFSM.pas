@@ -34,7 +34,7 @@ uses
 {To some extent, depending on how expensive it is to run multiple machines, this is the recommended machine allocation matrix:
 
 - DistVisor runs (preferably) on a Lin machine, where it has all the plugins on disk, that it has to send to the other machines.
-  If possible, this machine should be the one which hold the information about which VM is created and which is destroyed.
+  If possible, this machine should be the one which holds the information about which VM is created and which is destroyed.
 - For every user, there is a Win VM (Dist machine) with a Dist UCIClicker. As a future design, if a single Dist UIClicker cannot handle user actions,
   then multiple instances should run on the same machine, belonging to the same pool of credentials (i.e. same user).
   In addition to this Dist UIClicker, there has to be two more UIClicker instances, one called Service and the other Monitor.
@@ -55,7 +55,7 @@ type
                    SCheckForMonitoringUIClicker, SStartMonitoringUIClicker, SWaitForMonitoringUIClicker,   //present on all machine types
                    SCheckForServiceUIClicker, SStartServiceUIClicker, SWaitForServiceUIClicker,            //present on all machine types
                    SCheckForDistUIClicker, SStartDistUIClicker, SWaitForDistUIClicker,  //For starters, there is one Dist UIClicker / user, with its own machine.
-                   SCheckForWPM, SStartWPM, SWaitForWPM, //WPM = WorkePoolManager   - only a single machine should have WorkePoolManager
+                   SCheckForWPM, SStartWPM, SWaitForWPM, //WPM = WorkerPoolManager   - only a single machine should have WorkerPoolManager
                    SSendServicePlugins, SPairWithDist,  //should be used after starting Service on worker machine only
                    SSendDistPlugins    //should be used after starting Dist
                    );
@@ -399,7 +399,7 @@ begin
     Exit;
   end;
 
-  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CMachineOnline + '?' +
+  Result := SendTextRequestToServer('http://' + WPMMachineAddress + ':' + CWPMPort + '/' + CMachineOnline + '?' +
                                     CWorkerMachineAddress + '=' + AWorkerMachine.MachineAddress + '&' +
                                     CMachineOSParam + '=' + CWinParam + '&' + //Win only for now.
                                     CDistPluginMachineAddress + '=' + AWorkerMachine.PairedMachineAddress
@@ -426,7 +426,7 @@ begin
     Exit;
   end;
 
-  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CRemoveDistMachine + '?' +
+  Result := SendTextRequestToServer('http://' + WPMMachineAddress + ':' + CWPMPort + '/' + CRemoveDistMachine + '?' +
                                     CWorkerMachineAddress + '=' + WorkerMachineAddress + '&' +
                                     CDistPluginMachineAddress + '=' + ADistMachineAddress
                                     , False);
@@ -444,7 +444,7 @@ begin
     Exit;
   end;
 
-  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CRemoveWorkerMachine + '?' +
+  Result := SendTextRequestToServer('http://' + WPMMachineAddress + ':' + CWPMPort + '/' + CRemoveWorkerMachine + '?' +
                                     CWorkerMachineAddress + '=' + AWorkerMachineAddress
                                     , False);
 end;
@@ -461,7 +461,7 @@ begin
     Exit;
   end;
 
-  Result := SendTextRequestToServer('http://' + GetWPMMachineAddress + ':' + CWPMPort + '/' + CGetAppsStatus + '?' +
+  Result := SendTextRequestToServer('http://' + WPMMachineAddress + ':' + CWPMPort + '/' + CGetAppsStatus + '?' +
                                     CWorkerMachineAddress + '=' + AWorkerMachineAddress
                                     , False);
 end;
@@ -488,8 +488,6 @@ var
               'StartToolResult=' + Machines[Idx].StartToolResult + #13#10 +
               'ToolReceivingPluginsResult=' + Machines[Idx].ToolReceivingPluginsResult;
   end;
-
-
 begin
   EnterCriticalSection(CritSec);
   try
