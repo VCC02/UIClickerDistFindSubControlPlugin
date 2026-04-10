@@ -59,7 +59,6 @@ type
     IdHTTPServer2: TIdHTTPServer;
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool;
-    IdTCPClient1: TIdTCPClient;
     imgFindSubControlBackground: TImage;
     lblBrokerConnectionStatus: TLabel;
     lbeUIClickerPath: TLabeledEdit;
@@ -179,7 +178,7 @@ type
 
     procedure ProcessPingFSM;
   public
-
+    IdTCPClient1: TIdTCPClient;
   end;
 
 var
@@ -216,7 +215,7 @@ var
 const
   CBrokerIsConnectedStatus = 'Status: connected';
   CBrokerIsDisconnectedStatus = 'Status: disconnected';
-  CMissedPingResponseCountToChangeToDisconnected = 10; //Number of failed ping responses in a row, to mark the connection as "disconnected".
+  CMissedPingResponseCountToChangeToDisconnected = 7; //Number of failed ping responses in a row, to mark the connection as "disconnected".
 
 
 function GetFirstAvailableResponseSlotIndex: Integer;
@@ -305,7 +304,11 @@ begin
     frmFindSubControlWorkerMain.SendPacketToServer(ClientInstance);
   except
     on E: Exception do
+    begin
       frmFindSubControlWorkerMain.AddToLog('Cannot send ' + PacketName + ' packet... Ex: ' + E.Message);
+      frmFindSubControlWorkerMain.ShowBrokerIsDisconnected('Exception on sending');  //this will mark as disconnected on the first exception
+      frmFindSubControlWorkerMain.tmrConnect.Enabled := True;
+    end;
   end;
 end;
 
@@ -2052,6 +2055,8 @@ var
 procedure TfrmFindSubControlWorkerMain.FormCreate(Sender: TObject);
 begin
   Th := nil;
+  IdTCPClient1 := nil;
+
   FSkipSavingIni := False;
   FLoggingFIFO := TPollingFIFO.Create;
   FRecBufFIFO := TPollingFIFO.Create;
@@ -2691,16 +2696,9 @@ begin
   if VerbLevel < 2 then
     AddToLog('Connecting to broker...');
 
-  IdTCPClient1.OnConnected := @HandleClientOnConnected;
-  IdTCPClient1.OnDisconnected := @HandleClientOnDisconnected;
-
   //btnConnect.Enabled := False;   //btnConnection.Enabled := True;
   try
     try
-      IdTCPClient1.Connect(lbeAddress.Text, StrToIntDef(lbePort.Text, 1883));
-      IdTCPClient1.IOHandler.ReadTimeout := 10;
-      //AddToLog('Connected to broker...');
-
       if Th <> nil then
       begin
         Th.Terminate;
@@ -2712,6 +2710,27 @@ begin
         Th := nil;
       end;
 
+      //Recreate the client after terminating the thread, but before creating a new thread instance.
+      if IdTCPClient1 <> nil then
+      begin
+        FreeAndNil(IdTCPClient1);
+        FRecBufFIFO.PopAllAsString;
+        MQTT_DestroyClient(0);
+      end;
+
+      IdTCPClient1 := TIdTCPClient.Create;
+      IdTCPClient1.UseNagle := False;
+      IdTCPClient1.OnConnected := @HandleClientOnConnected;
+      IdTCPClient1.OnDisconnected := @HandleClientOnDisconnected;
+
+      IdTCPClient1.Connect(lbeAddress.Text, StrToIntDef(lbePort.Text, 1883));
+      IdTCPClient1.IOHandler.ReadTimeout := 10;
+      //AddToLog('Connected to broker...');
+
+      if not MQTT_CreateClient then
+        AddToLog('Can''t create client...');
+
+      //Create the new thread after the client is connected.
       Th := TMQTTReceiveThread.Create(True);
       Th.FreeOnTerminate := False;
       Th.Start;
@@ -2726,7 +2745,10 @@ begin
       tmrSubscribe.Enabled := True;
     except
       on E: Exception do
-        AddToLog('Can''t connect.  ' + E.Message + '   Class: ' + E.ClassName);
+      begin
+        Randomize;
+        AddToLog('Can''t connect.  ' + E.Message + '   Class: ' + E.ClassName + '   Rnd: ' + IntToStr(Random(10)));
+      end;
     end;
   finally
     //btnConnect.Enabled := True;
@@ -2737,7 +2759,8 @@ end;
 
 procedure TfrmFindSubControlWorkerMain.tmrPingTimer(Sender: TObject);
 begin
-  tmrPing.Tag := 1; //trigger ping FSM
+  if lblBrokerConnectionStatus.Tag = 1 then  //send ping only if connected
+    tmrPing.Tag := 1; //trigger ping FSM
 end;
 
 
@@ -2844,7 +2867,10 @@ begin
       end;
 
       if FMissedPingResponseCount >= CMissedPingResponseCountToChangeToDisconnected then  //found even 3 missed responses in a row
+      begin
         ShowBrokerIsDisconnected('ping');    //If ping turns out to be even more unreliable, then this constant has to be increased.
+        tmrConnect.Enabled := True;  //Enable connection timer from here only, not from ShowBrokerIsDisconnected.
+      end;
     end;
 
     SDonePing:
@@ -2966,9 +2992,6 @@ begin
   {$ENDIF}
 
   MQTT_Init;
-  if not MQTT_CreateClient then
-    AddToLog('Can''t create client...');
-
   InitHandlers;
 
   {$IFnDEF Windows}

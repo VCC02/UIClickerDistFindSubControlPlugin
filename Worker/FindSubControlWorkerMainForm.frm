@@ -275,14 +275,6 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
     Left = 452
     Top = 124
   end
-  object IdTCPClient1: TIdTCPClient
-    ConnectTimeout = 0
-    Port = 0
-    ReadTimeout = -1
-    UseNagle = False
-    Left = 84
-    Top = 124
-  end
   object tmrSubscribe: TTimer
     Enabled = False
     Interval = 5000
@@ -363,7 +355,7 @@ object frmFindSubControlWorkerMain: TfrmFindSubControlWorkerMain
   end
   object tmrPing: TTimer
     Enabled = False
-    Interval = 20000
+    Interval = 10000
     OnTimer = tmrPingTimer
     Left = 452
     Top = 56
