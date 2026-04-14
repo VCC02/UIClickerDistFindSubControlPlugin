@@ -32,6 +32,45 @@ uses
   Classes, SysUtils, TestHTTPAPI, fpcunit, testregistry, //UIActionsStuff,
   ClickerUtils, AsyncProcess;
 
+{Classes inheritance:
+
+TTestHTTPAPI
+  |
+  +- TTestDistPlugin
+       |
+       +- TTestDistPluginFullOSes
+       |    +- TTestDistPluginWinDefaultFonts
+       |    +- TTestDistPluginLinDefaultFonts
+       |    +- TTestDistPluginWinLinDefaultFonts
+       |    +- TTestDistPluginWinLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginWinLinDefaultFonts_LinPlugin
+       |    +- TTestDistPluginWinDefaultFonts_LinPlugin
+       |    +- TTestDistPluginLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginWinLinCustomFonts_WinPlugin
+       |    +- TTestDistPluginWinLinCustomFonts_LinPlugin
+       |
+       +- TTestDistPluginExtBmpFullOSes
+       |    +- TTestDistPluginExtBmpWinDefaultFonts
+       |    +- TTestDistPluginExtBmpLinDefaultFonts
+       |    +- TTestDistPluginExtBmpWinLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginExtBmpWinLinDefaultFonts_LinPlugin
+       |
+       +- TTestDistPluginDiskBmpFullOSes
+       |    +- TTestDistPluginDiskBmpWinDefaultFonts
+       |    +- TTestDistPluginDiskBmpLinDefaultFonts
+       |    +- TTestDistPluginDiskBmpWinLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginDiskBmpWinLinDefaultFonts_LinPlugin
+       |
+       +- TTestDistPlugin_PmtvText
+       |    +- TTestDistPlugin_PmtvText_WinLinWorkers
+       |
+       +- TTestDistPlugin_PmtvText_And_Bmp
+       |    +- TTestDistPlugin_PmtvText_And_Bmp_WinLinWorkers
+       |
+       +- TTestDistPlugin_RangedFontProfiles
+
+}
+
 type
   TStringArr = array of string;
 
@@ -648,6 +687,21 @@ type
     procedure Test_AllocationOfPmtv_WithExtBmp_NotFound; override;
 
     procedure AfterAll_AlwaysExecute; override;
+  end;
+
+
+
+  TTestDistPlugin_RangedFontProfiles = class(TTestDistPlugin)
+  public
+    constructor Create; override;
+  published
+    procedure BeforeAll_AlwaysExecute; virtual;
+
+    procedure Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
+    procedure Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
+    procedure Test_AllocationOfPmtvFontProfiles_WinLinFonts;
+
+    procedure AfterAll_AlwaysExecute;
   end;
 
 
@@ -1330,22 +1384,18 @@ begin
   LoadTestTemplateInClickerUnderTest_FullPath(ATemplatePath);
 
   if FPluginUsedOS <> '' then
-  begin
     SetTextRenderingOSInPluginAction(FPluginUsedOS);
-    PrepareClickerUnderTestToLocalMode;
-    ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
-  end;
 
   if FCalledAction <> '' then
-  begin
     SetTextRenderingPmtvActionInPluginAction(FCalledAction);
-    PrepareClickerUnderTestToLocalMode;
-    ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
-  end;
 
   if FEvaluateFileNameBeforeSending <> '' then
-  begin
     SetEvaluateFileNameBeforeSendingInPluginAction(FEvaluateFileNameBeforeSending);
+
+  if (FPluginUsedOS <> '') or
+     (FCalledAction <> '') or
+     (FEvaluateFileNameBeforeSending <> '') then
+  begin
     PrepareClickerUnderTestToLocalMode;
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
   end;
