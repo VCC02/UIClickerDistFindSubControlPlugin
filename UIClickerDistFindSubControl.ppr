@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 17 Mar 2024
     initial release date: 19 May 2024
 
@@ -3004,6 +3004,7 @@ var
     BkSize: Int64;
     BackgroundWidth, BackgroundHeight: Integer;
     CustomProfiles: TClkFindControlMatchBitmapTextDistArr;
+    ResolvedCustomFontProfiles: string;
   begin
     Result := True;
 
@@ -3077,11 +3078,13 @@ var
           if VerbLevel < 2 then
             AddToLog('Loading custom font profiles from ' + FDistPluginOptions.CustomFontProfiles);
 
-          if Pos('MEM:', UpperCase(FDistPluginOptions.CustomFontProfiles)) = 0 then
-            if not FileExists(FDistPluginOptions.CustomFontProfiles) then
-              raise Exception.Create('File not found: ' + FDistPluginOptions.CustomFontProfiles);
+          ResolvedCustomFontProfiles := ResolveTemplatePath(FDistPluginOptions.CustomFontProfiles);
 
-          LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, FDistPluginOptions.CustomFontProfiles, CustomProfiles);
+          if Pos('MEM:', UpperCase(ResolvedCustomFontProfiles)) = 0 then
+            if not FileExists(ResolvedCustomFontProfiles) then
+              raise Exception.Create('File not found: ' + ResolvedCustomFontProfiles);
+
+          LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, ResolvedCustomFontProfiles, CustomProfiles);
 
           if VerbLevel < 2 then
             AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
