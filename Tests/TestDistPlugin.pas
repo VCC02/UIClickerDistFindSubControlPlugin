@@ -32,6 +32,45 @@ uses
   Classes, SysUtils, TestHTTPAPI, fpcunit, testregistry, //UIActionsStuff,
   ClickerUtils, AsyncProcess;
 
+{Classes inheritance:
+
+TTestHTTPAPI
+  |
+  +- TTestDistPlugin
+       |
+       +- TTestDistPluginFullOSes
+       |    +- TTestDistPluginWinDefaultFonts
+       |    +- TTestDistPluginLinDefaultFonts
+       |    +- TTestDistPluginWinLinDefaultFonts
+       |    +- TTestDistPluginWinLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginWinLinDefaultFonts_LinPlugin
+       |    +- TTestDistPluginWinDefaultFonts_LinPlugin
+       |    +- TTestDistPluginLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginWinLinCustomFonts_WinPlugin
+       |    +- TTestDistPluginWinLinCustomFonts_LinPlugin
+       |
+       +- TTestDistPluginExtBmpFullOSes
+       |    +- TTestDistPluginExtBmpWinDefaultFonts
+       |    +- TTestDistPluginExtBmpLinDefaultFonts
+       |    +- TTestDistPluginExtBmpWinLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginExtBmpWinLinDefaultFonts_LinPlugin
+       |
+       +- TTestDistPluginDiskBmpFullOSes
+       |    +- TTestDistPluginDiskBmpWinDefaultFonts
+       |    +- TTestDistPluginDiskBmpLinDefaultFonts
+       |    +- TTestDistPluginDiskBmpWinLinDefaultFonts_WinPlugin
+       |    +- TTestDistPluginDiskBmpWinLinDefaultFonts_LinPlugin
+       |
+       +- TTestDistPlugin_PmtvText
+       |    +- TTestDistPlugin_PmtvText_WinLinWorkers
+       |
+       +- TTestDistPlugin_PmtvText_And_Bmp
+       |    +- TTestDistPlugin_PmtvText_And_Bmp_WinLinWorkers
+       |
+       +- TTestDistPlugin_RangedFontProfiles
+
+}
+
 type
   TStringArr = array of string;
 
@@ -40,7 +79,7 @@ type
     FReportedOSes: TStringArr;
     FReportedFonts: TStringArr;
     FPluginUsedOS: string; //TextRenderingOS property
-    FCalledAction: string;
+    FCalledFindSubControlAction: string;
     FEvaluateFileNameBeforeSending: string;
     FStartAdditionalWorkers: Boolean;
 
@@ -651,6 +690,21 @@ type
   end;
 
 
+
+  TTestDistPlugin_RangedFontProfiles = class(TTestDistPlugin)
+  public
+    constructor Create; override;
+  published
+    procedure BeforeAll_AlwaysExecute; virtual;
+
+    procedure Test_AllocationOfSevenRangedProfiles;
+    procedure Test_AllocationOfNineteenRangedProfiles;
+    procedure Test_AllocationOfTwentySevenRangedProfiles;
+
+    procedure AfterAll_AlwaysExecute;
+  end;
+
+
 procedure WaitForDriverStartup;
 procedure SetVariableOnTestDriverClient(AVarName, AVarValue: string; AEvalVarBefore: Boolean = False);
 procedure SetVariableOnClickerUnderTest(AVarName, AVarValue: string; AEvalVarBefore: Boolean = False);
@@ -706,7 +760,7 @@ begin
   SetLength(FReportedOSes, 0);
   SetLength(FReportedFonts, 0);
   FPluginUsedOS := '';
-  FCalledAction := '';
+  FCalledFindSubControlAction := '';
   FEvaluateFileNameBeforeSending := 'True';
   FStartAdditionalWorkers := False;
   FTemplatesDir := ExtractFilePath(ParamStr(0)) + '..\..\UIClicker\TestDriver\ActionTemplates\';
@@ -747,7 +801,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=800GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=800GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=' + AOSName + 'ListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4UpdateBackgroundInterval=200';
   EditTemplateOptions.ListOfEnabledProperties := 'TextRenderingOS';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -771,7 +825,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=800GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=' + APmtvAction + 'CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=800GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=TrueCustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4UpdateBackgroundInterval=200';
   EditTemplateOptions.ListOfEnabledProperties := 'FindSubControlAction';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -795,7 +849,7 @@ begin
 
   EditTemplateOptions.Operation := etoSetProperty;
   EditTemplateOptions.WhichTemplate := etwtSelf;
-  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=800GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=' + AEvaluateFileNameBeforeSending + 'CustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4';
+  EditTemplateOptions.ListOfEditedProperties := 'FileName=$AppDir$\..\UIClickerDistFindSubControlPlugin\lib\$AppBitness$-$OSBitness$\UIClickerDistFindSubControl.dllListOfPropertiesAndValues=FindSubControlAction=CredentialsFullFileName=Address=127.0.0.1Port=1883WorkerQoS=1GetWorkerCapabilitiesTimeout=800GetListOfFontsTimeout=1200FindSubControlWorkerTimeout=3000FindSubControlTimeoutDiff=2500WorkerCapabilitiesSource=wcsReqCapAndGetFontsAndFindSubControlLoadWorkerCapabilitiesCacheAction=SaveWorkerCapabilitiesCacheAction=TextRenderingOS=Win+LinListOfMultiValuePropertyNames=UseCompression=TrueCompressionAlgorithm=LzmaLzmaEndOfStream=FalseLzmaAlgorithm=2LzmaNumBenchMarkPasses=10LzmaDictionarySize=1048576LzmaMatchFinder=1LzmaLiteralContext=3LzmaLiteralPosBits=0LzmaPosBits=0LzmaFastBytes=5VariablesForWorkers=$Control_Handle$,$Control_Left$,$Control_Top$,$Control_Right$,$Control_Bottom$,$Control_Width$,$Control_Height$ExtraDebuggingInfo=TrueEvaluateFileNameBeforeSending=' + AEvaluateFileNameBeforeSending + 'CustomFontProfiles=UseFontProfiles=ufpFromConfiguredActionMinExpectedWorkerCount=4UpdateBackgroundInterval=200';
   EditTemplateOptions.ListOfEnabledProperties := 'EvaluateFileNameBeforeSending';
   EditTemplateOptions.EditedActionName := '"Plugin"';
   EditTemplateOptions.EditedActionType := acPlugin;
@@ -1330,22 +1384,18 @@ begin
   LoadTestTemplateInClickerUnderTest_FullPath(ATemplatePath);
 
   if FPluginUsedOS <> '' then
-  begin
     SetTextRenderingOSInPluginAction(FPluginUsedOS);
-    PrepareClickerUnderTestToLocalMode;
-    ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
-  end;
 
-  if FCalledAction <> '' then
-  begin
-    SetTextRenderingPmtvActionInPluginAction(FCalledAction);
-    PrepareClickerUnderTestToLocalMode;
-    ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
-  end;
+  if FCalledFindSubControlAction <> '' then
+    SetTextRenderingPmtvActionInPluginAction(FCalledFindSubControlAction);
 
   if FEvaluateFileNameBeforeSending <> '' then
-  begin
     SetEvaluateFileNameBeforeSendingInPluginAction(FEvaluateFileNameBeforeSending);
+
+  if (FPluginUsedOS <> '') or
+     (FCalledFindSubControlAction <> '') or
+     (FEvaluateFileNameBeforeSending <> '') then
+  begin
     PrepareClickerUnderTestToLocalMode;
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
   end;
@@ -1354,7 +1404,7 @@ begin
   PrepareClickerUnderTestToReadItsVars;
 
   if (FPluginUsedOS <> '') or
-     (FCalledAction <> '') or
+     (FCalledFindSubControlAction <> '') or
      (FEvaluateFileNameBeforeSending <> '') then
   begin
     ExecuteTemplateOnTestDriver(FTemplatesDir + 'GoToActionPlayer.clktmpl', CREParam_FileLocation_ValueDisk);
@@ -3575,119 +3625,119 @@ end;
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_FindEmpty;
 begin
-  FCalledAction := 'Find_Empty';
+  FCalledFindSubControlAction := 'Find_Empty';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts;
 begin
-  FCalledAction := 'Find_NoFonts';
+  FCalledFindSubControlAction := 'Find_NoFonts';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
 begin
-  FCalledAction := 'Find_WinOnly';
+  FCalledFindSubControlAction := 'Find_WinOnly';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
 begin
-  FCalledAction := 'Find_LinOnly';
+  FCalledFindSubControlAction := 'Find_LinOnly';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinLinFonts;
 begin
-  FCalledAction := 'Find_WinLin';
+  FCalledFindSubControlAction := 'Find_WinLin';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
 begin
-  FCalledAction := 'Find_WinOnly_LinOnly';
+  FCalledFindSubControlAction := 'Find_WinOnly_LinOnly';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
 begin
-  FCalledAction := 'Find_WinOnly_WinLin';
+  FCalledFindSubControlAction := 'Find_WinOnly_WinLin';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
 begin
-  FCalledAction := 'Find_LinOnly_WinLin';
+  FCalledFindSubControlAction := 'Find_LinOnly_WinLin';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
 begin
-  FCalledAction := 'Find_WinOnly_LinOnly_WinLin';
+  FCalledFindSubControlAction := 'Find_WinOnly_LinOnly_WinLin';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly;
 begin
-  FCalledAction := 'Find_NoFonts_WinOnly';
+  FCalledFindSubControlAction := 'Find_NoFonts_WinOnly';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly;
 begin
-  FCalledAction := 'Find_NoFonts_LinOnly';
+  FCalledFindSubControlAction := 'Find_NoFonts_LinOnly';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts;
 begin
-  FCalledAction := 'Find_NoFonts_WinLin';
+  FCalledFindSubControlAction := 'Find_NoFonts_WinLin';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtvFontProfiles_WinAndLinFonts;  //one pmtv with two SetFont calls
 begin
-  FCalledAction := 'Find_Win_And_Lin';
+  FCalledFindSubControlAction := 'Find_Win_And_Lin';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithDiskBmp;
 begin
-  FCalledAction := 'Find_DiskBmp';
+  FCalledFindSubControlAction := 'Find_DiskBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithExtBmp;
 begin
-  FCalledAction := 'Find_ExtBmp';
+  FCalledFindSubControlAction := 'Find_ExtBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
 begin
-  FCalledAction := 'DoNotFind_DiskBmp';
+  FCalledFindSubControlAction := 'DoNotFind_DiskBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText.Test_AllocationOfPmtv_WithExtBmp_NotFound;
 begin
-  FCalledAction := 'DoNotFind_ExtBmp';
+  FCalledFindSubControlAction := 'DoNotFind_ExtBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocatePmtv.clktmpl');
 end;
 
@@ -4183,112 +4233,112 @@ end;
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts;
 begin
-  FCalledAction := 'Find_NoFonts_OneBmp';
+  FCalledFindSubControlAction := 'Find_NoFonts_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly;
 begin
-  FCalledAction := 'Find_WinOnly_OneBmp';
+  FCalledFindSubControlAction := 'Find_WinOnly_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_LinFontsOnly;
 begin
-  FCalledAction := 'Find_LinOnly_OneBmp';
+  FCalledFindSubControlAction := 'Find_LinOnly_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinLinFonts;
 begin
-  FCalledAction := 'Find_WinLin_OneBmp';
+  FCalledFindSubControlAction := 'Find_WinLin_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly;
 begin
-  FCalledAction := 'Find_WinOnly_LinOnly_OneBmp';
+  FCalledFindSubControlAction := 'Find_WinOnly_LinOnly_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_WinLinFonts;
 begin
-  FCalledAction := 'Find_WinOnly_WinLin_OneBmp';
+  FCalledFindSubControlAction := 'Find_WinOnly_WinLin_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_LinFontsOnly_WinLinFonts;
 begin
-  FCalledAction := 'Find_LinOnly_WinLin_OneBmp';
+  FCalledFindSubControlAction := 'Find_LinOnly_WinLin_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinFontsOnly_LinFontsOnly_WinLinFonts;
 begin
-  FCalledAction := 'Find_WinOnly_LinOnly_WinLin_OneBmp';
+  FCalledFindSubControlAction := 'Find_WinOnly_LinOnly_WinLin_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts_WinFontsOnly;
 begin
-  FCalledAction := 'Find_NoFonts_WinOnly_OneBmp';
+  FCalledFindSubControlAction := 'Find_NoFonts_WinOnly_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts_LinFontsOnly;
 begin
-  FCalledAction := 'Find_NoFonts_LinOnly_OneBmp';
+  FCalledFindSubControlAction := 'Find_NoFonts_LinOnly_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_NoFonts_WinLinFonts;
 begin
-  FCalledAction := 'Find_NoFonts_WinLin_OneBmp';
+  FCalledFindSubControlAction := 'Find_NoFonts_WinLin_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtvFontProfiles_WinAndLinFonts;  //one pmtv with two SetFont calls
 begin
-  FCalledAction := 'Find_Win_And_Lin_OneBmp';
+  FCalledFindSubControlAction := 'Find_Win_And_Lin_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithDiskBmp;
 begin
-  FCalledAction := 'Find_DiskBmp_OneBmp';
+  FCalledFindSubControlAction := 'Find_DiskBmp_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithExtBmp;
 begin
-  FCalledAction := 'Find_ExtBmp_OneBmp';
+  FCalledFindSubControlAction := 'Find_ExtBmp_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithDiskBmp_NotFound;
 begin
-  FCalledAction := 'DoNotFind_DiskBmp_OneBmp';
+  FCalledFindSubControlAction := 'DoNotFind_DiskBmp_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
 
 procedure TTestDistPlugin_PmtvText_And_Bmp.Test_AllocationOfPmtv_WithExtBmp_NotFound;
 begin
-  FCalledAction := 'DoNotFind_ExtBmp_OneBmp';
+  FCalledFindSubControlAction := 'DoNotFind_ExtBmp_OneBmp';
   ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateCombo.clktmpl');
 end;
 
@@ -4816,6 +4866,59 @@ begin
 end;
 
 
+
+constructor TTestDistPlugin_RangedFontProfiles.Create;
+const
+  CAllUsedFontsInThisSuite = 'Verdana,Segoe UI,Tahoma,Fixedsys';
+begin
+  inherited Create;
+  SetReportedOSes([CReportedOS_Win, CReportedOS_Win, CReportedOS_Win, CReportedOS_Win]);
+  SetReportedFonts([CAllUsedFontsInThisSuite, CAllUsedFontsInThisSuite, CAllUsedFontsInThisSuite, CAllUsedFontsInThisSuite]);
+end;
+
+
+procedure TTestDistPlugin_RangedFontProfiles.BeforeAll_AlwaysExecute;
+begin
+  BeforeAll(FReportedOSes, FReportedFonts);
+end;
+
+
+procedure TTestDistPlugin_RangedFontProfiles.Test_AllocationOfSevenRangedProfiles;
+begin
+  FCalledFindSubControlAction := '';
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateSevenRangedProfiles.clktmpl');
+
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [1, 3, 0]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask], [1, 3, 0]);
+end;
+
+
+procedure TTestDistPlugin_RangedFontProfiles.Test_AllocationOfNineteenRangedProfiles;
+begin
+  FCalledFindSubControlAction := '';
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateNineteenRangedProfiles.clktmpl');
+
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&', 'Txt_9=1&', 'Txt_10=1&', 'Txt_11=1&', 'Txt_12=1&', 'Txt_13=1&', 'Txt_14=1&', 'Txt_15=1&', 'Txt_16=1&', 'Txt_17=1&', 'Txt_18=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask], [0, 0, 0, 1, 3, 0, 0]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&', 'Txt_9=1&', 'Txt_10=1&', 'Txt_11=1&', 'Txt_12=1&', 'Txt_13=1&', 'Txt_14=1&', 'Txt_15=1&', 'Txt_16=1&', 'Txt_17=1&', 'Txt_18=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask], [0, 0, 0, 1, 3, 0, 0]);
+end;
+
+
+procedure TTestDistPlugin_RangedFontProfiles.Test_AllocationOfTwentySevenRangedProfiles;
+begin
+  FCalledFindSubControlAction := '';
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateTwentySevenRangedProfiles.clktmpl');
+
+  ExpectWorkAtPluginSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&', 'Txt_9=1&', 'Txt_10=1&', 'Txt_11=1&', 'Txt_12=1&', 'Txt_13=1&', 'Txt_14=1&', 'Txt_15=1&', 'Txt_16=1&', 'Txt_17=1&', 'Txt_18=1&', 'Txt_19=1&', 'Txt_20=1&', 'Txt_21=1&', 'Txt_22=1&', 'Txt_23=1&', 'Txt_24=1&', 'Txt_25=1&', 'Txt_26=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask], [0, 0, 0, 0, 0, 1, 3, 0]);
+  ExpectWorkAtWorkerSide(['Txt_0=1&', 'Txt_1=1&', 'Txt_2=1&', 'Txt_3=1&', 'Txt_4=1&', 'Txt_5=1&', 'Txt_6=1&', 'Txt_7=1&', 'Txt_8=1&', 'Txt_9=1&', 'Txt_10=1&', 'Txt_11=1&', 'Txt_12=1&', 'Txt_13=1&', 'Txt_14=1&', 'Txt_15=1&', 'Txt_16=1&', 'Txt_17=1&', 'Txt_18=1&', 'Txt_19=1&', 'Txt_20=1&', 'Txt_21=1&', 'Txt_22=1&', 'Txt_23=1&', 'Txt_24=1&', 'Txt_25=1&', 'Txt_26=1&'], 0, [COneFontProfileTask, CTwoFontProfilesTask, CThreeFontProfilesTask, CFourFontProfilesTask, CFiveFontProfilesTask, CSixFontProfilesTask, CSevenFontProfilesTask, CEightFontProfilesTask], [0, 0, 0, 0, 0, 1, 3, 0]);
+end;
+
+
+procedure TTestDistPlugin_RangedFontProfiles.AfterAll_AlwaysExecute;
+begin
+  AfterAll;
+end;
+
+
 initialization
 
   RegisterTest(TTestDistPluginWinDefaultFonts);
@@ -4840,5 +4943,7 @@ initialization
 
   RegisterTest(TTestDistPlugin_PmtvText_WinLinWorkers);
   RegisterTest(TTestDistPlugin_PmtvText_And_Bmp_WinLinWorkers);
+
+  RegisterTest(TTestDistPlugin_RangedFontProfiles);
 end.
 
