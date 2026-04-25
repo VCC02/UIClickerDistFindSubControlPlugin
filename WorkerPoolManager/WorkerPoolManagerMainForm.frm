@@ -6,6 +6,8 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   Caption = 'WorkerPoolManager'
   ClientHeight = 574
   ClientWidth = 744
+  Constraints.MinHeight = 574
+  Constraints.MinWidth = 744
   LCLVersion = '8.4'
   OnClose = FormClose
   OnCreate = FormCreate
@@ -252,7 +254,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   object btnAddMachine: TButton
     Left = 531
     Height = 25
-    Top = 368
+    Top = 396
     Width = 136
     Caption = 'btnAddMachine'
     TabOrder = 3
@@ -273,10 +275,10 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     WordWrap = False
   end
   object btnSendPoolCredentialsToLocal: TButton
-    Left = 544
+    Left = 545
     Height = 25
     Hint = 'ToDo: Move feature to API.'#13#10'The address of this ("Dist") UIClicker is not in this list of machines.'
-    Top = 328
+    Top = 368
     Width = 192
     Caption = 'Send Pool credentials to local'
     ParentShowHint = False
@@ -288,7 +290,7 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     Left = 556
     Height = 25
     Hint = 'Get processes from selected machine.'
-    Top = 399
+    Top = 424
     Width = 148
     Caption = 'Get listening processes'
     TabOrder = 6
@@ -297,12 +299,36 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
   object chkAllowCheckingForWorkerStatus: TCheckBox
     Left = 531
     Height = 19
-    Top = 435
+    Top = 453
     Width = 190
     Caption = 'Allow checking for worker status'
     Checked = True
     State = cbChecked
     TabOrder = 7
+  end
+  object lblServiceUIClickerMsg: TLabel
+    Left = 440
+    Height = 15
+    Top = 312
+    Width = 116
+    Caption = 'ServiceUIClickerMsg'
+    Font.Color = clGreen
+    Font.Style = [fsBold]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+  end
+  object lblToolMsg: TLabel
+    Left = 440
+    Height = 15
+    Top = 336
+    Width = 46
+    Caption = 'ToolMsg'
+    Font.Color = clGreen
+    Font.Style = [fsBold]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
   end
   object IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool
     MaxThreads = 30
@@ -346,12 +372,12 @@ object frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain
     Enabled = False
     Interval = 10
     OnTimer = tmrStartupTimer
-    Left = 420
-    Top = 355
+    Left = 632
+    Top = 232
   end
   object tmrFSM: TTimer
     OnTimer = tmrFSMTimer
-    Left = 420
-    Top = 304
+    Left = 632
+    Top = 168
   end
 end

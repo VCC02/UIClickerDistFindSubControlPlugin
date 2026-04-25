@@ -57,6 +57,7 @@ const
   CMachineOSParam = 'MachineOS';
   CWorkerMachineAddress = 'WorkerMachineAddress';   //Where the "service" UIClicker is running, together with broker and workers.
   CDistPluginMachineAddress = 'DistPluginMachineAddress';  //Where the "Dist" plugin is running.
+  CGetStatusDetails = 'GetStatusDetails'; //Used by CGetAppsStatus command. Expected to be 0 or 1 if present. If 1, the status is an error message or an OK.
 
   //Responses
   CErrPrefix = 'Err:';
@@ -69,6 +70,7 @@ const
   CMachineRemoved = 'MachineRemoved';
   CTooManyWorkerMachines = 'TooManyWorkerMachines';
   CTooManyDistMachines = 'TooManyDistMachines';
+  CMachineAddressParameterNotProvided = 'MachineAddressParameterNotProvided';
 
   CNoAppRunning = 'NoAppRunning';
   CAllAppsRunning = 'AllAppsRunning';

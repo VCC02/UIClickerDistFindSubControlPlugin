@@ -58,7 +58,7 @@ type
     CheckStatusTick: DWord;
     RunningState: TAppRunning;
     NotRunningCount: Integer; //Number of measurements of "not running" state. It is reset to 0 when a "running" state is found.
-    StartCmdResponse: string;
+    StartCmdResponse: string; //Full UIClicker list of vars.
     StartedCount: Integer;
     SuccessfullyStarted: Boolean; //set after starting at least once
     ProcID: Integer;
@@ -148,6 +148,8 @@ type
     IdHTTPServerResources: TIdHTTPServer;
     IdSchedulerOfThreadPool1: TIdSchedulerOfThreadPool;
     IdSchedulerOfThreadPool2: TIdSchedulerOfThreadPool;
+    lblServiceUIClickerMsg: TLabel;
+    lblToolMsg: TLabel;
     lblWin: TLabel;
     lblMaxWorkerMachineCount: TLabel;
     lblMinBrokerPort: TLabel;
@@ -233,7 +235,7 @@ type
     function SetMachineOnline(AWorkerMachineAddress, AWorkerMachineOS, ADistMachineAddress: string): string;
     function RemoveWorkerMachine(AWorkerMachineAddress: string): string;
     function RemoveDistMachine(AWorkerMachineAddress, ADistMachineAddress: string): string;
-    function GetAppsStatus(AWorkerMachineAddress: string): string;
+    function GetAppsStatus(AWorkerMachineAddress: string; AGetStatusDetails: Boolean): string;
     function SendPoolCredentialsOnDemand(AWorkerMachineAddress: string): string;
 
     procedure AddToLog(s: string);
@@ -251,6 +253,11 @@ const
   CWorkerMonitoringOffset = 120;  //This value is added to a UIClicker port, on which a worker is listening on.
                                   //This is used for getting the list of apps listening on ports.
                                   //If more than 120 ports are used from UIClickers, then please increase this number.
+
+  CPathToWPM = '$PathToWPM$';
+  CClientConnectTimeoutEx = 'Client exception: Connect timed out.';
+  CServiceUIClickerOK = 'OK.';
+  CServiceUIClickerNotOK = 'not OK.';
 
 var
   frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain;
@@ -312,13 +319,15 @@ begin
 
   if Pos('/' + CGetAppsStatus, FCmd) = 1 then
   begin
-    FResult := frmWorkerPoolManagerMain.GetAppsStatus(FParams.Values[CWorkerMachineAddress]);
+    FResult := frmWorkerPoolManagerMain.GetAppsStatus(FParams.Values[CWorkerMachineAddress], FParams.Values[CGetStatusDetails] = '1');
     Exit;
   end;
 
   if Pos('/' + CSendPoolCredentials, FCmd) = 1 then
   begin
     FResult := frmWorkerPoolManagerMain.SendPoolCredentialsOnDemand(FParams.Values[CWorkerMachineAddress]);
+    frmWorkerPoolManagerMain.memInfo.Color := clYellow;
+    frmWorkerPoolManagerMain.AddToLog('SendPoolCredentialsOnDemand');
     Exit;
   end;
 
@@ -752,7 +761,7 @@ begin
     if NodeData^.MachineType in [mtBroker, mtBrokerAndWorker] then
       for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do  //pools
       begin
-        Randomize;              //More complex names and password will have to be generated here
+        Randomize;              //More complex names and passwords will have to be generated here
         Sleep(33);
         NodeData^.AppsToBeRunning[i].PoolUserName := 'RandomlyGeneratedUser_' + IntToStr(GetTickCount64) + StringReplace(DateTimeToStr(Now), ':', '_', [rfReplaceAll]) + IntToStr(Random(MaxInt));
         Randomize;
@@ -982,13 +991,37 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetAppsStatus(AWorkerMachineAddress: string): string;
+function GetExecAction_ErrFromAllVars(AResponse: string): string;
+var
+  ListOfVars: TStringList;
+begin
+  ListOfVars := TStringList.Create;
+  try
+    ListOfVars.LineBreak := #8#7;
+    ListOfVars.Text := AResponse;
+    Result := ListOfVars.Values['$ExecAction_Err$'];
+
+    if Result = '' then
+      Result := 'Startup OK';
+  finally
+    ListOfVars.Free;
+  end;
+end;
+
+
+function TfrmWorkerPoolManagerMain.GetAppsStatus(AWorkerMachineAddress: string; AGetStatusDetails: Boolean): string;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
-  TotalFoundCount, TargetCountPerMachine: Integer;
+  TotalFoundCount, TargetCountPerMachine, i, j: Integer;
 begin
   Result := CWorkerMachineNotFound;
+
+  if AWorkerMachineAddress = '' then
+  begin
+    Result := CMachineAddressParameterNotProvided;
+    Exit;
+  end;
 
   Node := GetMachineByAddress(AWorkerMachineAddress);
   if Node = nil then
@@ -998,16 +1031,33 @@ begin
   if NodeData = nil then
     Exit;
 
-  TotalFoundCount := GetAppsRunningCountFromAllPoll(NodeData^.AppsToBeRunning);
-  TargetCountPerMachine := GetTargetAppCountFromMachine(NodeData);
+  if AGetStatusDetails then
+  begin
+    Result := '';
+    for i := 0 to Length(NodeData^.AppsToBeRunning) - 1 do
+    begin
+      Result := Result + 'Broker[' + IntToStr(i) + ']: ' + GetExecAction_ErrFromAllVars(NodeData^.AppsToBeRunning[i].Broker.StartCmdResponse) + ' / ' + CAppRunningStr[NodeData^.AppsToBeRunning[i].Broker.RunningState] + #13#10;
 
-  if TotalFoundCount = 0 then
-    Result := CNoAppRunning
+      for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
+      begin
+        Result := Result + '  Worker[' + IntToStr(i) + '][' + IntToStr(j) + ']: ' + GetExecAction_ErrFromAllVars(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.StartCmdResponse) + ' / ' + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].Worker.RunningState] + #13#10;
+        Result := Result + '  UIClicker[' + IntToStr(i) + '][' + IntToStr(j) + ']: ' + GetExecAction_ErrFromAllVars(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.StartCmdResponse) + ' / ' + CAppRunningStr[NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.RunningState] + #13#10;
+      end;
+    end;
+  end
   else
-    if TotalFoundCount < TargetCountPerMachine then
-      Result := CSomeAppsRunning
+  begin
+    TotalFoundCount := GetAppsRunningCountFromAllPoll(NodeData^.AppsToBeRunning);
+    TargetCountPerMachine := GetTargetAppCountFromMachine(NodeData);
+
+    if TotalFoundCount = 0 then
+      Result := CNoAppRunning
     else
-      Result := CAllAppsRunning;    //If there are Lin workers, connecting to a Win broker, then the number of apps is greater than TargetCount.
+      if TotalFoundCount < TargetCountPerMachine then
+        Result := CSomeAppsRunning
+      else
+        Result := CAllAppsRunning;    //If there are Lin workers, connecting to a Win broker, then the number of apps is greater than TargetCount.
+  end;
 end;
 
 
@@ -1404,6 +1454,7 @@ var
   i, j: Integer;
   CurrentApp: PRunningApp;
   WorkerExtraCaption: string;
+  ToolMsg: string;
 begin
   Node := vstMachines.GetFirst;
   if Node = nil then
@@ -1427,9 +1478,21 @@ begin
         if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
         begin
           if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
-            AddToLog('Successfully started broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
+          begin
+            ToolMsg := 'Successfully started broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount);
+            //Do not set the color back to green.
+          end
           else
-            AddToLog('Error starting broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
+          begin
+            ToolMsg := 'Error starting broker[' + IntToStr(i) + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse;
+            lblToolMsg.Font.Color := clMaroon;
+          end;
+
+          AddToLog(ToolMsg);
+          lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
+
+          if Pos('$ExecAction_Err$=Invalid plugin at:', ToolMsg) > 0 then
+            lblToolMsg.Hint := lblToolMsg.Hint + 'The plugin has to be sent to the Service UIClicker, in advance.' + #13#10;
         end;
 
         for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
@@ -1446,9 +1509,18 @@ begin
           if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
           begin
             if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
-              AddToLog('Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
+            begin
+              ToolMsg := 'Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount);
+              //Do not set the color back to green.
+            end
             else
-              AddToLog('Error starting worker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
+            begin
+              ToolMsg := 'Error starting worker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse;
+              lblToolMsg.Font.Color := clMaroon;
+            end;
+
+            AddToLog(ToolMsg);
+            lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
           end;
         end;
 
@@ -1466,9 +1538,18 @@ begin
           if (CurrentApp^.StartCmdResponse <> '') and (CurrentApp^.State = SAfterStarting) then
           begin
             if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
-              AddToLog('Successfully started UIClicker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount))
+            begin
+              ToolMsg := 'Successfully started UIClicker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount);
+              //Do not set the color back to green.
+            end
             else
-              AddToLog('Error starting UIClicker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse);
+            begin
+              ToolMsg := 'Error starting UIClicker at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '. ' + CurrentApp^.StartCmdResponse;
+              lblToolMsg.Font.Color := clMaroon;
+            end;
+
+            AddToLog(ToolMsg);
+            lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
           end;
         end;
       end;
@@ -1702,12 +1783,11 @@ end;
 
 
 function TfrmWorkerPoolManagerMain.IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort: string): string;
-const
-  CPathToWPM = '$PathToWPM$';
 var
   SetVarOptions: TClkSetVarOptions;
-  Response, VarPath: string;
+  Response, VarPath, Err: string;
   ListOfResponses: TStringList;
+  PathMatch: Boolean;
 begin
   SetVarOptions.ListOfVarNames := CPathToWPM + #13#10;
   SetVarOptions.ListOfVarValues := '$AppDir$\..\UIClickerDistFindSubControlPlugin\WorkerPoolManager\WorkerPoolManager.exe' + #13#10;
@@ -1721,7 +1801,18 @@ begin
     try
       ListOfResponses.Text := FastReplace_87ToReturn(Response);
       VarPath := ExpandFileName(ListOfResponses.Values[CPathToWPM], ExtractFilePath(ParamStr(0)));
-      Result := BoolToStr(UpperCase(VarPath) = UpperCase(ParamStr(0)), 'OK.', 'not OK. It causes a mismatch on: "' + VarPath + '" vs. "' + ParamStr(0) + '".');
+
+      PathMatch := UpperCase(VarPath) = UpperCase(ParamStr(0));
+      Result := BoolToStr(PathMatch, CServiceUIClickerOK, CServiceUIClickerNotOK + ' It causes a mismatch on: "' + VarPath + '" vs. "' + ParamStr(0) + '".');
+
+      if not PathMatch then
+      begin
+        Err := Copy(Response, 1, 100);
+        AddToLog('WPM at wrong path or UIClicker is not available. Response (truncated): ' + Err);
+
+        if Err = CClientConnectTimeoutEx then
+          Result := Result + ' ' + Err;
+      end;
     finally
       ListOfResponses.Free;
     end;
@@ -1804,6 +1895,7 @@ var
   ExecResults: TStringList;
   ErrPos1, ErrPos2: Integer;
   ProcessIDToTerminate: Integer;
+  ServiceUIClickerPathValidation: string;
 begin
   Result := '';
 
@@ -1879,7 +1971,29 @@ begin
   ExecAppOptions.UseInheritHandles := uihYes;
   ExecAppOptions.NoConsole := True; //True means do not display a console
 
-  AddToLog('Service UIClicker path: ' + IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort));
+  ServiceUIClickerPathValidation := IsServiceUIClickerPathOK(AMachineAddress, ACmdUIClickerPort);
+  AddToLog('Service UIClicker path: ' + ServiceUIClickerPathValidation);
+
+  if ServiceUIClickerPathValidation = CServiceUIClickerOK then
+  begin
+    lblServiceUIClickerMsg.Caption := 'ServiceUIClicker running.';
+    lblServiceUIClickerMsg.Font.Color := clGreen;
+    lblServiceUIClickerMsg.Hint := 'OK';
+  end
+  else
+    if Pos(CClientConnectTimeoutEx, ServiceUIClickerPathValidation) > 0 then
+    begin
+      lblServiceUIClickerMsg.Caption := 'ServiceUIClicker not avaiable.';
+      lblServiceUIClickerMsg.Font.Color := clMaroon;
+      lblServiceUIClickerMsg.Hint := CClientConnectTimeoutEx + #13#10 + 'Expected UIClickerService port: ' + FServiceUIClickerCmdPortNumber;
+    end
+    else
+      if Pos(CServiceUIClickerNotOK, ServiceUIClickerPathValidation) > 0 then
+      begin
+        lblServiceUIClickerMsg.Caption := 'ServiceUIClicker is avaiable. See tooltip and log.';
+        lblServiceUIClickerMsg.Font.Color := clRed;
+        lblServiceUIClickerMsg.Hint := CPathToWPM + ' is either invalid or points to a different path.';
+      end;
 
   try
     Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run passwd for plugin', 5000, False);
@@ -2429,8 +2543,6 @@ begin
     ResultStr.Free;
   end;
 end;
-
-
 
 
 end.
