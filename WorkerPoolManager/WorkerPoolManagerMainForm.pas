@@ -47,6 +47,8 @@ type
 
   TMachineOS = (mosWin, mosLin, mosUnknown);
 
+  TStatusResponseFormat = (srfDefault);
+
   TFSM = (SInit, SMonitorStatus, SStartRemoteApps, SAfterStarting, SWaitForRemoteApps);
 
   PRunningApp = ^TRunningApp;
@@ -235,7 +237,7 @@ type
     function SetMachineOnline(AWorkerMachineAddress, AWorkerMachineOS, ADistMachineAddress: string): string;
     function RemoveWorkerMachine(AWorkerMachineAddress: string): string;
     function RemoveDistMachine(AWorkerMachineAddress, ADistMachineAddress: string): string;
-    function GetAppsStatus(AWorkerMachineAddress: string; AGetStatusDetails: Boolean): string;
+    function GetAppsStatus(AWorkerMachineAddress: string; AGetStatusDetails: Boolean; AFormat: TStatusResponseFormat): string;
     function SendPoolCredentialsOnDemand(AWorkerMachineAddress: string): string;
 
     procedure AddToLog(s: string);
@@ -321,7 +323,7 @@ begin
 
   if Pos('/' + CGetAppsStatus, FCmd) = 1 then
   begin
-    FResult := frmWorkerPoolManagerMain.GetAppsStatus(FParams.Values[CWorkerMachineAddress], FParams.Values[CGetStatusDetails] = '1');
+    FResult := frmWorkerPoolManagerMain.GetAppsStatus(FParams.Values[CWorkerMachineAddress], FParams.Values[CGetStatusDetails] = '1', srfDefault);
     Exit;
   end;
 
@@ -1020,7 +1022,7 @@ begin
 end;
 
 
-function TfrmWorkerPoolManagerMain.GetAppsStatus(AWorkerMachineAddress: string; AGetStatusDetails: Boolean): string;
+function TfrmWorkerPoolManagerMain.GetAppsStatus(AWorkerMachineAddress: string; AGetStatusDetails: Boolean; AFormat: TStatusResponseFormat): string;
 var
   Node: PVirtualNode;
   NodeData: PMachineRec;
@@ -1231,18 +1233,26 @@ begin
   AApp.StartedAt := GetTickCount64;
   AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
   AddToLog('Command sent to start broker at ' + AApp.Port + '.  StartedCount = ' + IntToStr(AApp.StartedCount) + '.');
-  AApp.ProcID := GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, CWinParam);
-  Sleep(250);
-  AApp.SuccessfullyStarted := True;
+
+  repeat
+    Sleep(250);
+    AddToLog('Expected broker to listen on port ' + AApp.Port + '.');
+    AApp.ProcID := GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, CWinParam);
+    AApp.SuccessfullyStarted := AApp.ProcID > 0;
+  until AApp.SuccessfullyStarted or (GetTickCount64 - AApp.StartedAt > 2500);
 end;
 
 
 procedure TfrmWorkerPoolManagerMain.StartWorkerApp(var AApp: TRunningApp; AMachineAddress, AWorkerExtraCaption: string; AUIClickerPort: Word);
+var
+  WorkerPort: Word;
 begin
   if AApp.Address <> '' then
   begin
     Inc(AApp.StartedCount);
     AApp.StartedAt := GetTickCount64;
+
+    WorkerPort := AUIClickerPort + CWorkerMonitoringOffset;
     AApp.StartCmdResponse := StartWorkerOnRemoteMachine(AMachineAddress,
                                                        FServiceUIClickerCmdPortNumber,
                                                        AWorkerExtraCaption,
@@ -1252,8 +1262,12 @@ begin
                                                        AApp.BrokerUserName,
                                                        AApp.BrokerPassword);
 
-    Sleep(250);
-    AApp.SuccessfullyStarted := True;
+    repeat
+      Sleep(250);
+      AddToLog('Expected worker to listen on port ' + IntToStr(WorkerPort) + '.');
+      AApp.ProcID := GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, IntToStr(WorkerPort), CWinParam);
+      AApp.SuccessfullyStarted := AApp.ProcID > 0;
+    until AApp.SuccessfullyStarted or (GetTickCount64 - AApp.StartedAt > 2500);
   end
   //else
   //begin
@@ -1265,12 +1279,21 @@ end;
 
 
 procedure TfrmWorkerPoolManagerMain.StartUIClickerApp(var AApp: TRunningApp; AMachineAddress: string);
+var
+  UIClickerPort: Word;
 begin
   Inc(AApp.StartedCount);
   AApp.StartedAt := GetTickCount64;
-  AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, StrToIntDef(AApp.Port, 1183)); //UIClicker will listen on BrokerPort+20000
-  Sleep(250);
-  AApp.SuccessfullyStarted := True;
+
+  UIClickerPort := StrToIntDef(AApp.Port, 1183);
+  AApp.StartCmdResponse := StartUIClickerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, UIClickerPort); //UIClicker will listen on BrokerPort+20000
+
+  repeat
+    Sleep(250);
+    AddToLog('Expected UIClicker to listen on port ' + AApp.Port + '.');
+    AApp.ProcID := GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, CWinParam);
+    AApp.SuccessfullyStarted := AApp.ProcID > 0;
+  until AApp.SuccessfullyStarted or (GetTickCount64 - AApp.StartedAt > 2500);
 end;
 
 
@@ -1502,7 +1525,7 @@ begin
           AddToLog(ToolMsg);
           lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
 
-          if Pos('Client exception: Connect timed out.', CurrentApp^.StartCmdResponse) > 0 then          //ToDo: attempt to start, until the Service UIClicker becomes available.
+          if Pos('Client exception: Connect timed out.', CurrentApp^.StartCmdResponse) > 0 then
             lblToolMsg.Hint := lblToolMsg.Hint + 'Service UIClicker might not be available.' + #13#10;
 
           if Pos('$ExecAction_Err$=Invalid plugin at:', ToolMsg) > 0 then
@@ -1524,7 +1547,7 @@ begin
           begin
             if Pos(CREResp_RemoteExecResponseVar + '=1', CurrentApp^.StartCmdResponse) = 1 then
             begin
-              ToolMsg := 'Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + CurrentApp^.Port + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount);
+              ToolMsg := 'Successfully started worker[' + IntToStr(i) + '][' + IntToStr(j) + '] = [' + WorkerExtraCaption + '] at ' + CurrentApp^.Address + ':' + IntToStr(StrToIntDef(NodeData^.AppsToBeRunning[i].WorkerClickerPairs[j].UIClicker.Port, 0) + CWorkerMonitoringOffset) + '.  StartedCount = ' + IntToStr(CurrentApp^.StartedCount);
               //Do not set the color back to green.
             end
             else
@@ -2206,7 +2229,7 @@ begin                                                                           
   //Terminate process if already exists:
   ProcessIDToTerminate := GetProcessIDByListeningPort(AMachineAddress, ACmdUIClickerPort, IntToStr(MonitoringPort), CWinParam);
   if ProcessIDToTerminate > -1 then
-    AddToLog('Terminating old UIClicker, listening on port ' + IntToStr(MonitoringPort) + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate));
+    AddToLog('Terminating old worker, listening on port ' + IntToStr(MonitoringPort) + ': ' + TerminateProcess(AMachineAddress, ACmdUIClickerPort, ProcessIDToTerminate));
 
   ExecAppOptions.PathToApp := '$AppDir$\..\UIClickerDistFindSubControlPlugin\Worker\FindSubControlWorker.exe';
   ExecAppOptions.ListOfParams := '--SetBrokerAddress' + #4#5 +
