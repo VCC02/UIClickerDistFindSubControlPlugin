@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 21 May 2025
     initial release date: 24 May 2025
 
@@ -258,6 +258,8 @@ const
   CClientConnectTimeoutEx = 'Client exception: Connect timed out.';
   CServiceUIClickerOK = 'OK.';
   CServiceUIClickerNotOK = 'not OK.';
+  CServiceUIClickerNoInfo = 'Startup info not available.';
+  CToolStartupOK = 'Startup OK';
 
 var
   frmWorkerPoolManagerMain: TfrmWorkerPoolManagerMain;
@@ -994,15 +996,24 @@ end;
 function GetExecAction_ErrFromAllVars(AResponse: string): string;
 var
   ListOfVars: TStringList;
+  ErrIdx: Integer;
 begin
   ListOfVars := TStringList.Create;
   try
     ListOfVars.LineBreak := #8#7;
     ListOfVars.Text := AResponse;
-    Result := ListOfVars.Values['$ExecAction_Err$'];
+
+    ErrIdx := ListOfVars.IndexOfName('$ExecAction_Err$');
+    if ErrIdx = -1 then
+    begin
+      Result := CServiceUIClickerNoInfo;
+      Exit;
+    end;
+
+    Result := ListOfVars.ValueFromIndex[ErrIdx];
 
     if Result = '' then
-      Result := 'Startup OK';
+      Result := CToolStartupOK;
   finally
     ListOfVars.Free;
   end;
@@ -1219,7 +1230,7 @@ begin
   AddToLog('Starting broker at ' + AApp.Port + '...');
   AApp.StartedAt := GetTickCount64;
   AApp.StartCmdResponse := StartMQTTBrokerOnRemoteMachine(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, AApp.BrokerUserName, AApp.BrokerPassword, AWorkerClickerPairs);
-  AddToLog('Started broker at ' + AApp.Port + '.  StartedCount = ' + IntToStr(AApp.StartedCount) + '.');
+  AddToLog('Command sent to start broker at ' + AApp.Port + '.  StartedCount = ' + IntToStr(AApp.StartedCount) + '.');
   AApp.ProcID := GetProcessIDByListeningPort(AMachineAddress, FServiceUIClickerCmdPortNumber, AApp.Port, CWinParam);
   Sleep(250);
   AApp.SuccessfullyStarted := True;
@@ -1490,6 +1501,9 @@ begin
 
           AddToLog(ToolMsg);
           lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
+
+          if Pos('Client exception: Connect timed out.', CurrentApp^.StartCmdResponse) > 0 then          //ToDo: attempt to start, until the Service UIClicker becomes available.
+            lblToolMsg.Hint := lblToolMsg.Hint + 'Service UIClicker might not be available.' + #13#10;
 
           if Pos('$ExecAction_Err$=Invalid plugin at:', ToolMsg) > 0 then
             lblToolMsg.Hint := lblToolMsg.Hint + 'The plugin has to be sent to the Service UIClicker, in advance.' + #13#10;
