@@ -1391,11 +1391,21 @@ begin
     begin
       case AAppType of
         atBroker:
+        begin
+          if (GetTickCount64 - AApp.StartedAt > 30000) and (AApp.RunningState = arJustStarted) then         //this happens when the service UIClicker is not running while the machine is added to list
+            if Pos('Client exception: Connect timed out.', AApp.StartCmdResponse) > 0 then
+            begin
+              AApp.StartedCount := 0;
+              AApp.RunningState := arUnknown;   //This will cause NextState to become SStartRemoteApps.
+              AddToLog('Attempting to start the broker again.');
+            end;
+
           if (AApp.StartedCount < 3) and (AApp.RunningState = arUnknown) then  //The broker can be in arNotFound state (see above) and because of that, it won't start. ToDo: fix.
           begin
             StartBrokerApp(AApp, AMachineAddress, AWorkerClickerPairs);
             AApp.RunningState := arJustStarted;
           end;
+        end;
 
         atWorker:
           if (AApp.StartedCount < 3) and (AApp.BrokerApp^.StartedCount > 0) and AApp.BrokerApp^.SuccessfullyStarted then
@@ -1489,6 +1499,7 @@ var
   CurrentApp: PRunningApp;
   WorkerExtraCaption: string;
   ToolMsg: string;
+  ErrMsg, Ending: string;
 begin
   Node := vstMachines.GetFirst;
   if Node = nil then
@@ -1523,13 +1534,30 @@ begin
           end;
 
           AddToLog(ToolMsg);
-          lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
 
           if Pos('Client exception: Connect timed out.', CurrentApp^.StartCmdResponse) > 0 then
-            lblToolMsg.Hint := lblToolMsg.Hint + 'Service UIClicker might not be available.' + #13#10;
+          begin
+            ErrMsg := 'Service UIClicker might not be available.' + #13#10;
+            Ending := Copy(lblToolMsg.Hint, Length(lblToolMsg.Hint) - Length(ErrMsg) + 1, MaxInt);
+
+            if Ending <> ErrMsg then
+            begin
+              lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
+              lblToolMsg.Hint := lblToolMsg.Hint + ErrMsg;
+            end;
+          end;
 
           if Pos('$ExecAction_Err$=Invalid plugin at:', ToolMsg) > 0 then
-            lblToolMsg.Hint := lblToolMsg.Hint + 'The plugin has to be sent to the Service UIClicker, in advance.' + #13#10;
+          begin
+            ErrMsg := 'The plugin has to be sent to the Service UIClicker, in advance.' + #13#10;
+            Ending := Copy(lblToolMsg.Hint, Length(lblToolMsg.Hint) - Length(ErrMsg) + 1, MaxInt);
+
+            if Ending <> ErrMsg then
+            begin
+              lblToolMsg.Hint := lblToolMsg.Hint + ToolMsg + #13#10;
+              lblToolMsg.Hint := lblToolMsg.Hint + ErrMsg;
+            end;
+          end;
         end;
 
         for j := 0 to Length(NodeData^.AppsToBeRunning[i].WorkerClickerPairs) - 1 do
@@ -2018,6 +2046,7 @@ begin
     lblServiceUIClickerMsg.Hint := 'OK';
   end
   else
+  begin
     if Pos(CClientConnectTimeoutEx, ServiceUIClickerPathValidation) > 0 then
     begin
       lblServiceUIClickerMsg.Caption := 'ServiceUIClicker not avaiable.';
@@ -2031,6 +2060,10 @@ begin
         lblServiceUIClickerMsg.Font.Color := clRed;
         lblServiceUIClickerMsg.Hint := CPathToWPM + ' is either invalid or points to a different path.';
       end;
+
+    AddToLog('The broker can''t be started now.');
+    Exit;
+  end;
 
   try
     Result := ExecuteExecAppAction('http://' + AMachineAddress + ':' + ACmdUIClickerPort + '/', ExecAppOptions, 'Run passwd for plugin', 5000, False);
