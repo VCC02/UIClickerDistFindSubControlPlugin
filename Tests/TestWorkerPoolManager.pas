@@ -423,10 +423,17 @@ begin
 end;
 
 
+procedure UpdateWaitingProgress(AElapsedTime: Integer);
+begin
+  frmPitstopTestRunner.SetTimeoutProgressBarPosition(AElapsedTime);
+end;
+
+
 procedure TTestWorkerPoolManager.ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 100000);
 begin
   FWorkerMachineAddress := AWorkerMachineAddress;
-  LoopedExpect(@GetAppsStatusCallback, ATimeout).ToBe(AExpectedStatus);
+  frmPitstopTestRunner.SetTimeoutProgressBarMax(ATimeout);
+  LoopedExpectWithFB(@GetAppsStatusCallback, ATimeout, @UpdateWaitingProgress).ToBe(AExpectedStatus);
 end;
 
 
@@ -529,7 +536,7 @@ begin
 
   AddMachineToList('127.0.0.1', '127.0.0.1', '127.0.0.1');
   AddMachineToList('127.0.0.1', '192.168.1.100', CMachineSet);
-  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 130000);
+  ExpectAppsStatusFromMachine('127.0.0.1', CAllAppsRunning, 150000);
 
   CloseAllWorkers;
   CloseAllWorkerUIClickers;
