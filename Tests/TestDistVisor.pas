@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 14 Dec 2025
     initial release date: 14 Dec 2025
 
@@ -193,7 +193,7 @@ var
   tk: QWord;
   FindControlOptions: TClkFindControlOptions;
   WindowOperationsOptions: TClkWindowOperationsOptions;
-  AttemptCount: Integer;
+  AttemptCount, ElapsedTime, LocalTimeout: Integer;
 begin
   frmPitstopTestRunner.AddToLog('Waiting for mkWorker ServiceUIClicker...');
   Application.ProcessMessages;
@@ -205,7 +205,10 @@ begin
   GetDefaultPropertyValues_WindowOperations(WindowOperationsOptions);
   WindowOperationsOptions.Operation := woClose;
 
+  LocalTimeout := 4 * 60000; //Waiting 4min, because WPM has to start multiple workers. DistVisor waits for all of those.
+  frmPitstopTestRunner.SetTimeoutProgressBarMax(LocalTimeout);
   Application.ProcessMessages;
+
   tk := GetTickCount64;
   AttemptCount := 0;
   repeat
@@ -238,9 +241,11 @@ begin
       frmPitstopTestRunner.AddToLog('The service UIClicker was not found. AttemptCount = ' + IntToStr(AttemptCount));
     end;
 
+    ElapsedTime := GetTickCount64 - tk;
+    UpdateWaitingProgress(ElapsedTime);
     Application.ProcessMessages;
     Sleep(100);
-  until GetTickCount64 - tk > 3 * 60000; //Waiting 3min, because WPM has to start multiple workers. DistVisor waits for all of those.
+  until ElapsedTime > LocalTimeout;
 end;
 
 
@@ -275,23 +280,35 @@ end;
 
 
 procedure TTestDistVisor_Resources.AfterAll_AlwaysExecute;
+const
+  CRemainingPort = '54400';        //54400 is Monitoring UIClicker,  55444 is MkWorker UIClicker
 begin
-  if DistVisor_Proc <> nil then
-  begin
-    DistVisor_Proc.Terminate(0);
-    DistVisor_Proc.Free;
+  try
+    if DistVisor_Proc <> nil then
+    begin
+      DistVisor_Proc.Terminate(0);
+      DistVisor_Proc.Free;
+    end;
+
+    try
+      FIdIPWatch.Free;
+      RemoveMachineFromWPM(FLocalIP);
+
+      //inherited AfterAll_AlwaysExecute;
+    finally
+      ExecuteTemplateOnCustomTestDriver('http://127.0.0.1:' + CRemainingPort + '/', ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseAllWorkers.clktmpl', CREParam_FileLocation_ValueDisk);
+      ExecuteTemplateOnCustomTestDriver('http://127.0.0.1:' + CRemainingPort + '/', ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseAllWorkerUIClickers.clktmpl', CREParam_FileLocation_ValueDisk);
+      ExecuteTemplateOnCustomTestDriver('http://127.0.0.1:' + CRemainingPort + '/', ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseWPM.clktmpl', CREParam_FileLocation_ValueDisk);
+      ExecuteTemplateOnCustomTestDriver('http://127.0.0.1:' + CRemainingPort + '/', ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseDistUIClicker.clktmpl', CREParam_FileLocation_ValueDisk);
+      ExecuteTemplateOnCustomTestDriver('http://127.0.0.1:' + CRemainingPort + '/', ExtractFilePath(ParamStr(0)) + 'TestDriverFiles\CloseMkWorkerUIClicker.clktmpl', CREParam_FileLocation_ValueDisk);
+    end;
+  finally
+    if MonitoringUIClicker_Proc <> nil then
+    begin
+      MonitoringUIClicker_Proc.Terminate(0);
+      MonitoringUIClicker_Proc.Free;
+    end;
   end;
-
-  if MonitoringUIClicker_Proc <> nil then
-  begin
-    MonitoringUIClicker_Proc.Terminate(0);
-    MonitoringUIClicker_Proc.Free;
-  end;
-
-  RemoveMachineFromWPM(FLocalIP);
-
-  FIdIPWatch.Free;
-  //inherited AfterAll_AlwaysExecute;
 end;
 
 

@@ -423,12 +423,6 @@ begin
 end;
 
 
-procedure UpdateWaitingProgress(AElapsedTime: Integer);
-begin
-  frmPitstopTestRunner.SetTimeoutProgressBarPosition(AElapsedTime);
-end;
-
-
 procedure TTestWorkerPoolManager.ExpectAppsStatusFromMachine(AWorkerMachineAddress, AExpectedStatus: string; ATimeout: Integer = 100000);
 begin
   FWorkerMachineAddress := AWorkerMachineAddress;
