@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 18 May 2024
     initial release date: 19 May 2024
 
@@ -195,7 +195,7 @@ const
     'TextWithArrow', //VariablesForWorkers
     'BooleanCombo',  //ExtraDebuggingInfo
     'BooleanCombo',  //EvaluateFileNameBeforeSending
-    'UserEditor',    //CustomFontProfiles
+    'TextWithArrow', //CustomFontProfiles   // This used to be 'UserEditor', instead of 'TextWithArrow', which opened the custom editor. Because the custom editor does not work properly from the dll, it will have to be replaced with a custom window. After that, this value can be reverted to 'UserEditor'.
     'EnumCombo',     //UseFontProfiles
     'SpinText',      //MinExpectedWorkerCount
     'SpinText'       //UpdateBackgroundInterval
@@ -359,7 +359,7 @@ const
     'Comma-separated list of variables, which will be sent to workers, before the actual action FindSubControl execution.',  //VariablesForWorkers
     'When set to True, the plugin updates a few variables with debugging information or statistics,' + #4#5 + 'like task allocation to workers - what font profiles end up on what workers, what bmp/pmtv files end up on what workers etc.',  //ExtraDebuggingInfo
     'Paths, which contain vars (e.g. $PluginPath$), will be evaluated before adding the files to archive.', //EvaluateFileNameBeforeSending
-    'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.' + #4#5 + 'For now, this is a path to a .clkprf file.',
+    'CustomFontProfiles, used instead of the existing profiles from the configured FindSubControl action.' + #4#5 + 'For now, this is a path to a .clkprf file.' + #4#5 + 'The path should not contain double quotes.',
     'When UseFontProfiles is ufpFromCustom, the font profiles, configured in CustomFontProfiles property, are used to distribute tasks.',
     'Minimum number of workers, which respond as available, that stops the waiting, before the time set by the GetWorkerCapabilitiesTimeout property, runs out.' + #4#5 + 'A value of MinExpectedWorkerCount, less than the available number of workers, allows setting a higher timeout value.' + #4#5 + 'Because of this, it is better to have idle workers, than always requiring the available number.', //MinExpectedWorkerCount
     'Loop period in [ms] at which the plugin takes new screenshots of the background.' + #4#5 + 'If a new screenshot is different than the previous, it is sent to workers for a new bitmap matching, which might result in a successful match.' + #4#5 + 'This loop is running while waiting for FindSubControl responses, then it stops.' //UpdateBackgroundInterval

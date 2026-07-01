@@ -1401,7 +1401,7 @@ procedure GetListOfProperties(APluginReference: Pointer;                 //UICli
 var
   Properties: string;
 begin
-  Properties := FillInPropertyDetails;
+  Properties := FillInPropertyDetails;  //Less than 10000 bytes, with the last property being "UpdateBackgroundInterval".
   AListOfPropertiesLen^ := SetPointedContentFromString(Properties, AListOfProperties);
 
   dmProperties := TdmProperties.Create(nil);
@@ -3744,6 +3744,7 @@ function EditProperty(APluginReference: Pointer;
 var
   CurrentValue, NewValue: string;
 begin
+  Result := False; //remove this line after fixing the below commented line with "Result :="
   ActionPlugin_AppProcMsgCallback := AOnActionPlugin_AppProcMsg;
   GPluginReference := APluginReference;
   DefaultPluginReference := APluginReference;
@@ -3753,8 +3754,9 @@ begin
 
   NewValue := CurrentValue;
 
-  //open editor here
-  Result := EditCustomFontProfilesProperty(APluginReference, AOnActionPlugin_InMemFS, APropertyIndex, CurrentValue, NewValue);
+  //open editor here:
+  //The following line is commented, until the TfrmDistFindSubControlPropertyEditor form is replaced by a custom implementation, which is not derived from TForm. Simply including the Forms unit and adding the form creation code, is enough to cause a crash. So far, it looks like a missing initialization and/or lack of proper initialization if the project is a library (dll). The property with the path to the custom font (CustomFontProfiles), will have to be updated manually.
+  //Result := EditCustomFontProfilesProperty(APluginReference, AOnActionPlugin_InMemFS, APropertyIndex, CurrentValue, NewValue);
   ALenOfNewValue^ := SetPointedContentFromString(NewValue, ANewValue);
 end;
 

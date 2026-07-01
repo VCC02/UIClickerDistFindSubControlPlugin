@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 07 May 2024
     initial release date: 19 May 2024
 
@@ -225,7 +225,8 @@ implementation
 
 
 uses
-  Math, ClickerExtraUtils, IdGlobal,
+  Math, ClickerExtraUtils,
+  //IdGlobal,
   DistFindSubControlPluginProperties, ClickerUtils;
 
 
