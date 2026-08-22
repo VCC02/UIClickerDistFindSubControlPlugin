@@ -2092,873 +2092,1189 @@ begin
 end;
 
 
-function ExecutePlugin(APluginReference: Pointer;
-                       AListOfPluginSettings: Pointer;
-                       AListOfPluginSettingsLen: PDWord;
+type
+  TDistPlugin = class
+  private
+    FPluginReference: Pointer;
+    FListOfPluginSettings: Pointer;
+    FListOfPluginSettingsLen: PDWord;
 
-                       AOnActionPlugin_GetActionCount: TOnActionPlugin_GetActionCount;
-                       AOnActionPlugin_GetActionInfoByIndex: TOnActionPlugin_GetActionInfoByIndex;
-                       AOnActionPlugin_GetActionContentByIndex: TOnActionPlugin_GetActionContentByIndex;
-                       AOnActionPlugin_ExecuteAction: TOnActionPlugin_ExecuteAction;
-                       AOnActionPlugin_GetAllTemplateVars: TOnActionPlugin_GetAllTemplateVars;
-                       AOnActionPlugin_SetTemplateVar: TOnActionPlugin_SetTemplateVar;
-                       AOnActionPlugin_DebugPoint: TOnActionPlugin_DebugPoint;
-                       AOnActionPlugin_AddToLog: TOnActionPlugin_AddToLog;
-                       AOnActionPlugin_SetResultImg: TOnActionPlugin_SetResultImg;
-                       AOnActionPlugin_LoadBitmap: TOnActionPlugin_LoadBitmap;
-                       AOnActionPlugin_GetAllowedFilesInfo: TOnActionPlugin_GetAllowedFilesInfo;
-                       AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
-                       AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
-                       AOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
-                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
-                       AOnActionPlugin_AppProcMsg: TOnActionPlugin_AppProcMsg
-                       ): Boolean; cdecl;
+    FOnActionPlugin_SetTemplateVar: TOnActionPlugin_SetTemplateVar;
+    FOnActionPlugin_GetAllTemplateVars: TOnActionPlugin_GetAllTemplateVars;
+    FOnActionPlugin_GetAllowedFilesInfo: TOnActionPlugin_GetAllowedFilesInfo;
+    FOnActionPlugin_LoadBitmap: TOnActionPlugin_LoadBitmap;
+    FOnActionPlugin_AddToLog: TOnActionPlugin_AddToLog;
+    FOnActionPlugin_SetResultImg: TOnActionPlugin_SetResultImg;
+    FOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
+    FOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
+    FOnActionPlugin_GetActionContentByIndex: TOnActionPlugin_GetActionContentByIndex;
+    FOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+    FOnActionPlugin_DebugPoint: TOnActionPlugin_DebugPoint;
+    FOnActionPlugin_ExecuteAction: TOnActionPlugin_ExecuteAction;
+    FOnActionPlugin_AppProcMsg: TOnActionPlugin_AppProcMsg;
+    FOnActionPlugin_GetActionCount: TOnActionPlugin_GetActionCount;
+    FOnActionPlugin_GetActionInfoByIndex: TOnActionPlugin_GetActionInfoByIndex;
+    FOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
+
+    UsingCompression: Boolean;
+    ListOfPluginSettings: TStringList;
+    IndexOfFindSubControlActionProperty: Integer;
+
+    procedure SetTemplateVar(AVarName, AVarValue: string);
+    procedure GetAllTemplateVars(out AAllTemplateVars: string);
+    function GetPluginSettings: string;
+    procedure GenerateSomeResultImg(AListOfAllVars: TStringList);
+    procedure SaveBitmapToExtRenderingInMemFS;
+    function HashFoundInFileCacheInfo(AFileCacheInfo: TStringList; AHash: string): Boolean;
+    procedure OpenBkArchiveForAddingBackground(AArchiveHandlers: TArchiveHandlers);
+    procedure OpenWorkerArchivesForAddingBitmaps(AArchiveHandlers: TArchiveHandlers);
+    function FileExistsInCache(AWorkerCache: TStringList; AFileName: string; AFileContent: TMemoryStream): Boolean;
+    function BackgroundChanged(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string): Boolean;
+    function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
+    function GetFullTemplatesDir: string;
+    function ResolveTemplatePath(APath: string): string;
+    procedure AddBitmapsToWorkerArchives(AListOfAllVars: TStringList);
+    procedure GetFontsUsedByPmtvs(AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions; var AFontsUsedByPmtvs: TStringArray);
+    procedure AssignTasksToWorkers(AMaxSplitActionsCount: Integer; AListOfBmps, AListOfPmtvs, AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions);
+    function CloseBkArchive: Boolean;
+    function CloseWorkerArchives: Boolean;
+    function UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList): Boolean;
+    function GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
+    function ExecPlugin: Boolean;
+  end;
+
+
+procedure TDistPlugin.SetTemplateVar(AVarName, AVarValue: string);
+begin
+  FOnActionPlugin_SetTemplateVar(FPluginReference, @AVarName[1], @AVarValue[1]);
+end;
+
+
+procedure TDistPlugin.GetAllTemplateVars(out AAllTemplateVars: string);  //AAllTemplateVars are encoded as CRLF separated key=value strings, ready to be used on a TStringlist
 var
-  ActionCount, IndexOfFindSubControlActionProperty: Integer;
-  PluginSettingsStr, AllVarsStr: string;
-  TempPluginMQTTClientHandlers: TPluginMQTTClientHandlers;
+  Buffer: string;
+  AllTemplateVarsPtr: Pointer;
+  NameLengthDWord: DWord;
+begin
+  SetLength(Buffer, CMaxSharedStringLength + 1);
+  AllTemplateVarsPtr := @Buffer[1];
+  NameLengthDWord := 0;
+  AAllTemplateVars := '';
+
+  FOnActionPlugin_GetAllTemplateVars(FPluginReference, AllTemplateVarsPtr, @NameLengthDWord);  //decode action execution results
+
+  SetPointedContentToString(AllTemplateVarsPtr, AAllTemplateVars);
+  SetLength(AAllTemplateVars, NameLengthDWord);
+end;
+
+
+function TDistPlugin.GetPluginSettings: string;
+begin
+  SetLength(Result, CMaxSharedStringLength);
+  SetPointedContentToString(FListOfPluginSettings, Result);
+  SetLength(Result, FListOfPluginSettingsLen^);
+end;
+
+
+procedure TDistPlugin.GenerateSomeResultImg(AListOfAllVars: TStringList);
+var
+  TempBmp, BkBmp: TBitmap;
+  TempStream: TMemoryStream;
+  TempFnm: string;
+begin
+  TempBmp := TBitmap.Create;
+  BkBmp := TBitmap.Create;
+  TempStream := TMemoryStream.Create;
+  try
+    TempBmp.Width := 700;
+    TempBmp.Height := 400;
+    TempBmp.Canvas.Brush.Color := clBlack;
+    TempBmp.Canvas.Pen.Color := clBlack;
+
+    TempFnm := ExtractFilePath(ParamStr(0)) + 'Tests\TestFiles\Gradient30deg.bmp';
+    if LoadBitmap(FPluginReference,
+                  FOnActionPlugin_GetAllowedFilesInfo,
+                  FOnActionPlugin_LoadBitmap,
+                  FOnActionPlugin_AddToLog,
+                  AListOfAllVars,
+                  TempFnm,
+                  BkBmp,
+                  isflDisk) then
+      TempBmp.Canvas.Draw(50, 25, BkBmp);
+
+    TempBmp.Canvas.Font.Color := clYellow;
+    TempBmp.Canvas.Font.Name := 'Courier New';
+    TempBmp.Canvas.TextOut(30, 10, 'Plugin done.');
+
+    TempBmp.SaveToStream(TempStream);
+    FOnActionPlugin_SetResultImg(FPluginReference, 0, 0, 0, TempStream.Memory, TempStream.Size, TempBmp.Width, TempBmp.Height);
+  finally
+    TempStream.Free;
+    TempBmp.Free;
+    BkBmp.Free;
+  end;
+end;
+
+
+procedure TDistPlugin.SaveBitmapToExtRenderingInMemFS;
+var
+  Bmp: TBitmap;
+  MemStream: TMemoryStream;
+begin
+  Bmp := TBitmap.Create;
+  MemStream := TMemoryStream.Create;
+  try
+    Bmp.Width := 150;
+    Bmp.Height := 180;
+    Bmp.PixelFormat := pf24bit;
+    Bmp.Canvas.Brush.Color := clBlack;
+    Bmp.Canvas.Font.Color := clYellow;
+    Bmp.Canvas.TextOut(50, 60, 'Generated bitmap');
+    Bmp.Canvas.TextOut(50, 130, 'Generated bitmap');
+    bmp.SaveToStream(MemStream);
+
+    FOnActionPlugin_SetBitmap(FPluginReference, @string('GenBmp.bmp')[1], MemStream.Memory, MemStream.Size, Bmp.Width, Bmp.Height);
+  finally
+    Bmp.Free;
+    MemStream.Free;
+  end;
+end;
+
+//var
+//  SplitActions: array of TClkFindControlOptions;
+
+function TDistPlugin.HashFoundInFileCacheInfo(AFileCacheInfo: TStringList; AHash: string): Boolean;
+var
+  i: Integer;
   s: string;
-  ActionTypeDWord: DWord;
-  ActionType: TClkAction;
-  UsingCompression: Boolean;
-  ListOfPluginSettings: TStringList;
+begin
+  Result := False;
 
-  procedure SetTemplateVar(AVarName, AVarValue: string);
+  for i := 0 to AFileCacheInfo.Count - 1 do
   begin
-    AOnActionPlugin_SetTemplateVar(APluginReference, @AVarName[1], @AVarValue[1]);
-  end;
+    s := AFileCacheInfo.Strings[i];
+    s := Copy(s, Pos(CDefaultInMemFileNameHashSeparator, s) + Length(CDefaultInMemFileNameHashSeparator), MaxInt);
 
-  procedure GetAllTemplateVars(out AAllTemplateVars: string);  //AAllTemplateVars are encoded as CRLF separated key=value strings, ready to be used on a TStringlist
-  var
-    Buffer: string;
-    AllTemplateVarsPtr: Pointer;
-    NameLengthDWord: DWord;
-  begin
-    SetLength(Buffer, CMaxSharedStringLength + 1);
-    AllTemplateVarsPtr := @Buffer[1];
-    NameLengthDWord := 0;
-    AAllTemplateVars := '';
-
-    AOnActionPlugin_GetAllTemplateVars(APluginReference, AllTemplateVarsPtr, @NameLengthDWord);  //decode action execution results
-
-    SetPointedContentToString(AllTemplateVarsPtr, AAllTemplateVars);
-    SetLength(AAllTemplateVars, NameLengthDWord);
-  end;
-
-  function GetPluginSettings: string;
-  begin
-    SetLength(Result, CMaxSharedStringLength);
-    SetPointedContentToString(AListOfPluginSettings, Result);
-    SetLength(Result, AListOfPluginSettingsLen^);
-  end;
-
-  procedure GenerateSomeResultImg(AListOfAllVars: TStringList);
-  var
-    TempBmp, BkBmp: TBitmap;
-    TempStream: TMemoryStream;
-    TempFnm: string;
-  begin
-    TempBmp := TBitmap.Create;
-    BkBmp := TBitmap.Create;
-    TempStream := TMemoryStream.Create;
-    try
-      TempBmp.Width := 700;
-      TempBmp.Height := 400;
-      TempBmp.Canvas.Brush.Color := clBlack;
-      TempBmp.Canvas.Pen.Color := clBlack;
-
-      TempFnm := ExtractFilePath(ParamStr(0)) + 'Tests\TestFiles\Gradient30deg.bmp';
-      if LoadBitmap(APluginReference,
-                    AOnActionPlugin_GetAllowedFilesInfo,
-                    AOnActionPlugin_LoadBitmap,
-                    AOnActionPlugin_AddToLog,
-                    AListOfAllVars,
-                    TempFnm,
-                    BkBmp,
-                    isflDisk) then
-        TempBmp.Canvas.Draw(50, 25, BkBmp);
-
-      TempBmp.Canvas.Font.Color := clYellow;
-      TempBmp.Canvas.Font.Name := 'Courier New';
-      TempBmp.Canvas.TextOut(30, 10, 'Plugin done.');
-
-      TempBmp.SaveToStream(TempStream);
-      AOnActionPlugin_SetResultImg(APluginReference, 0, 0, 0, TempStream.Memory, TempStream.Size, TempBmp.Width, TempBmp.Height);
-    finally
-      TempStream.Free;
-      TempBmp.Free;
-      BkBmp.Free;
-    end;
-  end;
-
-  procedure SaveBitmapToExtRenderingInMemFS;
-  var
-    Bmp: TBitmap;
-    MemStream: TMemoryStream;
-  begin
-    Bmp := TBitmap.Create;
-    MemStream := TMemoryStream.Create;
-    try
-      Bmp.Width := 150;
-      Bmp.Height := 180;
-      Bmp.PixelFormat := pf24bit;
-      Bmp.Canvas.Brush.Color := clBlack;
-      Bmp.Canvas.Font.Color := clYellow;
-      Bmp.Canvas.TextOut(50, 60, 'Generated bitmap');
-      Bmp.Canvas.TextOut(50, 130, 'Generated bitmap');
-      bmp.SaveToStream(MemStream);
-
-      AOnActionPlugin_SetBitmap(APluginReference, @string('GenBmp.bmp')[1], MemStream.Memory, MemStream.Size, Bmp.Width, Bmp.Height);
-    finally
-      Bmp.Free;
-      MemStream.Free;
-    end;
-  end;
-
-  //var
-  //  SplitActions: array of TClkFindControlOptions;
-
-  function HashFoundInFileCacheInfo(AFileCacheInfo: TStringList; AHash: string): Boolean;
-  var
-    i: Integer;
-    s: string;
-  begin
-    Result := False;
-
-    for i := 0 to AFileCacheInfo.Count - 1 do
+    if s = AHash then
     begin
-      s := AFileCacheInfo.Strings[i];
-      s := Copy(s, Pos(CDefaultInMemFileNameHashSeparator, s) + Length(CDefaultInMemFileNameHashSeparator), MaxInt);
+      Result := True;
+      Break;
+    end;
+  end;
+end;
 
-      if s = AHash then
+
+procedure TDistPlugin.OpenBkArchiveForAddingBackground(AArchiveHandlers: TArchiveHandlers);
+begin
+  BkArchive.OpenArchive(BkArchiveStream, True);
+  BkArchive.OnCompress := AArchiveHandlers.HandleOnCompress;
+  BkArchive.OnDecompress := AArchiveHandlers.HandleOnDecompress;
+  BkArchive.OnComputeArchiveHash := AArchiveHandlers.HandleOnComputeArchiveHash;
+  BkArchive.Password := '';
+
+  BkArchive.CompressionLevel := 9 * Ord(UsingCompression);
+end;
+
+
+procedure TDistPlugin.OpenWorkerArchivesForAddingBitmaps(AArchiveHandlers: TArchiveHandlers);
+var
+  i: Integer;
+begin
+  for i := 0 to Length(AllWorkers) - 1 do
+  begin
+    AllWorkers[i].Archive.OpenArchive(AllWorkers[i].ArchiveStream, True);
+    AllWorkers[i].Archive.OnCompress := AArchiveHandlers.HandleOnCompress;
+    AllWorkers[i].Archive.OnDecompress := AArchiveHandlers.HandleOnDecompress;
+    AllWorkers[i].Archive.OnComputeArchiveHash := AArchiveHandlers.HandleOnComputeArchiveHash;
+    AllWorkers[i].Archive.Password := '';
+
+    AllWorkers[i].Archive.CompressionLevel := 9 * Ord(UsingCompression);
+  end;
+
+  OpenBkArchiveForAddingBackground(AArchiveHandlers);
+end;
+
+
+function TDistPlugin.FileExistsInCache(AWorkerCache: TStringList; AFileName: string; AFileContent: TMemoryStream): Boolean;
+var
+  FileHash: string;
+begin
+  FileHash := ClickerExtraUtils.ComputeHash(AFileContent.Memory, AFileContent.Size);
+  Result := AWorkerCache.IndexOf(AFileName + CDefaultInMemFileNameHashSeparator + FileHash) > -1;
+end;
+
+
+function TDistPlugin.BackgroundChanged(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string): Boolean;
+var
+  TempBk, PreBk: TMemoryStream;
+  BkFileNameLocation: TImageSourceFileNameLocation;
+begin
+  Result := True;
+  BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+
+  PreBk := TMemoryStream.Create;
+  try
+    ASourceFileName := CScreenshotFilename;
+
+    if LoadBitmapAsStream(FPluginReference, FOnActionPlugin_GetAllowedFilesInfo, FOnActionPlugin_LoadBitmap, FOnActionPlugin_AddToLog, AListOfAllVars, ASourceFileName, PreBk, BkFileNameLocation) then
+    begin
+      if AImageSource = '0' then  //isScreenshot
       begin
-        Result := True;
-        Break;
+        //this updates the background in memory
+        FOnActionPlugin_Screenshot(FPluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
       end;
-    end;
-  end;
 
-  procedure OpenBkArchiveForAddingBackground(AArchiveHandlers: TArchiveHandlers);
-  begin
-    BkArchive.OpenArchive(BkArchiveStream, True);
-    BkArchive.OnCompress := AArchiveHandlers.HandleOnCompress;
-    BkArchive.OnDecompress := AArchiveHandlers.HandleOnDecompress;
-    BkArchive.OnComputeArchiveHash := AArchiveHandlers.HandleOnComputeArchiveHash;
-    BkArchive.Password := '';
-
-    BkArchive.CompressionLevel := 9 * Ord(UsingCompression);
-  end;
-
-  procedure OpenWorkerArchivesForAddingBitmaps(AArchiveHandlers: TArchiveHandlers);
-  var
-    i: Integer;
-  begin
-    for i := 0 to Length(AllWorkers) - 1 do
-    begin
-      AllWorkers[i].Archive.OpenArchive(AllWorkers[i].ArchiveStream, True);
-      AllWorkers[i].Archive.OnCompress := AArchiveHandlers.HandleOnCompress;
-      AllWorkers[i].Archive.OnDecompress := AArchiveHandlers.HandleOnDecompress;
-      AllWorkers[i].Archive.OnComputeArchiveHash := AArchiveHandlers.HandleOnComputeArchiveHash;
-      AllWorkers[i].Archive.Password := '';
-
-      AllWorkers[i].Archive.CompressionLevel := 9 * Ord(UsingCompression);
-    end;
-
-    OpenBkArchiveForAddingBackground(AArchiveHandlers);
-  end;
-
-
-  function FileExistsInCache(AWorkerCache: TStringList; AFileName: string; AFileContent: TMemoryStream): Boolean;
-  var
-    FileHash: string;
-  begin
-    FileHash := ClickerExtraUtils.ComputeHash(AFileContent.Memory, AFileContent.Size);
-    Result := AWorkerCache.IndexOf(AFileName + CDefaultInMemFileNameHashSeparator + FileHash) > -1;
-  end;
-
-
-  function BackgroundChanged(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string): Boolean;
-  var
-    TempBk, PreBk: TMemoryStream;
-    BkFileNameLocation: TImageSourceFileNameLocation;
-  begin
-    Result := True;
-    BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
-
-    PreBk := TMemoryStream.Create;
-    try
-      ASourceFileName := CScreenshotFilename;
-
-      if LoadBitmapAsStream(APluginReference, AOnActionPlugin_GetAllowedFilesInfo, AOnActionPlugin_LoadBitmap, AOnActionPlugin_AddToLog, AListOfAllVars, ASourceFileName, PreBk, BkFileNameLocation) then
-      begin
-        if AImageSource = '0' then  //isScreenshot
+      TempBk := TMemoryStream.Create;
+      try
+        if LoadBitmapAsStream(FPluginReference, FOnActionPlugin_GetAllowedFilesInfo, FOnActionPlugin_LoadBitmap, FOnActionPlugin_AddToLog, AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
         begin
-          //this updates the background in memory
-          AOnActionPlugin_Screenshot(APluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
+          if PreBk.Size = TempBk.Size then
+            if CompareMem(PreBk.Memory, TempBk.Memory, PreBk.Size) then
+            begin
+              Result := False;
+              Exit;
+            end;
         end;
-
-        TempBk := TMemoryStream.Create;
-        try
-          if LoadBitmapAsStream(APluginReference, AOnActionPlugin_GetAllowedFilesInfo, AOnActionPlugin_LoadBitmap, AOnActionPlugin_AddToLog, AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
-          begin
-            if PreBk.Size = TempBk.Size then
-              if CompareMem(PreBk.Memory, TempBk.Memory, PreBk.Size) then
-              begin
-                Result := False;
-                Exit;
-              end;
-          end;
-        finally
-          TempBk.Free;
-        end;
-      end  //LoadBitmapAsStream - PreBk
-      else
-        raise Exception.Create('----------- LoadBitmapAsStream(PreBk) is False. Probably the file does not exist: ' + ASourceFileName);
-    finally
-      PreBk.Free;
-    end;
+      finally
+        TempBk.Free;
+      end;
+    end  //LoadBitmapAsStream - PreBk
+    else
+      raise Exception.Create('----------- LoadBitmapAsStream(PreBk) is False. Probably the file does not exist: ' + ASourceFileName);
+  finally
+    PreBk.Free;
   end;
+end;
 
 
-  function AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
-  var
-    TempBk: TMemoryStream;
-    BkFileNameLocation: TImageSourceFileNameLocation;
-    TempBmp: TBitmap;
+function TDistPlugin.AddBackgroundBitmapToWorkerArchives(AListOfAllVars: TStringList; AImageSource, AImageSourceFileNameLocation, ASourceFileName: string; out ABackgroundSize: Int64; out ABackgroundWidth, ABackgroundHeight: Integer): Boolean;
+var
+  TempBk: TMemoryStream;
+  BkFileNameLocation: TImageSourceFileNameLocation;
+  TempBmp: TBitmap;
+begin
+  Result := True;
+  ABackgroundSize := -2; //init with something
+  ABackgroundWidth := 1;
+  ABackgroundHeight := 1;
+
+  BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
+
+  if AImageSource = '0' then  //isScreenshot
   begin
-    Result := True;
-    ABackgroundSize := -2; //init with something
-    ABackgroundWidth := 1;
-    ABackgroundHeight := 1;
+    if VerbLevel < 2 then
+      AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
 
-    BkFileNameLocation := TImageSourceFileNameLocation(StrToIntDef(AImageSourceFileNameLocation, 1));
-
-    if AImageSource = '0' then  //isScreenshot
-    begin
-      if VerbLevel < 2 then
-        AddToLog('----------- ImageSource is a screenshot. Taking the screenshot, using the settings from ' + ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex] + ' action.');
-
-      AOnActionPlugin_Screenshot(APluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
-
-      if VerbLevel < 2 then
-        AddToLog('----------- The screenshot should be found in in-mem FS, as ' + CScreenshotFilename);
-
-      ASourceFileName := CScreenshotFilename;
-    end;
+    FOnActionPlugin_Screenshot(FPluginReference, @string(ListOfPluginSettings.ValueFromIndex[CFindSubControlActionPropertyIndex])[1]);
 
     if VerbLevel < 2 then
-      AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
+      AddToLog('----------- The screenshot should be found in in-mem FS, as ' + CScreenshotFilename);
 
-    TempBk := TMemoryStream.Create;
-    try
-      if LoadBitmapAsStream(APluginReference, AOnActionPlugin_GetAllowedFilesInfo, AOnActionPlugin_LoadBitmap, AOnActionPlugin_AddToLog, AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
-      begin
-        ABackgroundSize := TempBk.Size;
-        //BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
-
-        //if not FileExistsInCache(AllWorkers[0].FileCacheInfo, CBackgroundFileNameInArchive, TempBk) then    The problem right now, is that the same background archive is sent to all workers. That means the cache has to be verified for all workers and only some of them may need thi archive.
-        BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
-
-        TempBmp := TBitmap.Create;
-        try
-          TempBk.Position := 0;
-          TempBmp.LoadFromStream(TempBk);
-          ABackgroundWidth := TempBmp.Width;
-          ABackgroundHeight := TempBmp.Height;
-
-          if VerbLevel < 2 then
-            AddToLog('----------- Background size: ' + IntToStr(TempBmp.Width) + ' : ' + IntToStr(TempBmp.Height));
-        finally
-          TempBmp.Free;
-        end;
-      end
-      else
-      begin
-        ABackgroundSize := 0;
-        raise Exception.Create('----------- LoadBitmapAsStream is False. Probably the file does not exist: ' + ASourceFileName);
-      end;
-    finally
-      TempBk.Free;
-    end;
+    ASourceFileName := CScreenshotFilename;
   end;
 
+  if VerbLevel < 2 then
+    AddToLog('----------- Loading background bitmap as stream and adding it to archive...');
 
-  function GetFullTemplatesDir: string;
-  var
-    FullTemplatesDir, AllowedFileDirsForServer, AllowedFileExtensionsForServer: string;
-    FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr: Pointer;
-  begin
-    SetLength(FullTemplatesDir, CMaxSharedStringLength + 1);
-    SetLength(AllowedFileDirsForServer, CMaxSharedStringLength + 1);
-    SetLength(AllowedFileExtensionsForServer, CMaxSharedStringLength + 1);
-
-    FullTemplatesDirPtr := @FullTemplatesDir[1];
-    AllowedFileDirsForServerPtr := @AllowedFileDirsForServer[1];
-    AllowedFileExtensionsForServerPtr := @AllowedFileExtensionsForServer[1];
-
-    AOnActionPlugin_GetAllowedFilesInfo(APluginReference, FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr);
-    FullTemplatesDir := Copy(FullTemplatesDir, 1, Pos(#0, FullTemplatesDir) - 1);
-    Result := FullTemplatesDir;
-  end;
-
-
-  function ResolveTemplatePath(APath: string): string;
-  begin
-    if (Pos('$TemplateDir$', APath) = 0) and
-       (Pos('$SelfTemplateDir$', APath) = 0)and
-       (Pos('$AppDir$', APath) = 0) then
+  TempBk := TMemoryStream.Create;
+  try
+    if LoadBitmapAsStream(FPluginReference, FOnActionPlugin_GetAllowedFilesInfo, FOnActionPlugin_LoadBitmap, FOnActionPlugin_AddToLog, AListOfAllVars, ASourceFileName, TempBk, BkFileNameLocation) then
     begin
-      Result := APath;
-      Exit;
-    end;
+      ABackgroundSize := TempBk.Size;
+      //BkHash := ComputeHash(TempBk.Memory, TempBk.Size);
 
-    Result := StringReplace(APath, '$TemplateDir$', GetFullTemplatesDir, [rfReplaceAll]);
-    Result := StringReplace(Result, '$SelfTemplateDir$', '<$SelfTemplateDir$ replacement is not supported in plugins.>', [rfReplaceAll]);
-    Result := StringReplace(Result, '$AppDir$', ExtractFileDir(ParamStr(0)), [rfReplaceAll]);
-  end;
+      //if not FileExistsInCache(AllWorkers[0].FileCacheInfo, CBackgroundFileNameInArchive, TempBk) then    The problem right now, is that the same background archive is sent to all workers. That means the cache has to be verified for all workers and only some of them may need thi archive.
+      BkArchive.AddFromStream(CBackgroundFileNameInArchive, TempBk);
 
-
-  //procedure RemoveDuplicatesFromTStringList(AListOfStr: TStringList);
-  //var
-  //  i, j: Integer;
-  //  s: string;
-  //begin
-  //  for i := AListOfStr.Count - 1 downto 0 do
-  //  begin
-  //    s := AListOfStr.Strings[i]; //use a temp var, because the item will be deleted
-  //    for j := AListOfStr.Count - 1 downto 0 do
-  //      if j <> i then
-  //        if AListOfStr.Strings[j] = s then
-  //          AListOfStr.Delete(j);
-  //  end;
-  //end;
-
-
-  procedure AddBitmapsToWorkerArchives(AListOfAllVars: TStringList);
-  const
-    CFileExistsInArchiveErr = 'Another file with the exact same name is already in archive.';
-  var
-    i, j, k: Integer;
-    TempFilesToSend: TStringList;
-    TempMemFile, UsedBmpTempMemFile: TMemoryStream;
-    FileLoc: TImageSourceFileNameLocation;
-    PmtvIni: TClkIniFile;
-    BmpsInPmtv: TStringList;
-    Fnm, BmpFnm, FnmForArchive: string;
-  begin
-    for i := 0 to Length(AllWorkers) - 1 do
-    begin
-      TempFilesToSend := TStringList.Create;
+      TempBmp := TBitmap.Create;
       try
-        TempFilesToSend.LineBreak := #13#10;
-        TempFilesToSend.Text := AllWorkers[i].FilesToSend;
+        TempBk.Position := 0;
+        TempBmp.LoadFromStream(TempBk);
+        ABackgroundWidth := TempBmp.Width;
+        ABackgroundHeight := TempBmp.Height;
 
-        //RemoveDuplicatesFromTStringList(TempFilesToSend); //not enough to be called here
+        if VerbLevel < 2 then
+          AddToLog('----------- Background size: ' + IntToStr(TempBmp.Width) + ' : ' + IntToStr(TempBmp.Height));
+      finally
+        TempBmp.Free;
+      end;
+    end
+    else
+    begin
+      ABackgroundSize := 0;
+      raise Exception.Create('----------- LoadBitmapAsStream is False. Probably the file does not exist: ' + ASourceFileName);
+    end;
+  finally
+    TempBk.Free;
+  end;
+end;
 
-        for j := 0 to TempFilesToSend.Count - 1 do
-        begin
-          TempMemFile := TMemoryStream.Create;
-          try
-            if VerbLevel < 2 then
-              AddToLog('----------- Loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
 
-            if Pos(CExtBmp_PrefixUpperCase, UpperCase(TempFilesToSend.Strings[j])) = 1 then
-              FileLoc := isflMem
-            else
-              FileLoc := isflDisk;
+function TDistPlugin.GetFullTemplatesDir: string;
+var
+  FullTemplatesDir, AllowedFileDirsForServer, AllowedFileExtensionsForServer: string;
+  FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr: Pointer;
+begin
+  SetLength(FullTemplatesDir, CMaxSharedStringLength + 1);
+  SetLength(AllowedFileDirsForServer, CMaxSharedStringLength + 1);
+  SetLength(AllowedFileExtensionsForServer, CMaxSharedStringLength + 1);
 
-                   //The use of ExpandFileName requires more testing.
-            Fnm := ResolveTemplatePath(TempFilesToSend.Strings[j]);
-            if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-              if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                Fnm := ExpandFileName(Fnm);
+  FullTemplatesDirPtr := @FullTemplatesDir[1];
+  AllowedFileDirsForServerPtr := @AllowedFileDirsForServer[1];
+  AllowedFileExtensionsForServerPtr := @AllowedFileExtensionsForServer[1];
 
-            if LoadBitmapAsStream(APluginReference, AOnActionPlugin_GetAllowedFilesInfo, AOnActionPlugin_LoadBitmap, AOnActionPlugin_AddToLog, AListOfAllVars, Fnm, TempMemFile, FileLoc) then
-            begin
-              TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
+  FOnActionPlugin_GetAllowedFilesInfo(FPluginReference, FullTemplatesDirPtr, AllowedFileDirsForServerPtr, AllowedFileExtensionsForServerPtr);
+  FullTemplatesDir := Copy(FullTemplatesDir, 1, Pos(#0, FullTemplatesDir) - 1);
+  Result := FullTemplatesDir;
+end;
 
-              if UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV' then
-              begin           //open the pmtv file and get the list of used bitmaps
-                TempMemFile.Position := 0;
-                PmtvIni := TClkIniFile.Create(TempMemFile);
+
+function TDistPlugin.ResolveTemplatePath(APath: string): string;
+begin
+  if (Pos('$TemplateDir$', APath) = 0) and
+     (Pos('$SelfTemplateDir$', APath) = 0)and
+     (Pos('$AppDir$', APath) = 0) then
+  begin
+    Result := APath;
+    Exit;
+  end;
+
+  Result := StringReplace(APath, '$TemplateDir$', GetFullTemplatesDir, [rfReplaceAll]);
+  Result := StringReplace(Result, '$SelfTemplateDir$', '<$SelfTemplateDir$ replacement is not supported in plugins.>', [rfReplaceAll]);
+  Result := StringReplace(Result, '$AppDir$', ExtractFileDir(ParamStr(0)), [rfReplaceAll]);
+end;
+
+
+//procedure RemoveDuplicatesFromTStringList(AListOfStr: TStringList);
+//var
+//  i, j: Integer;
+//  s: string;
+//begin
+//  for i := AListOfStr.Count - 1 downto 0 do
+//  begin
+//    s := AListOfStr.Strings[i]; //use a temp var, because the item will be deleted
+//    for j := AListOfStr.Count - 1 downto 0 do
+//      if j <> i then
+//        if AListOfStr.Strings[j] = s then
+//          AListOfStr.Delete(j);
+//  end;
+//end;
+
+
+procedure TDistPlugin.AddBitmapsToWorkerArchives(AListOfAllVars: TStringList);
+const
+  CFileExistsInArchiveErr = 'Another file with the exact same name is already in archive.';
+var
+  i, j, k: Integer;
+  TempFilesToSend: TStringList;
+  TempMemFile, UsedBmpTempMemFile: TMemoryStream;
+  FileLoc: TImageSourceFileNameLocation;
+  PmtvIni: TClkIniFile;
+  BmpsInPmtv: TStringList;
+  Fnm, BmpFnm, FnmForArchive: string;
+begin
+  for i := 0 to Length(AllWorkers) - 1 do
+  begin
+    TempFilesToSend := TStringList.Create;
+    try
+      TempFilesToSend.LineBreak := #13#10;
+      TempFilesToSend.Text := AllWorkers[i].FilesToSend;
+
+      //RemoveDuplicatesFromTStringList(TempFilesToSend); //not enough to be called here
+
+      for j := 0 to TempFilesToSend.Count - 1 do
+      begin
+        TempMemFile := TMemoryStream.Create;
+        try
+          if VerbLevel < 2 then
+            AddToLog('----------- Loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '" and adding it to archive.');
+
+          if Pos(CExtBmp_PrefixUpperCase, UpperCase(TempFilesToSend.Strings[j])) = 1 then
+            FileLoc := isflMem
+          else
+            FileLoc := isflDisk;
+
+                 //The use of ExpandFileName requires more testing.
+          Fnm := ResolveTemplatePath(TempFilesToSend.Strings[j]);
+          if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+            if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+              Fnm := ExpandFileName(Fnm);
+
+          if LoadBitmapAsStream(FPluginReference, FOnActionPlugin_GetAllowedFilesInfo, FOnActionPlugin_LoadBitmap, FOnActionPlugin_AddToLog, AListOfAllVars, Fnm, TempMemFile, FileLoc) then
+          begin
+            TempFilesToSend.Strings[j] := ResolveTemplatePath(TempFilesToSend.Strings[j]);
+
+            if UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV' then
+            begin           //open the pmtv file and get the list of used bitmaps
+              TempMemFile.Position := 0;
+              PmtvIni := TClkIniFile.Create(TempMemFile);
+              try
+                BmpsInPmtv := TStringList.Create;
                 try
-                  BmpsInPmtv := TStringList.Create;
-                  try
-                    BmpsInPmtv.LineBreak := #13#10;
-                    GetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
-                    for k := 0 to BmpsInPmtv.Count - 1 do
-                    begin
-                      UsedBmpTempMemFile := TMemoryStream.Create;
-                      try
-                        if VerbLevel < 2 then
-                          AddToLog('----------- Loading bitmap (used by pmtv) as stream: "' + BmpsInPmtv.Strings[k] + '" and adding it to archive.');
+                  BmpsInPmtv.LineBreak := #13#10;
+                  GetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
+                  for k := 0 to BmpsInPmtv.Count - 1 do
+                  begin
+                    UsedBmpTempMemFile := TMemoryStream.Create;
+                    try
+                      if VerbLevel < 2 then
+                        AddToLog('----------- Loading bitmap (used by pmtv) as stream: "' + BmpsInPmtv.Strings[k] + '" and adding it to archive.');
 
-                        if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpsInPmtv.Strings[k])) = 1 then
-                          FileLoc := isflMem
-                        else
-                          FileLoc := isflDisk;
+                      if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpsInPmtv.Strings[k])) = 1 then
+                        FileLoc := isflMem
+                      else
+                        FileLoc := isflDisk;
 
-                        BmpFnm := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
-                        //The use of ExpandFileName requires more testing.
-                        if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpFnm)) = 0 then //do not expand ExtMem paths
-                          if Pos('$APPDIR$', UpperCase(BmpFnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\Win.bmp", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                            BmpFnm := ExpandFileName(BmpFnm);
+                      BmpFnm := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
+                      //The use of ExpandFileName requires more testing.
+                      if Pos(CExtBmp_PrefixUpperCase, UpperCase(BmpFnm)) = 0 then //do not expand ExtMem paths
+                        if Pos('$APPDIR$', UpperCase(BmpFnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\Win.bmp", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                          BmpFnm := ExpandFileName(BmpFnm);
 
-                        if LoadBitmapAsStream(APluginReference, AOnActionPlugin_GetAllowedFilesInfo, AOnActionPlugin_LoadBitmap, AOnActionPlugin_AddToLog, AListOfAllVars, BmpFnm, UsedBmpTempMemFile, FileLoc) then
+                      if LoadBitmapAsStream(FPluginReference, FOnActionPlugin_GetAllowedFilesInfo, FOnActionPlugin_LoadBitmap, FOnActionPlugin_AddToLog, AListOfAllVars, BmpFnm, UsedBmpTempMemFile, FileLoc) then
+                      begin
+                        BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
+
+                        if FDistPluginOptions.EvaluateFileNameBeforeSending then
                         begin
-                          BmpsInPmtv.Strings[k] := ResolveTemplatePath(BmpsInPmtv.Strings[k]);
-
-                          if FDistPluginOptions.EvaluateFileNameBeforeSending then
-                          begin
-                            FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
-
-                            if VerbLevel < 2 then
-                              AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
-
-                            try
-                              if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
-                                AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
-                            except
-                              on E: Exception do
-                                if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
-                                  raise;
-                            end;
-                          end
-                          else
-                          begin
-                            FnmForArchive := BmpsInPmtv.Strings[k];
-
-                            if VerbLevel < 2 then
-                              AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
-
-                            try
-                              if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
-                                AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
-                            except
-                              on E: Exception do
-                                if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
-                                  raise;
-                            end;
-                          end;
+                          FnmForArchive := EvaluateAllReplacements(AListOfAllVars, BmpsInPmtv.Strings[k]);
 
                           if VerbLevel < 2 then
-                            AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
+                            AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+
+                          try
+                            if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
+                              AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                          except
+                            on E: Exception do
+                              if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                                raise;
+                          end;
                         end
                         else
                         begin
-                          FnmForArchive := BmpsInPmtv.Strings[k]; //Provide a default. Anyway, the task will fail.
-                          FLatestMsg := 'Error loading bitmap used by pmtv as stream: "' + BmpsInPmtv.Strings[k] + '".';
-                          raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
+                          FnmForArchive := BmpsInPmtv.Strings[k];
+
+                          if VerbLevel < 2 then
+                            AddToLog('--------------- Adding "' + FnmForArchive + '" bitmap used by pmtv, to archive');
+
+                          try
+                            if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, UsedBmpTempMemFile) then
+                              AllWorkers[i].Archive.AddFromStream(FnmForArchive, UsedBmpTempMemFile);
+                          except
+                            on E: Exception do
+                              if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                                raise;
+                          end;
                         end;
-                      finally
-                        UsedBmpTempMemFile.Free;
-                      end;
 
-                      if FDistPluginOptions.EvaluateFileNameBeforeSending then
-                      begin
                         if VerbLevel < 2 then
-                          AddToLog('--------------- Updating "' + BmpsInPmtv.Strings[k] + '" to "' + FnmForArchive + '" in pmtv.  Initial pmtv file size: ' + IntToStr(TempMemFile.Size));
-
-                        BmpsInPmtv.Strings[k] := FnmForArchive;
+                          AddToLog('--------------- Added "' + BmpsInPmtv.Strings[k] + '" bitmap used by pmtv, to archive, of ' + IntToStr(UsedBmpTempMemFile.Size) + 'bytes in size.');
+                      end
+                      else
+                      begin
+                        FnmForArchive := BmpsInPmtv.Strings[k]; //Provide a default. Anyway, the task will fail.
+                        FLatestMsg := 'Error loading bitmap used by pmtv as stream: "' + BmpsInPmtv.Strings[k] + '".';
+                        raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
                       end;
-                    end;  //for k
+                    finally
+                      UsedBmpTempMemFile.Free;
+                    end;
 
                     if FDistPluginOptions.EvaluateFileNameBeforeSending then
                     begin
-                      SetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
-                      //PmtvIni.WriteString('[NewSection]', 'For debugging', 'Increased size.');
-                      PmtvIni.UpdateStream; //this updates TempMemFile to the new content of PmtvIni
-
                       if VerbLevel < 2 then
-                        AddToLog('--------------- Updated bmp file names in pmtv.  Updated pmtv file size: ' + IntToStr(TempMemFile.Size));
+                        AddToLog('--------------- Updating "' + BmpsInPmtv.Strings[k] + '" to "' + FnmForArchive + '" in pmtv.  Initial pmtv file size: ' + IntToStr(TempMemFile.Size));
+
+                      BmpsInPmtv.Strings[k] := FnmForArchive;
                     end;
-                  finally
-                    BmpsInPmtv.Free;
+                  end;  //for k
+
+                  if FDistPluginOptions.EvaluateFileNameBeforeSending then
+                  begin
+                    SetPathsToImagesFromPrimitivesFile(PmtvIni, BmpsInPmtv);
+                    //PmtvIni.WriteString('[NewSection]', 'For debugging', 'Increased size.');
+                    PmtvIni.UpdateStream; //this updates TempMemFile to the new content of PmtvIni
+
+                    if VerbLevel < 2 then
+                      AddToLog('--------------- Updated bmp file names in pmtv.  Updated pmtv file size: ' + IntToStr(TempMemFile.Size));
                   end;
                 finally
-                  PmtvIni.Free;
+                  BmpsInPmtv.Free;
                 end;
-              end; //it's a pmtv file
-
-              TempMemFile.Position := 0;
-              if FDistPluginOptions.EvaluateFileNameBeforeSending then    //moved from before "UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV'", because the pmtv may be modified here, to have evaluated paths to bmps
-              begin
-                FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
-
-                if VerbLevel < 2 then
-                  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
-
-                try
-                  if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
-                    AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
-                except
-                  on E: Exception do
-                    if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
-                      raise;
-                end;
-              end
-              else
-              begin
-                FnmForArchive := TempFilesToSend.Strings[j];
-
-                if VerbLevel < 2 then
-                  AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
-
-                try
-                  if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
-                    AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
-                except
-                  on E: Exception do
-                    if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
-                      raise;
-                end;
+              finally
+                PmtvIni.Free;
               end;
+            end; //it's a pmtv file
+
+            TempMemFile.Position := 0;
+            if FDistPluginOptions.EvaluateFileNameBeforeSending then    //moved from before "UpperCase(ExtractFileExt(TempFilesToSend.Strings[j])) = '.PMTV'", because the pmtv may be modified here, to have evaluated paths to bmps
+            begin
+              FnmForArchive := EvaluateAllReplacements(AListOfAllVars, Fnm);
 
               if VerbLevel < 2 then
-                AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
+                AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+
+              try
+                if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
+                  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+              except
+                on E: Exception do
+                  if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                    raise;
+              end;
             end
             else
             begin
-              FLatestMsg := 'Error loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '".   Resolved name: ' + Fnm + '  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".';
-              raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
+              FnmForArchive := TempFilesToSend.Strings[j];
+
+              if VerbLevel < 2 then
+                AddToLog('--------------- Adding "' + FnmForArchive + '" to archive.');
+
+              try
+                if not FileExistsInCache(AllWorkers[i].FileCacheInfo, FnmForArchive, TempMemFile) then
+                  AllWorkers[i].Archive.AddFromStream(FnmForArchive, TempMemFile);
+              except
+                on E: Exception do
+                  if Pos(CFileExistsInArchiveErr, E.Message) <> 1 then
+                    raise;
+              end;
             end;
-          finally
-            TempMemFile.Free;
-          end;
-        end; //for j
 
-        TempMemFile := TMemoryStream.Create;
-        try
-          TempMemFile.Write(FVarsForWorkers.Names[1], Length(FVarsForWorkers.Names));
-          AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Names, TempMemFile);
-          TempMemFile.Clear;
-
-          TempMemFile.Write(FVarsForWorkers.Values[1], Length(FVarsForWorkers.Values));
-          AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Values, TempMemFile);
-          TempMemFile.Clear;
-
-          TempMemFile.Write(FVarsForWorkers.EvalBefore[1], Length(FVarsForWorkers.EvalBefore));
-          AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_EvalBefore, TempMemFile);
-        finally
-          TempMemFile.Free;
-        end;
-      finally
-        TempFilesToSend.Free;
-      end;
-    end; //for i
-  end;
-
-
-  procedure GetFontsUsedByPmtvs(AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions; var AFontsUsedByPmtvs: TStringArray);
-  var
-    ListOfPmtvFiles: TStringList;
-    i: Integer;
-    TempMemFile: TMemoryStream;
-    PmtvIni: TClkIniReadonlyFile;
-    FileLoc: TImageSourceFileNameLocation;
-    Fnm: string;
-  begin
-    ListOfPmtvFiles := TStringList.Create;
-    try
-      ListOfPmtvFiles.LineBreak := #13#10;
-      ListOfPmtvFiles.Text := AFindSubControlOptions.MatchPrimitiveFiles;
-
-      SetLength(AFontsUsedByPmtvs, ListOfPmtvFiles.Count);
-      for i := 0 to ListOfPmtvFiles.Count - 1 do
-      begin
-        if Pos(CExtBmp_PrefixUpperCase, UpperCase(ListOfPmtvFiles.Strings[i])) = 1 then
-          FileLoc := isflMem
-        else
-          FileLoc := isflDisk;
-
-        TempMemFile := TMemoryStream.Create;
-        try
-          Fnm := ResolveTemplatePath(ListOfPmtvFiles.Strings[i]);
-          if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-            if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-              Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-
-          if LoadBitmapAsStream(APluginReference, AOnActionPlugin_GetAllowedFilesInfo, AOnActionPlugin_LoadBitmap, AOnActionPlugin_AddToLog, AListOfAllVars, Fnm, TempMemFile, FileLoc) then
+            if VerbLevel < 2 then
+              AddToLog('----------- Added "' + TempFilesToSend.Strings[j] + '" to archive, of ' + IntToStr(TempMemFile.Size) + 'bytes in size.  Resolved name: "' + Fnm + '".  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".');
+          end
+          else
           begin
-            TempMemFile.Position := 0;
-            PmtvIni := TClkIniReadonlyFile.Create(TempMemFile);
-            try
-              AFontsUsedByPmtvs[i] := GetListOfFontsUsedByPrimitivesFile(PmtvIni);
-            finally
-              PmtvIni.Free;
-            end;
-          end; //LoadBitmapAsStream  - load pmtv file
+            FLatestMsg := 'Error loading bitmap as stream: "' + TempFilesToSend.Strings[j] + '".   Resolved name: ' + Fnm + '  Evaluated name: "' + EvaluateAllReplacements(AListOfAllVars, Fnm) + '".';
+            raise Exception.Create('----------- ' + FLatestMsg + '  Either the file is not allowed to be loaded or it doesn''t exist.');
+          end;
         finally
           TempMemFile.Free;
         end;
+      end; //for j
+
+      TempMemFile := TMemoryStream.Create;
+      try
+        TempMemFile.Write(FVarsForWorkers.Names[1], Length(FVarsForWorkers.Names));
+        AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Names, TempMemFile);
+        TempMemFile.Clear;
+
+        TempMemFile.Write(FVarsForWorkers.Values[1], Length(FVarsForWorkers.Values));
+        AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_Values, TempMemFile);
+        TempMemFile.Clear;
+
+        TempMemFile.Write(FVarsForWorkers.EvalBefore[1], Length(FVarsForWorkers.EvalBefore));
+        AllWorkers[i].Archive.AddFromStream(CVarsForWorkersInArchive_EvalBefore, TempMemFile);
+      finally
+        TempMemFile.Free;
       end;
     finally
-      ListOfPmtvFiles.Free;
+      TempFilesToSend.Free;
+    end;
+  end; //for i
+end;
+
+
+procedure TDistPlugin.GetFontsUsedByPmtvs(AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions; var AFontsUsedByPmtvs: TStringArray);
+var
+  ListOfPmtvFiles: TStringList;
+  i: Integer;
+  TempMemFile: TMemoryStream;
+  PmtvIni: TClkIniReadonlyFile;
+  FileLoc: TImageSourceFileNameLocation;
+  Fnm: string;
+begin
+  ListOfPmtvFiles := TStringList.Create;
+  try
+    ListOfPmtvFiles.LineBreak := #13#10;
+    ListOfPmtvFiles.Text := AFindSubControlOptions.MatchPrimitiveFiles;
+
+    SetLength(AFontsUsedByPmtvs, ListOfPmtvFiles.Count);
+    for i := 0 to ListOfPmtvFiles.Count - 1 do
+    begin
+      if Pos(CExtBmp_PrefixUpperCase, UpperCase(ListOfPmtvFiles.Strings[i])) = 1 then
+        FileLoc := isflMem
+      else
+        FileLoc := isflDisk;
+
+      TempMemFile := TMemoryStream.Create;
+      try
+        Fnm := ResolveTemplatePath(ListOfPmtvFiles.Strings[i]);
+        if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+          if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+            Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+
+        if LoadBitmapAsStream(FPluginReference, FOnActionPlugin_GetAllowedFilesInfo, FOnActionPlugin_LoadBitmap, FOnActionPlugin_AddToLog, AListOfAllVars, Fnm, TempMemFile, FileLoc) then
+        begin
+          TempMemFile.Position := 0;
+          PmtvIni := TClkIniReadonlyFile.Create(TempMemFile);
+          try
+            AFontsUsedByPmtvs[i] := GetListOfFontsUsedByPrimitivesFile(PmtvIni);
+          finally
+            PmtvIni.Free;
+          end;
+        end; //LoadBitmapAsStream  - load pmtv file
+      finally
+        TempMemFile.Free;
+      end;
+    end;
+  finally
+    ListOfPmtvFiles.Free;
+  end;
+end;
+
+
+procedure TDistPlugin.AssignTasksToWorkers(AMaxSplitActionsCount: Integer; AListOfBmps, AListOfPmtvs, AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions);
+var
+  i, j: Integer;
+  WorkersIndex, StartIndex: Integer;
+  WorkersMatchingOS: TIntArr; //each item is an index in the AllWorkers array
+  WorkersMatchingFonts: TIntArr; //this is a subset of WorkersMatchingOS, based on what fonts are available on every worker
+  SortedByDuplicatedFont: TIntArr;
+begin
+  Randomize;
+
+  if Length(AllWorkers) > 0 then
+  begin
+    if VerbLevel < 3 then
+      AddToLog('Splitting work from ' + IntToStr(AMaxSplitActionsCount) + ' (max) task(s).');
+
+    //Filter, based on RequestedTextRenderingOS.  - property at CTextRenderingOSPropertyIndex index
+    SetLength(WorkersMatchingOS, 0);
+    for i := 0 to Length(AllWorkers) - 1 do
+      if Pos(AllWorkers[i].OS, FDistPluginOptions.TextRenderingOS) > 0 then    //TextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
+      begin
+        SetLength(WorkersMatchingOS, Length(WorkersMatchingOS) + 1);
+        WorkersMatchingOS[Length(WorkersMatchingOS) - 1] := i;
+      end;
+
+    if AFindSubControlOptions.MatchCriteria.WillMatchBitmapText then
+    begin
+      SetLength(SortedByDuplicatedFont, Length(AFindSubControlOptions.MatchBitmapText));
+      for i := 0 to Length(SortedByDuplicatedFont) - 1 do
+        SortedByDuplicatedFont[i] := i;
+
+      //The following "for i" loop uses an array of integers called SortedByDuplicatedFont, generated by sorting,
+      //where each element is an index in the MatchBitmapText array, something like MatchBitmapText[SortedByDuplicatedFont[i]].
+      //The first elements of this array should point to profiles, which do not exist in all workers, then the last, in all workers.
+
+      //FindSubControlFonts := AFindSubControlOptions.MatchBitmapText;  //Already set before calling AssignTasksToWorkers.
+
+      //Kind of ugly to set these global vars here, but it works. An object would look better, for another time.
+      AllWorkersForSorting := AllWorkers;
+      AddToLogCallbackForSorting := AddToLogCallback;
+      FindSubControlFontsForSorting := FindSubControlFonts;
+      FontsUsedByPmtvsForSorting := FontsUsedByPmtvs;
+      SortByDupFonts_Txt(SortedByDuplicatedFont);
+
+      //Filter, based on available fonts.
+      for i := 0 to Length(AFindSubControlOptions.MatchBitmapText) - 1 do
+      begin
+        SetLength(WorkersMatchingFonts, 0);
+        for j := 0 to Length(WorkersMatchingOS) - 1 do
+          if FontExistsInList(AFindSubControlOptions.MatchBitmapText[SortedByDuplicatedFont[i]].FontName, AllWorkers[WorkersMatchingOS[j]].Fonts) then
+          begin
+            SetLength(WorkersMatchingFonts, Length(WorkersMatchingFonts) + 1);
+            WorkersMatchingFonts[Length(WorkersMatchingFonts) - 1] := WorkersMatchingOS[j];
+          end;
+
+        //Here, WorkersMatchingFonts is sorted based on AllWorkers[WorkersMatchingFonts[k]].TxtCntW;  where, k goes from 0 to Length(WorkersMatchingFonts)
+        SortByTxtTaskCount(WorkersMatchingFonts);
+
+        //Allocate:
+        if Length(WorkersMatchingFonts) > 0 then
+        begin
+          WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_TxtPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the profile index
+          Inc(AllWorkers[WorkersIndex].TxtCntW);
+        end;
+      end;
+    end;
+
+    Sleep(33);
+    Randomize;
+    StartIndex := Random(Length(WorkersMatchingOS));
+
+    if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
+    begin
+      for i := 0 to AListOfBmps.Count - 1 do
+      begin
+        WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
+        AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
+        AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
+        AllWorkers[WorkersIndex].BmpFilesToSend := AllWorkers[WorkersIndex].BmpFilesToSend + AListOfBmps.Strings[i] + #13#10;
+        Inc(AllWorkers[WorkersIndex].BmpCntW);
+      end;
+    end;
+
+    //continue with the value of StartIndex, set by WillMatchBitmapFiles section above (if that's the case)
+    //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
+    if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
+    begin
+      if VerbLevel < 2 then
+        AddToLog('Loading pmtv files, to get the list of used fonts.');
+
+      GetFontsUsedByPmtvs(AListOfAllVars, AFindSubControlOptions, FontsUsedByPmtvs);   //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
+
+      SetLength(SortedByDuplicatedFont, Length(FontsUsedByPmtvs));
+      for i := 0 to Length(SortedByDuplicatedFont) - 1 do
+        SortedByDuplicatedFont[i] := i;
+
+      //FontsUsedByPmtvs is already set  (as "FindSubControlFonts := .." above)
+      SortByDupFonts_Pmtv(SortedByDuplicatedFont);
+
+      //Filter, based on available fonts.
+      for i := 0 to Length(FontsUsedByPmtvs) - 1 do
+      begin
+        SetLength(WorkersMatchingFonts, 0);
+        for j := 0 to Length(WorkersMatchingOS) - 1 do
+          if MultipleFontsExistInList(FontsUsedByPmtvs[SortedByDuplicatedFont[i]], AllWorkers[WorkersMatchingOS[j]].Fonts) then   //MultipleFontsExistInList returns True if FontsUsedByPmtvs[<idx>] is ''. That means that every worker is capable of non-SetFont work.
+          begin
+            SetLength(WorkersMatchingFonts, Length(WorkersMatchingFonts) + 1);
+            WorkersMatchingFonts[Length(WorkersMatchingFonts) - 1] := WorkersMatchingOS[j];
+          end;
+
+        //Here, WorkersMatchingFonts is sorted based on AllWorkers[WorkersMatchingFonts[k]].PmtvCntW;  where, k goes from 0 to Length(WorkersMatchingFonts)
+        SortByPmtvTaskCount(WorkersMatchingFonts);
+
+        //Allocate:
+        if Length(WorkersMatchingFonts) > 0 then
+        begin
+          WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
+          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the pmtv index
+          AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;   //AListOfPmtvs has the same length as FontsUsedByPmtvs
+          AllWorkers[WorkersIndex].PmtvFilesToSend := AllWorkers[WorkersIndex].PmtvFilesToSend + AListOfPmtvs.Strings[i] + #13#10;
+          Inc(AllWorkers[WorkersIndex].PmtvCntW);
+        end;
+      end;  //for i
+    end;  //WillMatchPrimitiveFiles
+
+    if VerbLevel < 3 then
+    begin
+      AddToLog('Worker allocation on ' + IntToStr(Length(AllWorkers)) + ' available worker(s):');
+      for i := 0 to Length(AllWorkers) - 1 do
+      begin
+        AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
+                                            'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
+                                            'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
+                                            AllWorkers[i].WorkerSpecificTask;
+        AddToLog('  Worker[' + IntToStr(i) + '] = ' + AllWorkers[i].WorkerSpecificTask + '  Files to send: ' + FastReplace_ReturnTo45(AllWorkers[i].FilesToSend));
+      end;
+    end;
+  end; //Length(AllWorkers) > 0
+end;
+
+
+function TDistPlugin.CloseBkArchive: Boolean;
+begin
+  Result := True;
+
+  try
+    BkCompressionTime := GetTickCount64;
+    try
+      BkArchive.CloseArchive;
+    finally
+      BkCompressionTime := GetTickCount64 - BkCompressionTime;
+    end;
+  except
+    on E: Exception do
+    begin
+      FLatestMsg := 'Error closing archive with background image.  Ex: ' + E.Message;
+      AddToLog('----------- ' + FLatestMsg);
+      Result := False;
     end;
   end;
+end;
 
 
-  procedure AssignTasksToWorkers(AMaxSplitActionsCount: Integer; AListOfBmps, AListOfPmtvs, AListOfAllVars: TStringList; var AFindSubControlOptions: TClkFindSubControlOptions);
-  var
-    i, j: Integer;
-    WorkersIndex, StartIndex: Integer;
-    WorkersMatchingOS: TIntArr; //each item is an index in the AllWorkers array
-    WorkersMatchingFonts: TIntArr; //this is a subset of WorkersMatchingOS, based on what fonts are available on every worker
-    SortedByDuplicatedFont: TIntArr;
-  begin
-    Randomize;
+function TDistPlugin.CloseWorkerArchives: Boolean;
+var
+  i: Integer;
+begin
+  Result := True;
 
-    if Length(AllWorkers) > 0 then
-    begin
-      if VerbLevel < 3 then
-        AddToLog('Splitting work from ' + IntToStr(AMaxSplitActionsCount) + ' (max) task(s).');
-
-      //Filter, based on RequestedTextRenderingOS.  - property at CTextRenderingOSPropertyIndex index
-      SetLength(WorkersMatchingOS, 0);
-      for i := 0 to Length(AllWorkers) - 1 do
-        if Pos(AllWorkers[i].OS, FDistPluginOptions.TextRenderingOS) > 0 then    //TextRenderingOS can be 'Win', 'Lin', 'Win+Lin'.
-        begin
-          SetLength(WorkersMatchingOS, Length(WorkersMatchingOS) + 1);
-          WorkersMatchingOS[Length(WorkersMatchingOS) - 1] := i;
-        end;
-
-      if AFindSubControlOptions.MatchCriteria.WillMatchBitmapText then
-      begin
-        SetLength(SortedByDuplicatedFont, Length(AFindSubControlOptions.MatchBitmapText));
-        for i := 0 to Length(SortedByDuplicatedFont) - 1 do
-          SortedByDuplicatedFont[i] := i;
-
-        //The following "for i" loop uses an array of integers called SortedByDuplicatedFont, generated by sorting,
-        //where each element is an index in the MatchBitmapText array, something like MatchBitmapText[SortedByDuplicatedFont[i]].
-        //The first elements of this array should point to profiles, which do not exist in all workers, then the last, in all workers.
-
-        //FindSubControlFonts := AFindSubControlOptions.MatchBitmapText;  //Already set before calling AssignTasksToWorkers.
-
-        //Kind of ugly to set these global vars here, but it works. An object would look better, for another time.
-        AllWorkersForSorting := AllWorkers;
-        AddToLogCallbackForSorting := AddToLogCallback;
-        FindSubControlFontsForSorting := FindSubControlFonts;
-        FontsUsedByPmtvsForSorting := FontsUsedByPmtvs;
-        SortByDupFonts_Txt(SortedByDuplicatedFont);
-
-        //Filter, based on available fonts.
-        for i := 0 to Length(AFindSubControlOptions.MatchBitmapText) - 1 do
-        begin
-          SetLength(WorkersMatchingFonts, 0);
-          for j := 0 to Length(WorkersMatchingOS) - 1 do
-            if FontExistsInList(AFindSubControlOptions.MatchBitmapText[SortedByDuplicatedFont[i]].FontName, AllWorkers[WorkersMatchingOS[j]].Fonts) then
-            begin
-              SetLength(WorkersMatchingFonts, Length(WorkersMatchingFonts) + 1);
-              WorkersMatchingFonts[Length(WorkersMatchingFonts) - 1] := WorkersMatchingOS[j];
-            end;
-
-          //Here, WorkersMatchingFonts is sorted based on AllWorkers[WorkersMatchingFonts[k]].TxtCntW;  where, k goes from 0 to Length(WorkersMatchingFonts)
-          SortByTxtTaskCount(WorkersMatchingFonts);
-
-          //Allocate:
-          if Length(WorkersMatchingFonts) > 0 then
-          begin
-            WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_TxtPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the profile index
-            Inc(AllWorkers[WorkersIndex].TxtCntW);
-          end;
-        end;
-      end;
-
-      Sleep(33);
-      Randomize;
-      StartIndex := Random(Length(WorkersMatchingOS));
-
-      if AFindSubControlOptions.MatchCriteria.WillMatchBitmapFiles then
-      begin
-        for i := 0 to AListOfBmps.Count - 1 do
-        begin
-          WorkersIndex := WorkersMatchingOS[(i + StartIndex) mod Length(WorkersMatchingOS)];  //simple load balancing
-          AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_BmpPrefix + IntToStr(i) + '=1&';
-          AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfBmps.Strings[i] + #13#10;
-          AllWorkers[WorkersIndex].BmpFilesToSend := AllWorkers[WorkersIndex].BmpFilesToSend + AListOfBmps.Strings[i] + #13#10;
-          Inc(AllWorkers[WorkersIndex].BmpCntW);
-        end;
-      end;
-
-      //continue with the value of StartIndex, set by WillMatchBitmapFiles section above (if that's the case)
-      //Pmtv tasks will also require filtering by available fonts, at least when they have to render text.
-      if AFindSubControlOptions.MatchCriteria.WillMatchPrimitiveFiles then
-      begin
-        if VerbLevel < 2 then
-          AddToLog('Loading pmtv files, to get the list of used fonts.');
-
-        GetFontsUsedByPmtvs(AListOfAllVars, AFindSubControlOptions, FontsUsedByPmtvs);   //Every item is a #13#10-separated list of fonts. The number of items matches the number of pmtv files. Not all pmtv files use text.
-
-        SetLength(SortedByDuplicatedFont, Length(FontsUsedByPmtvs));
-        for i := 0 to Length(SortedByDuplicatedFont) - 1 do
-          SortedByDuplicatedFont[i] := i;
-
-        //FontsUsedByPmtvs is already set  (as "FindSubControlFonts := .." above)
-        SortByDupFonts_Pmtv(SortedByDuplicatedFont);
-
-        //Filter, based on available fonts.
-        for i := 0 to Length(FontsUsedByPmtvs) - 1 do
-        begin
-          SetLength(WorkersMatchingFonts, 0);
-          for j := 0 to Length(WorkersMatchingOS) - 1 do
-            if MultipleFontsExistInList(FontsUsedByPmtvs[SortedByDuplicatedFont[i]], AllWorkers[WorkersMatchingOS[j]].Fonts) then   //MultipleFontsExistInList returns True if FontsUsedByPmtvs[<idx>] is ''. That means that every worker is capable of non-SetFont work.
-            begin
-              SetLength(WorkersMatchingFonts, Length(WorkersMatchingFonts) + 1);
-              WorkersMatchingFonts[Length(WorkersMatchingFonts) - 1] := WorkersMatchingOS[j];
-            end;
-
-          //Here, WorkersMatchingFonts is sorted based on AllWorkers[WorkersMatchingFonts[k]].PmtvCntW;  where, k goes from 0 to Length(WorkersMatchingFonts)
-          SortByPmtvTaskCount(WorkersMatchingFonts);
-
-          //Allocate:
-          if Length(WorkersMatchingFonts) > 0 then
-          begin
-            WorkersIndex := WorkersMatchingFonts[0];  //since the WorkersMatchingFonts is sorted, the first item should point to the worker with the least number of allocated tasks
-            AllWorkers[WorkersIndex].WorkerSpecificTask := AllWorkers[WorkersIndex].WorkerSpecificTask + CWorkerTask_PmtvPrefix + IntToStr(SortedByDuplicatedFont[i]) + '=1&';  //i is the pmtv index
-            AllWorkers[WorkersIndex].FilesToSend := AllWorkers[WorkersIndex].FilesToSend + AListOfPmtvs.Strings[i] + #13#10;   //AListOfPmtvs has the same length as FontsUsedByPmtvs
-            AllWorkers[WorkersIndex].PmtvFilesToSend := AllWorkers[WorkersIndex].PmtvFilesToSend + AListOfPmtvs.Strings[i] + #13#10;
-            Inc(AllWorkers[WorkersIndex].PmtvCntW);
-          end;
-        end;  //for i
-      end;  //WillMatchPrimitiveFiles
-
-      if VerbLevel < 3 then
-      begin
-        AddToLog('Worker allocation on ' + IntToStr(Length(AllWorkers)) + ' available worker(s):');
-        for i := 0 to Length(AllWorkers) - 1 do
-        begin
-          AllWorkers[i].WorkerSpecificTask := 'TxtCnt' + '=' + IntToStr(AllWorkers[i].TxtCntW) + '&' +
-                                              'BmpCnt' + '=' + IntToStr(AllWorkers[i].BmpCntW) + '&' +
-                                              'PmtvCnt' + '=' + IntToStr(AllWorkers[i].PmtvCntW) + '&' +
-                                              AllWorkers[i].WorkerSpecificTask;
-          AddToLog('  Worker[' + IntToStr(i) + '] = ' + AllWorkers[i].WorkerSpecificTask + '  Files to send: ' + FastReplace_ReturnTo45(AllWorkers[i].FilesToSend));
-        end;
-      end;
-    end; //Length(AllWorkers) > 0
-  end;
-
-  procedure CloseBkArchive;
+  for i := 0 to Length(AllWorkers) - 1 do
   begin
     try
-      BkCompressionTime := GetTickCount64;
+      //AddToLog('----------- closing archive at index ' + IntToStr(i));
+      AllWorkers[i].CompressionTime := GetTickCount64;
       try
-        BkArchive.CloseArchive;
+        AllWorkers[i].Archive.CloseArchive;
       finally
-        BkCompressionTime := GetTickCount64 - BkCompressionTime;
+        AllWorkers[i].CompressionTime := GetTickCount64 - AllWorkers[i].CompressionTime;
       end;
     except
       on E: Exception do
       begin
-        FLatestMsg := 'Error closing archive with background image.  Ex: ' + E.Message;
+        FLatestMsg := 'Error closing archive at index ' + IntToStr(i) + '.  Ex: ' + E.Message;
         AddToLog('----------- ' + FLatestMsg);
         Result := False;
       end;
     end;
   end;
 
-  procedure CloseWorkerArchives;
-  var
-    i: Integer;
-  begin
-    for i := 0 to Length(AllWorkers) - 1 do
-    begin
-      try
-        //AddToLog('----------- closing archive at index ' + IntToStr(i));
-        AllWorkers[i].CompressionTime := GetTickCount64;
-        try
-          AllWorkers[i].Archive.CloseArchive;
-        finally
-          AllWorkers[i].CompressionTime := GetTickCount64 - AllWorkers[i].CompressionTime;
-        end;
-      except
-        on E: Exception do
-        begin
-          FLatestMsg := 'Error closing archive at index ' + IntToStr(i) + '.  Ex: ' + E.Message;
-          AddToLog('----------- ' + FLatestMsg);
-          Result := False;
-        end;
-      end;
-    end;
+  if Result then
+    if not CloseBkArchive then  ////////////////////////////////// should be moved outside of CloseWorkerArchives.  Same with OpenWorkerArchivesForAddingBitmaps.
+      Result := False;
+end;
 
-    CloseBkArchive;
+
+function TDistPlugin.UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList): Boolean; //returns True if should update
+var
+  TempArchiveHandlers: TArchiveHandlers;
+  BackgroundWidth, BackgroundHeight: Integer;
+  ActionContentStr: string;
+  ActionContentPtr: Pointer;
+  ActionContentLen: DWord;
+  ListOfFindSubControlProperties: TStringList;
+  BkSize: Int64;
+  Option_ImageSource: string;
+  Option_ImageSourceFileNameLocation: string;
+  Option_SourceFileName: string;
+begin
+  SetLength(ActionContentStr, CMaxSharedStringLength + 1);
+  ActionContentPtr := @ActionContentStr[1];
+  FOnActionPlugin_GetActionContentByIndex(FPluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
+  SetLength(ActionContentStr, ActionContentLen);
+
+  ListOfFindSubControlProperties := TStringList.Create;
+  try
+    ListOfFindSubControlProperties.LineBreak := #13#10;
+    ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
+
+    Option_ImageSource := ListOfFindSubControlProperties.Values['ImageSource'];
+    Option_ImageSourceFileNameLocation := ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'];
+    Option_SourceFileName := ListOfFindSubControlProperties.Values['SourceFileName'];
+  finally
+    FreeAndNil(ListOfFindSubControlProperties);
   end;
 
-  function UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList): Boolean; //returns True if should update
-  var
-    TempArchiveHandlers: TArchiveHandlers;
-    BackgroundWidth, BackgroundHeight: Integer;
-    ActionContentStr: string;
-    ActionContentPtr: Pointer;
-    ActionContentLen: DWord;
-    ListOfFindSubControlProperties: TStringList;
-    BkSize: Int64;
-    Option_ImageSource: string;
-    Option_ImageSourceFileNameLocation: string;
-    Option_SourceFileName: string;
+  Result := BackgroundChanged(AListOfAllVars,
+                              Option_ImageSource,
+                              Option_ImageSourceFileNameLocation,
+                              Option_SourceFileName);
+
+  if Result then
   begin
-    SetLength(ActionContentStr, CMaxSharedStringLength + 1);
-    ActionContentPtr := @ActionContentStr[1];
-    AOnActionPlugin_GetActionContentByIndex(APluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
-    SetLength(ActionContentStr, ActionContentLen);
-
-    ListOfFindSubControlProperties := TStringList.Create;
+    BkArchiveStream := TMemoryStream.Create;
+    BkArchive := TMemArchive.Create;
+    TempArchiveHandlers := TArchiveHandlers.Create;
     try
-      ListOfFindSubControlProperties.LineBreak := #13#10;
-      ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
+      UsingCompression := FDistPluginOptions.UseCompression;
+      if UsingCompression then
+      begin
+        TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
 
-      Option_ImageSource := ListOfFindSubControlProperties.Values['ImageSource'];
-      Option_ImageSourceFileNameLocation := ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'];
-      Option_SourceFileName := ListOfFindSubControlProperties.Values['SourceFileName'];
+        if TempArchiveHandlers.CompressionAlgorithm = caLzma then
+          TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
+      end;
+
+      BackgroundWidth := -3;  //Values used for debugging. Do not change.
+      BackgroundHeight := -3;
+
+      TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+      OpenBkArchiveForAddingBackground(TempArchiveHandlers);   //creates new archive on BkArchiveStream
+      try
+        if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
+                                                   Option_ImageSource,
+                                                   Option_ImageSourceFileNameLocation,
+                                                   Option_SourceFileName,
+                                                   BkSize,
+                                                   BackgroundWidth,
+                                                   BackgroundHeight) then
+        begin
+          FLatestMsg := 'Error loading background bitmap as stream (for updating).';
+          AddToLog('----------- ' + FLatestMsg);
+          Result := False;
+          Exit;
+        end;
+
+        //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
+      finally
+        CloseBkArchive;
+        if not CloseBkArchive then
+          Result := False;
+      end;
+
+      SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
+      BkArchiveStream.Position := 0;
+      BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
+
+      if BkArchiveStream.Size = 0 then
+        BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
+
+      AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                         '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                        '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
     finally
-      FreeAndNil(ListOfFindSubControlProperties);
+      FreeAndNil(BkArchiveStream);
+      FreeAndNil(BkArchive);
+      FreeAndNil(TempArchiveHandlers);
+    end;
+  end; //BackgroundChanged
+end; //function
+
+
+function TDistPlugin.GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
+const
+  CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
+  //CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
+  //CWillMatchPrimitiveFiles = 'WillMatchPrimitiveFiles'; //0..1
+  CTxtProfilesCount_PropName = 'MatchBitmapText.Count';
+  CBmpFiles_PropName = 'MatchBitmapFiles';     // #4#5 separated paths
+  CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
+  CPrecisionTimeout_PropName = 'PrecisionTimeout';
+  CFullBackgroundImageInResult_PropName = 'FullBackgroundImageInResult';
+  CGetAllControls_PropName = 'GetAllControls';
+var
+  ActionContentStr: string;
+  ActionContentPtr: Pointer;
+  ActionContentLen: DWord;
+  i, WorkersIndex: Integer;
+  ListOfFindSubControlProperties, ListOfBmps, ListOfPmtvs: TStringList;
+  MaxSplitActionsCount, TxtCount: Integer;
+  DecodedAction: TClkFindSubControlOptions;
+  DecodingErr: string;
+  ActionOptions: TClkActionOptions;
+  TempArcStr: string;
+  Fnm: string;
+  TempArchiveHandlers: TArchiveHandlers;
+  BkSize: Int64;
+  BackgroundWidth, BackgroundHeight: Integer;
+  CustomProfiles: TClkFindControlMatchBitmapTextDistArr;
+  ResolvedCustomFontProfiles: string;
+begin
+  Result := True;
+
+  SetLength(ActionContentStr, CMaxSharedStringLength + 1);
+  ActionContentPtr := @ActionContentStr[1];
+  FOnActionPlugin_GetActionContentByIndex(FPluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
+  SetLength(ActionContentStr, ActionContentLen);
+
+  AHasTxtTasks := False;
+  //AddToLog('ActionContentStr: ' + #13#10 + ActionContentStr);
+  //
+  ListOfFindSubControlProperties := TStringList.Create;
+  try
+    ListOfFindSubControlProperties.LineBreak := #13#10;
+    ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
+    //for i := 0 to ListOfFindSubControlProperties.Count - 1 do
+    //  AddToLog('===Prop: ' + ListOfFindSubControlProperties.Strings[i]);
+
+    if ListOfFindSubControlProperties.Values[CPrecisionTimeout_PropName] <> '1' then
+    begin
+      FLatestMsg := 'Error: Bad action configuration. This plugin requires that the "PrecisionTimeout" property of the configured FindSubControl action, to be set to True.';
+      AddToLog(FLatestMsg);
+      Result := False;
+      Exit;
     end;
 
-    Result := BackgroundChanged(AListOfAllVars,
-                                Option_ImageSource,
-                                Option_ImageSourceFileNameLocation,
-                                Option_SourceFileName);
+    GetAllControls := ListOfFindSubControlProperties.Values[CGetAllControls_PropName] = '1';
 
-    if Result then
+    if ListOfFindSubControlProperties.Values[CFullBackgroundImageInResult_PropName] <> '0' then
+      AddToLog('Warning: The "' + CFullBackgroundImageInResult_PropName + '" property, of the configured FindSubControl action, is set to True. This will cause resulted debugging images to have full size, which will take longer to be compressed and transferred.');
+
+    TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
+    MaxSplitActionsCount := TxtCount;   //updated later, if UsingCustomFontProfiles  (kind of ugly)
+    AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1'); //updated later, if UsingCustomFontProfiles
+
+    ListOfBmps := TStringList.Create;
+    ListOfPmtvs := TStringList.Create;
+    TempArchiveHandlers := TArchiveHandlers.Create;
+
+    for i := 0 to Length(AllWorkers) - 1 do
     begin
-      BkArchiveStream := TMemoryStream.Create;
-      BkArchive := TMemArchive.Create;
-      TempArchiveHandlers := TArchiveHandlers.Create;
+      AllWorkers[i].ArchiveStream := TMemoryStream.Create;
+      AllWorkers[i].Archive := TMemArchive.Create;
+      //AllWorkers[i].ResponseBitmapStream := TMemoryStream.Create;   //do not create here
+    end;
+
+    BkArchiveStream := TMemoryStream.Create;
+    BkArchive := TMemArchive.Create;
+
+    try
+      ListOfBmps.LineBreak := #13#10;
+      ListOfPmtvs.LineBreak := #13#10;
+
+      ListOfBmps.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CBmpFiles_PropName]);
+      MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfBmps.Count);
+
+      ListOfPmtvs.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CPmtvFiles_PropName]);
+      MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfPmtvs.Count);
+
+      DecodingErr := SetFindSubControlActionProperties(ListOfFindSubControlProperties, nil, DecodedAction, ActionOptions);
+      if DecodingErr <> '' then
+      begin
+        AddToLog('--- Action decoding errror: ' + DecodingErr);
+        //SetLength(SplitActions, 0);
+        MaxSplitActionsCount := 0; /////////////////////////////////// added later (to prevent indexing an empty SplitActions array), not sure if ok
+      end
+      else
+        ;//SetLength(SplitActions, MaxSplitActionsCount);
+
+      if FDistPluginOptions.UseFontProfiles then
+      begin
+        if VerbLevel < 2 then
+          AddToLog('Loading custom font profiles from ' + FDistPluginOptions.CustomFontProfiles);
+
+        ResolvedCustomFontProfiles := ResolveTemplatePath(FDistPluginOptions.CustomFontProfiles);
+
+        if Pos('MEM:', UpperCase(ResolvedCustomFontProfiles)) = 0 then
+          if not FileExists(ResolvedCustomFontProfiles) then
+            raise Exception.Create('File not found: ' + ResolvedCustomFontProfiles);
+
+        LoadClkPrf(FPluginReference, FOnActionPlugin_InMemFS, ResolvedCustomFontProfiles, CustomProfiles);
+
+        if VerbLevel < 2 then
+          AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
+
+        UpdateFindSubControlActionWithNewProfiles(DecodedAction, CustomProfiles);
+
+        if VerbLevel < 2 then
+          AddToLog('Found ' + IntToStr(Length(DecodedAction.MatchBitmapText)) + ' custom font profile(s).');
+
+        TxtCount := Length(DecodedAction.MatchBitmapText);
+        MaxSplitActionsCount := Max(MaxSplitActionsCount, TxtCount);
+        AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1');
+      end;
+
+
+      //The number of available workers can be less than, equal to or greater than the number of subproperties.
+      //The number of some subproperties can be less than, other can be greater than.
+      //If the number of all subproperty types is less than the number of workers, then the last remaining workers won't receive work.
+      //Otherwise (if it's greater), then some workers will receive more work.
+      //Delete from every action if the subproperty index is greater than MaxSplitActionsCount
+
+      FindSubControlFonts := DecodedAction.MatchBitmapText;
+      AssignTasksToWorkers(MaxSplitActionsCount, ListOfBmps, ListOfPmtvs, AListOfAllVars, DecodedAction);
+
+      UsingCompression := FDistPluginOptions.UseCompression;
+      if UsingCompression then
+      begin
+        TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
+
+        if TempArchiveHandlers.CompressionAlgorithm = caLzma then
+          TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
+      end;
+
+      BackgroundWidth := -3;  //Values used for debugging. Do not change.
+      BackgroundHeight := -3;
+
+      TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
+      OpenWorkerArchivesForAddingBitmaps(TempArchiveHandlers);   //creates new archive on BkArchiveStream
       try
-        UsingCompression := FDistPluginOptions.UseCompression;
+        //for cropping, the following properties have to be read from ListOfFindSubControlProperties
+        //InitialRectangle_Left
+        //InitialRectangle_LeftOffset
+        //Top, Right, Bottom
+
+        if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
+                                                   ListOfFindSubControlProperties.Values['ImageSource'],
+                                                   ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
+                                                   ListOfFindSubControlProperties.Values['SourceFileName'],
+                                                   BkSize,
+                                                   BackgroundWidth,
+                                                   BackgroundHeight) then
+        begin
+          FLatestMsg := 'Error loading background bitmap as stream.';
+          AddToLog('----------- ' + FLatestMsg);
+          Result := False;
+          Exit;
+        end;
+
+        if ListOfFindSubControlProperties.Values['ImageSource'] = '0' then //screenshot
+        begin
+          DecodedAction.InitialRectangle.Left := '0';
+          DecodedAction.InitialRectangle.Top := '0';
+          DecodedAction.InitialRectangle.Right := IntToStr(BackgroundWidth);        //This fixes one problem and creates another.
+          DecodedAction.InitialRectangle.Bottom := IntToStr(BackgroundHeight);      //HandleOnScreenshotByActionName , from UIClicker does extra cropping, based on InitialRectangle.<##>Offset fields.
+          ActionContentStr := GetFindSubControlActionProperties(DecodedAction);     //The screenshot should not be cropped.
+
+          if VerbLevel < 2 then
+            AddToLog('Updated the search limits from the initial request, to fit the screenshot.  BackgroundWidth = ' + IntToStr(BackgroundWidth) + '  BackgroundHeight = ' + IntToStr(BackgroundHeight));
+        end
+        else
+          if VerbLevel < 2 then
+            AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
+
+        for WorkersIndex := 0 to Length(AllWorkers) - 1 do
+        begin
+          ListOfBmps.Text := AllWorkers[WorkersIndex].BmpFilesToSend;   //use only the worker-specific list
+          ListOfPmtvs.Text := AllWorkers[WorkersIndex].PmtvFilesToSend; //use only the worker-specific list
+
+          if FDistPluginOptions.EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
+          begin
+            if VerbLevel < 2 then
+              AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
+
+            for i := 0 to ListOfBmps.Count - 1 do
+            begin
+              Fnm := ListOfBmps.Strings[i];
+              Fnm := ResolveTemplatePath(Fnm);
+              Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
+              if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                begin
+                  Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+
+                  if VerbLevel < 2 then
+                    AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
+
+                  ListOfBmps.Strings[i] := Fnm;
+                end;
+            end;
+
+            for i := 0 to ListOfPmtvs.Count - 1 do
+            begin
+              Fnm := ListOfPmtvs.Strings[i];
+              Fnm := ResolveTemplatePath(Fnm);
+              Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
+              if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
+                //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
+                begin
+                  Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
+
+                  if VerbLevel < 2 then
+                    AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
+
+                  ListOfPmtvs.Strings[i] := Fnm;
+                end;
+            end;
+
+            //update the action for every worker:
+            DecodedAction.MatchBitmapFiles := ListOfBmps.Text;
+            DecodedAction.MatchPrimitiveFiles := ListOfPmtvs.Text;
+
+            AllWorkers[WorkersIndex].WorkerActionContentStr := GetFindSubControlActionProperties(DecodedAction);
+          end //if EvaluateFileNameBeforeSending
+          else
+            AllWorkers[WorkersIndex].WorkerActionContentStr := ActionContentStr;
+        end; //for WorkersIndex
+
+        if VerbLevel < 2 then
+          AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
+
+        AddBitmapsToWorkerArchives(AListOfAllVars);
+      finally
+        if not CloseWorkerArchives then
+          Result := False;
+      end;
+
+      if VerbLevel < 2 then
+      begin
         if UsingCompression then
         begin
-          TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
+          AddToLog('-----------');
+          AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
+          AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
+        end
+        else
+          AddToLog('----------- Not using compression. Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size));
+      end;
 
-          if TempArchiveHandlers.CompressionAlgorithm = caLzma then
-            TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
-        end;
-
-        BackgroundWidth := -3;  //Values used for debugging. Do not change.
-        BackgroundHeight := -3;
-
-        TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
-        OpenBkArchiveForAddingBackground(TempArchiveHandlers);   //creates new archive on BkArchiveStream
-        try
-          if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
-                                                     Option_ImageSource,
-                                                     Option_ImageSourceFileNameLocation,
-                                                     Option_SourceFileName,
-                                                     BkSize,
-                                                     BackgroundWidth,
-                                                     BackgroundHeight) then
-          begin
-            FLatestMsg := 'Error loading background bitmap as stream (for updating).';
-            AddToLog('----------- ' + FLatestMsg);
-            Result := False;
-            Exit;
-          end;
-
-          //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
-        finally
-          CloseBkArchive;
-        end;
-
+      if Length(AllWorkers) > 0 then
+      begin
         SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
         BkArchiveStream.Position := 0;
         BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
@@ -2969,344 +3285,78 @@ var
         AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
                            '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
                           '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
-      finally
-        FreeAndNil(BkArchiveStream);
-        FreeAndNil(BkArchive);
-        FreeAndNil(TempArchiveHandlers);
-      end;
-    end; //BackgroundChanged
-  end; //function
-
-  function GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
-  const
-    CWillMatchBitmapText = 'WillMatchBitmapText'; //0..1
-    //CWillMatchBitmapFiles = 'WillMatchBitmapFiles'; //0..1
-    //CWillMatchPrimitiveFiles = 'WillMatchPrimitiveFiles'; //0..1
-    CTxtProfilesCount_PropName = 'MatchBitmapText.Count';
-    CBmpFiles_PropName = 'MatchBitmapFiles';     // #4#5 separated paths
-    CPmtvFiles_PropName = 'MatchPrimitiveFiles'; // #4#5 separated paths
-    CPrecisionTimeout_PropName = 'PrecisionTimeout';
-    CFullBackgroundImageInResult_PropName = 'FullBackgroundImageInResult';
-    CGetAllControls_PropName = 'GetAllControls';
-  var
-    ActionContentStr: string;
-    ActionContentPtr: Pointer;
-    ActionContentLen: DWord;
-    i, WorkersIndex: Integer;
-    ListOfFindSubControlProperties, ListOfBmps, ListOfPmtvs: TStringList;
-    MaxSplitActionsCount, TxtCount: Integer;
-    DecodedAction: TClkFindSubControlOptions;
-    DecodingErr: string;
-    ActionOptions: TClkActionOptions;
-    TempArcStr: string;
-    Fnm: string;
-    TempArchiveHandlers: TArchiveHandlers;
-    BkSize: Int64;
-    BackgroundWidth, BackgroundHeight: Integer;
-    CustomProfiles: TClkFindControlMatchBitmapTextDistArr;
-    ResolvedCustomFontProfiles: string;
-  begin
-    Result := True;
-
-    SetLength(ActionContentStr, CMaxSharedStringLength + 1);
-    ActionContentPtr := @ActionContentStr[1];
-    AOnActionPlugin_GetActionContentByIndex(APluginReference, IndexOfFindSubControlActionProperty, ActionContentPtr, @ActionContentLen);
-    SetLength(ActionContentStr, ActionContentLen);
-
-    AHasTxtTasks := False;
-    //AddToLog('ActionContentStr: ' + #13#10 + ActionContentStr);
-    //
-    ListOfFindSubControlProperties := TStringList.Create;
-    try
-      ListOfFindSubControlProperties.LineBreak := #13#10;
-      ListOfFindSubControlProperties.Text := StringReplace(ActionContentStr, '&', #13#10, [rfReplaceAll]);
-      //for i := 0 to ListOfFindSubControlProperties.Count - 1 do
-      //  AddToLog('===Prop: ' + ListOfFindSubControlProperties.Strings[i]);
-
-      if ListOfFindSubControlProperties.Values[CPrecisionTimeout_PropName] <> '1' then
-      begin
-        FLatestMsg := 'Error: Bad action configuration. This plugin requires that the "PrecisionTimeout" property of the configured FindSubControl action, to be set to True.';
-        AddToLog(FLatestMsg);
-        Result := False;
-        Exit;
-      end;
-
-      GetAllControls := ListOfFindSubControlProperties.Values[CGetAllControls_PropName] = '1';
-
-      if ListOfFindSubControlProperties.Values[CFullBackgroundImageInResult_PropName] <> '0' then
-        AddToLog('Warning: The "' + CFullBackgroundImageInResult_PropName + '" property, of the configured FindSubControl action, is set to True. This will cause resulted debugging images to have full size, which will take longer to be compressed and transferred.');
-
-      TxtCount := StrToIntDef(ListOfFindSubControlProperties.Values[CTxtProfilesCount_PropName], 0);
-      MaxSplitActionsCount := TxtCount;   //updated later, if UsingCustomFontProfiles  (kind of ugly)
-      AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1'); //updated later, if UsingCustomFontProfiles
-
-      ListOfBmps := TStringList.Create;
-      ListOfPmtvs := TStringList.Create;
-      TempArchiveHandlers := TArchiveHandlers.Create;
-
-      for i := 0 to Length(AllWorkers) - 1 do
-      begin
-        AllWorkers[i].ArchiveStream := TMemoryStream.Create;
-        AllWorkers[i].Archive := TMemArchive.Create;
-        //AllWorkers[i].ResponseBitmapStream := TMemoryStream.Create;   //do not create here
-      end;
-      BkArchiveStream := TMemoryStream.Create;
-      BkArchive := TMemArchive.Create;
-
-      try
-        ListOfBmps.LineBreak := #13#10;
-        ListOfPmtvs.LineBreak := #13#10;
-
-        ListOfBmps.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CBmpFiles_PropName]);
-        MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfBmps.Count);
-
-        ListOfPmtvs.Text := FastReplace_45ToReturn(ListOfFindSubControlProperties.Values[CPmtvFiles_PropName]);
-        MaxSplitActionsCount := Max(MaxSplitActionsCount, ListOfPmtvs.Count);
-
-        DecodingErr := SetFindSubControlActionProperties(ListOfFindSubControlProperties, nil, DecodedAction, ActionOptions);
-        if DecodingErr <> '' then
-        begin
-          AddToLog('--- Action decoding errror: ' + DecodingErr);
-          //SetLength(SplitActions, 0);
-          MaxSplitActionsCount := 0; /////////////////////////////////// added later (to prevent indexing an empty SplitActions array), not sure if ok
-        end
-        else
-          ;//SetLength(SplitActions, MaxSplitActionsCount);
-
-        if FDistPluginOptions.UseFontProfiles then
-        begin
-          if VerbLevel < 2 then
-            AddToLog('Loading custom font profiles from ' + FDistPluginOptions.CustomFontProfiles);
-
-          ResolvedCustomFontProfiles := ResolveTemplatePath(FDistPluginOptions.CustomFontProfiles);
-
-          if Pos('MEM:', UpperCase(ResolvedCustomFontProfiles)) = 0 then
-            if not FileExists(ResolvedCustomFontProfiles) then
-              raise Exception.Create('File not found: ' + ResolvedCustomFontProfiles);
-
-          LoadClkPrf(APluginReference, AOnActionPlugin_InMemFS, ResolvedCustomFontProfiles, CustomProfiles);
-
-          if VerbLevel < 2 then
-            AddToLog('Found ' + IntToStr(Length(CustomProfiles)) + ' unique custom profile group(s).');
-
-          UpdateFindSubControlActionWithNewProfiles(DecodedAction, CustomProfiles);
-
-          if VerbLevel < 2 then
-            AddToLog('Found ' + IntToStr(Length(DecodedAction.MatchBitmapText)) + ' custom font profile(s).');
-
-          TxtCount := Length(DecodedAction.MatchBitmapText);
-          MaxSplitActionsCount := Max(MaxSplitActionsCount, TxtCount);
-          AHasTxtTasks := (TxtCount > 0) and (ListOfFindSubControlProperties.Values['MatchCriteria.' + CWillMatchBitmapText] = '1');
-        end;
-
-
-        //The number of available workers can be less than, equal to or greater than the number of subproperties.
-        //The number of some subproperties can be less than, other can be greater than.
-        //If the number of all subproperty types is less than the number of workers, then the last remaining workers won't receive work.
-        //Otherwise (if it's greater), then some workers will receive more work.
-        //Delete from every action if the subproperty index is greater than MaxSplitActionsCount
-
-        FindSubControlFonts := DecodedAction.MatchBitmapText;
-        AssignTasksToWorkers(MaxSplitActionsCount, ListOfBmps, ListOfPmtvs, AListOfAllVars, DecodedAction);
-
-        UsingCompression := FDistPluginOptions.UseCompression;
-        if UsingCompression then
-        begin
-          TempArchiveHandlers.CompressionAlgorithm := TCompressionAlgorithm(Ord(FDistPluginOptions.CompressionAlgorithm = CCompressionAlgorithms[caLzma]));  //default min max
-
-          if TempArchiveHandlers.CompressionAlgorithm = caLzma then
-            TempArchiveHandlers.LzmaOptions := FillInLzmaOptionsFromPluginProperties(ListOfPluginSettings);
-        end;
-
-        BackgroundWidth := -3;  //Values used for debugging. Do not change.
-        BackgroundHeight := -3;
-
-        TempArchiveHandlers.OnAddToLogNoObj := @AddToLog;
-        OpenWorkerArchivesForAddingBitmaps(TempArchiveHandlers);   //creates new archive on BkArchiveStream
-        try
-          //for cropping, the following properties have to be read from ListOfFindSubControlProperties
-          //InitialRectangle_Left
-          //InitialRectangle_LeftOffset
-          //Top, Right, Bottom
-
-          if not AddBackgroundBitmapToWorkerArchives(AListOfAllVars,
-                                                     ListOfFindSubControlProperties.Values['ImageSource'],
-                                                     ListOfFindSubControlProperties.Values['ImageSourceFileNameLocation'],
-                                                     ListOfFindSubControlProperties.Values['SourceFileName'],
-                                                     BkSize,
-                                                     BackgroundWidth,
-                                                     BackgroundHeight) then
-          begin
-            FLatestMsg := 'Error loading background bitmap as stream.';
-            AddToLog('----------- ' + FLatestMsg);
-            Result := False;
-            Exit;
-          end;
-
-          if ListOfFindSubControlProperties.Values['ImageSource'] = '0' then //screenshot
-          begin
-            DecodedAction.InitialRectangle.Left := '0';
-            DecodedAction.InitialRectangle.Top := '0';
-            DecodedAction.InitialRectangle.Right := IntToStr(BackgroundWidth);        //This fixes one problem and creates another.
-            DecodedAction.InitialRectangle.Bottom := IntToStr(BackgroundHeight);      //HandleOnScreenshotByActionName , from UIClicker does extra cropping, based on InitialRectangle.<##>Offset fields.
-            ActionContentStr := GetFindSubControlActionProperties(DecodedAction);     //The screenshot should not be cropped.
-
-            if VerbLevel < 2 then
-              AddToLog('Updated the search limits from the initial request, to fit the screenshot.  BackgroundWidth = ' + IntToStr(BackgroundWidth) + '  BackgroundHeight = ' + IntToStr(BackgroundHeight));
-          end
-          else
-            if VerbLevel < 2 then
-              AddToLog('Image source is "' + ListOfFindSubControlProperties.Values['ImageSource'] + '". The search limits remain as they are.');
-
-          for WorkersIndex := 0 to Length(AllWorkers) - 1 do
-          begin
-            ListOfBmps.Text := AllWorkers[WorkersIndex].BmpFilesToSend;   //use only the worker-specific list
-            ListOfPmtvs.Text := AllWorkers[WorkersIndex].PmtvFilesToSend; //use only the worker-specific list
-
-            if FDistPluginOptions.EvaluateFileNameBeforeSending then    //Use the same property for now. If finer control is required, then create a new property.
-            begin
-              if VerbLevel < 2 then
-                AddToLog('-------------- Evaluating bmp and pmtv paths and updating action...   ListOfBmps.Count = ' + IntToStr(ListOfBmps.Count) + '  ListOfPmtvs.Count = ' + IntToStr(ListOfPmtvs.Count));
-
-              for i := 0 to ListOfBmps.Count - 1 do
-              begin
-                Fnm := ListOfBmps.Strings[i];
-                Fnm := ResolveTemplatePath(Fnm);
-                Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
-                if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-                  //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                  begin
-                    Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-
-                    if VerbLevel < 2 then
-                      AddToLog('-------------- "' + ListOfBmps.Strings[i] + '" becomes "' + Fnm + '".');
-
-                    ListOfBmps.Strings[i] := Fnm;
-                  end;
-              end;
-
-              for i := 0 to ListOfPmtvs.Count - 1 do
-              begin
-                Fnm := ListOfPmtvs.Strings[i];
-                Fnm := ResolveTemplatePath(Fnm);
-                Fnm := EvaluateAllReplacements(AListOfAllVars, Fnm);
-                if Pos(CExtBmp_PrefixUpperCase, UpperCase(Fnm)) = 0 then //do not expand ExtMem paths
-                  //if Pos('$APPDIR$', UpperCase(Fnm)) = 1 then //do not expand for other vars, because the path will result in double expansion, e.g. "C:\UIClicker\$TestFilesDir$\WinOnlyFonts.pmtv", where $TestFilesDir$ already contains "C:\UIClickerDistFindSubControlPlugin\Tests".
-                  begin
-                    Fnm := ExpandFileName(Fnm);  //The use of ExpandFileName requires more testing.
-
-                    if VerbLevel < 2 then
-                      AddToLog('-------------- "' + ListOfPmtvs.Strings[i] + '" becomes "' + Fnm + '".');
-
-                    ListOfPmtvs.Strings[i] := Fnm;
-                  end;
-              end;
-
-              //update the action for every worker:
-              DecodedAction.MatchBitmapFiles := ListOfBmps.Text;
-              DecodedAction.MatchPrimitiveFiles := ListOfPmtvs.Text;
-
-              AllWorkers[WorkersIndex].WorkerActionContentStr := GetFindSubControlActionProperties(DecodedAction);
-            end //if EvaluateFileNameBeforeSending
-            else
-              AllWorkers[WorkersIndex].WorkerActionContentStr := ActionContentStr;
-          end; //for WorkersIndex
-
-          if VerbLevel < 2 then
-            AddToLog('-------------- Done evaluating bmp and pmtv paths and updating action...');
-
-          AddBitmapsToWorkerArchives(AListOfAllVars);
-        finally
-          CloseWorkerArchives;
-        end;
-
-        if VerbLevel < 2 then
-        begin
-          if UsingCompression then
-          begin
-            AddToLog('-----------');
-            AddToLog('----------- The following ratio calculation is close to accurate, only if a single file is added to archive:');
-            AddToLog('----------- Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size) + '   Ratio: ' + FloatToStr(BkSize / BkArchiveStream.Size) + '    CompressionTime: ' + FloatToStrF(BkCompressionTime / 1000, ffNumber, 15, 3) + 's.');
-          end
-          else
-            AddToLog('----------- Not using compression. Background bitmap size: ' + IntToStr(BkSize) + '  Compressed size: ' + IntToStr(BkArchiveStream.Size));
-        end;
-
-        if Length(AllWorkers) > 0 then
-        begin
-          SetLength(AllWorkerBackgroundBmpStr, BkArchiveStream.Size);
-          BkArchiveStream.Position := 0;
-          BkArchiveStream.Read(AllWorkerBackgroundBmpStr[1], BkArchiveStream.Size);
-
-          if BkArchiveStream.Size = 0 then
-            BkArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
-
-          AllWorkerBackgroundBmpStr := CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
-                             '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
-                            '&' + CProtocolParam_ImageSourceRawContent + '=' + AllWorkerBackgroundBmpStr;
-
-          for i := 0 to Length(AllWorkers) - 1 do
-          begin
-            SetLength(TempArcStr, AllWorkers[i].ArchiveStream.Size);
-            AllWorkers[i].ArchiveStream.Position := 0;
-            AllWorkers[i].ArchiveStream.Read(TempArcStr[1], AllWorkers[i].ArchiveStream.Size);
-
-            if AllWorkers[i].ArchiveStream.Size = 0 then
-              AllWorkers[i].ArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
-
-            AllWorkers[i].WorkerActionContentStr := AllWorkers[i].WorkerActionContentStr + //ActionContentStr +  //initialized above, with worker-specific action (list of bmps and list of pmtvs)
-                                '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff)) +
-                                '&' + AllWorkers[i].WorkerSpecificTask +
-                                {'&' +} CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
-                                '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
-                                '&' + CProtocolParam_ImageSourceRawContent + '=' + TempArcStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
-          end;
-
-          if FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff < 100 then
-          begin
-            AddToLog('++++++++++++++++++++++++++++ ActionTimeout = ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + ' - ' + IntToStr(FDistPluginOptions.FindSubControlTimeoutDiff) + ' = ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff) + 'ms is too low and will be constrained to ' + IntToStr(CMinFindSubControlActionTimeout) + 'ms.');
-            AddToLog('++++++++++++++++++++++++++++ If the action fails, please increase the difference.');
-          end
-          else
-            AddToLog('----------- Action timeout set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff) + 'ms.');
-        end  //if Length(AllWorkers) > 0 then
-        else
-        begin
-          FLatestMsg := 'No workers available. (A worker application might still be running, but it may be busy.)';
-          AddToLog('----------- ' + DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  ' + FLatestMsg);
-          Result := False;
-        end;
-      finally
-        ListOfBmps.Free;
-        ListOfPmtvs.Free;
-        TempArchiveHandlers.Free;
 
         for i := 0 to Length(AllWorkers) - 1 do
         begin
-          FreeAndNil(AllWorkers[i].ArchiveStream);
-          FreeAndNil(AllWorkers[i].Archive);
-          //FreeAndNil(AllWorkers[i].ResponseBitmapStream); //do not destroy here
+          SetLength(TempArcStr, AllWorkers[i].ArchiveStream.Size);
+          AllWorkers[i].ArchiveStream.Position := 0;
+          AllWorkers[i].ArchiveStream.Read(TempArcStr[1], AllWorkers[i].ArchiveStream.Size);
+
+          if AllWorkers[i].ArchiveStream.Size = 0 then
+            AllWorkers[i].ArchiveStream.Write(string('1')[1], 1);  //prevent division by 0
+
+          AllWorkers[i].WorkerActionContentStr := AllWorkers[i].WorkerActionContentStr + //ActionContentStr +  //initialized above, with worker-specific action (list of bmps and list of pmtvs)
+                              '&' + CPropertyName_ActionTimeout + '=' + IntToStr(Max(CMinFindSubControlActionTimeout, FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff)) +
+                              '&' + AllWorkers[i].WorkerSpecificTask +
+                              {'&' +} CProtocolParam_UsingCompression + '=' + IntToStr(Ord(UsingCompression)) +
+                              '&' + CProtocolParam_CompressionAlgorithm + '=' + CCompressionAlgorithms[TempArchiveHandlers.CompressionAlgorithm] +
+                              '&' + CProtocolParam_ImageSourceRawContent + '=' + TempArcStr;  //it is possible that the MQTT server won't allow big files to be sent in one piece
         end;
 
-        FreeAndNil(BkArchiveStream);
-        FreeAndNil(BkArchive);
+        if FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff < 100 then
+        begin
+          AddToLog('++++++++++++++++++++++++++++ ActionTimeout = ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + ' - ' + IntToStr(FDistPluginOptions.FindSubControlTimeoutDiff) + ' = ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff) + 'ms is too low and will be constrained to ' + IntToStr(CMinFindSubControlActionTimeout) + 'ms.');
+          AddToLog('++++++++++++++++++++++++++++ If the action fails, please increase the difference.');
+        end
+        else
+          AddToLog('----------- Action timeout set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout - FDistPluginOptions.FindSubControlTimeoutDiff) + 'ms.');
+      end  //if Length(AllWorkers) > 0 then
+      else
+      begin
+        FLatestMsg := 'No workers available. (A worker application might still be running, but it may be busy.)';
+        AddToLog('----------- ' + DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  ' + FLatestMsg);
+        Result := False;
       end;
     finally
-      ListOfFindSubControlProperties.Free;
+      ListOfBmps.Free;
+      ListOfPmtvs.Free;
+      TempArchiveHandlers.Free;
 
-      if VerbLevel < 2 then
-        AddToLog('----------- Exiting GetFindSubControlContent with ' + BoolToStr(Result, 'True', 'False') + '.');
+      for i := 0 to Length(AllWorkers) - 1 do
+      begin
+        FreeAndNil(AllWorkers[i].ArchiveStream);
+        FreeAndNil(AllWorkers[i].Archive);
+        //FreeAndNil(AllWorkers[i].ResponseBitmapStream); //do not destroy here
+      end;
+
+      FreeAndNil(BkArchiveStream);
+      FreeAndNil(BkArchive);
     end;
-  end;  //GetFindSubControlContent
+  finally
+    ListOfFindSubControlProperties.Free;
 
+    if VerbLevel < 2 then
+      AddToLog('----------- Exiting GetFindSubControlContent with ' + BoolToStr(Result, 'True', 'False') + '.');
+  end;
+end;  //GetFindSubControlContent
+
+
+function TDistPlugin.ExecPlugin: Boolean;
 var
+  ActionCount: Integer;
+  PluginSettingsStr, AllVarsStr: string;
+  TempPluginMQTTClientHandlers: TPluginMQTTClientHandlers;
+  s: string;
+  ActionTypeDWord: DWord;
+  ActionType: TClkAction;
   i: Integer;
   TempResponseVars: TResponseVars;
   ListOfAllVars: TStringList;
   ResultImageAvailable: Boolean;
   FoundMatchingOS, HasTxtTasks: Boolean;
 begin
-  Result := False;
+  Result := True;
+
   //DebugPoint := @DbgPoint;
   SetLength(AllWorkers, 0);
   FLatestMsg := 'Error message not set.';
@@ -3332,13 +3382,13 @@ begin
     try
       ListOfPluginSettings.LineBreak := #13#10;
       ListOfAllVars.LineBreak := #13#10;
-      DefaultOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
-      DefaultPluginReference := APluginReference;
-      AddToLogCallback := AOnActionPlugin_AddToLog;
-      ActionPlugin_InMemFSCallback := AOnActionPlugin_InMemFS;
-      ActionPlugin_ExecuteActionCallback := AOnActionPlugin_ExecuteAction;
-      ActionPlugin_AppProcMsgCallback := AOnActionPlugin_AppProcMsg;
-      GPluginReference := APluginReference;
+      DefaultOnActionPlugin_DebugPoint := FOnActionPlugin_DebugPoint;
+      DefaultPluginReference := FPluginReference;
+      AddToLogCallback := FOnActionPlugin_AddToLog;
+      ActionPlugin_InMemFSCallback := FOnActionPlugin_InMemFS;
+      ActionPlugin_ExecuteActionCallback := FOnActionPlugin_ExecuteAction;
+      ActionPlugin_AppProcMsgCallback := FOnActionPlugin_AppProcMsg;
+      GPluginReference := FPluginReference;
 
       if FLatestMsg <> '' then
         FLatestMsg := FLatestMsg + ' +++ Error: This plugin hasn''t been unloaded successfully on previous execution.';
@@ -3353,7 +3403,7 @@ begin
       if not DbgPoint('Entering ExecutePlugin', '') then     //see ClkDbgSym.ppr for expected statement formats
         Exit;
 
-      ActionCount := AOnActionPlugin_GetActionCount(APluginReference);
+      ActionCount := FOnActionPlugin_GetActionCount(FPluginReference);
       if ActionCount = 0 then
       begin
         FLatestMsg := 'This plugin does not run on an empty template.';
@@ -3379,7 +3429,7 @@ begin
       IndexOfFindSubControlActionProperty := -1;
       for i := 0 to ActionCount - 1 do
       begin
-        GetActionInfoByIndex(APluginReference, AOnActionPlugin_GetActionInfoByIndex, i, s, ActionTypeDWord);
+        GetActionInfoByIndex(FPluginReference, FOnActionPlugin_GetActionInfoByIndex, i, s, ActionTypeDWord);
 
         if VerbLevel < 2 then
           AddToLog('Found action [' + IntToStr(i) + ']: ' + s);
@@ -3487,7 +3537,7 @@ begin
                 AddToLog('-----------  Ex on FSM loop: ' + E.Message);
             end;
 
-            if AOnActionPlugin_CheckStopAllActionsOnDemand(APluginReference) then
+            if FOnActionPlugin_CheckStopAllActionsOnDemand(FPluginReference) then
             begin
               FLatestMsg := 'Stopping plugin on demand...';
               AddToLog(FLatestMsg);
@@ -3666,7 +3716,7 @@ begin
             for i := 0 to Length(AllWorkers) - 1 do
               if AllWorkers[i].FindSubControlFound then
               begin
-                AOnActionPlugin_SetResultImg(APluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
+                FOnActionPlugin_SetResultImg(FPluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
 
                 if VerbLevel < 2 then
                   AddToLog('Result image set from worker[' + IntToStr(i) + '].');
@@ -3680,7 +3730,7 @@ begin
               if (AllWorkers[i].WorkerSpecificTask <> '') and
                  (AllWorkers[i].WorkerSpecificTask <> 'TxtCnt=0&BmpCnt=0&PmtvCnt=0&') then  //Find a worker which received something to work on.
               begin
-                AOnActionPlugin_SetResultImg(APluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
+                FOnActionPlugin_SetResultImg(FPluginReference, i, 0, 0, AllWorkers[i].ResponseBitmapStream.Memory, AllWorkers[i].ResponseBitmapStream.Size, -1, -1);
 
                 if VerbLevel < 2 then
                   AddToLog('Result image set from worker[' + IntToStr(i) + '].');
@@ -3730,6 +3780,62 @@ begin
   except
     on E: Exception do
       SetTemplateVar(CActionPlugin_ExecutionResultErrorVar, 'Plugin exception: "' + E.Message + '".');
+  end;
+end;
+
+///////////////////////
+
+
+function ExecutePlugin(APluginReference: Pointer;
+                       AListOfPluginSettings: Pointer;
+                       AListOfPluginSettingsLen: PDWord;
+
+                       AOnActionPlugin_GetActionCount: TOnActionPlugin_GetActionCount;
+                       AOnActionPlugin_GetActionInfoByIndex: TOnActionPlugin_GetActionInfoByIndex;
+                       AOnActionPlugin_GetActionContentByIndex: TOnActionPlugin_GetActionContentByIndex;
+                       AOnActionPlugin_ExecuteAction: TOnActionPlugin_ExecuteAction;
+                       AOnActionPlugin_GetAllTemplateVars: TOnActionPlugin_GetAllTemplateVars;
+                       AOnActionPlugin_SetTemplateVar: TOnActionPlugin_SetTemplateVar;
+                       AOnActionPlugin_DebugPoint: TOnActionPlugin_DebugPoint;
+                       AOnActionPlugin_AddToLog: TOnActionPlugin_AddToLog;
+                       AOnActionPlugin_SetResultImg: TOnActionPlugin_SetResultImg;
+                       AOnActionPlugin_LoadBitmap: TOnActionPlugin_LoadBitmap;
+                       AOnActionPlugin_GetAllowedFilesInfo: TOnActionPlugin_GetAllowedFilesInfo;
+                       AOnActionPlugin_SetBitmap: TOnActionPlugin_SetBitmap;
+                       AOnActionPlugin_Screenshot: TOnActionPlugin_Screenshot;
+                       AOnActionPlugin_CheckStopAllActionsOnDemand: TOnActionPlugin_CheckStopAllActionsOnDemand;
+                       AOnActionPlugin_InMemFS: TOnActionPlugin_InMemFS;
+                       AOnActionPlugin_AppProcMsg: TOnActionPlugin_AppProcMsg
+                       ): Boolean; cdecl;
+var
+  DistPlugin: TDistPlugin;
+begin
+  DistPlugin := TDistPlugin.Create;
+  try
+    DistPlugin.FPluginReference := APluginReference;
+    DistPlugin.FListOfPluginSettings := AListOfPluginSettings;
+    DistPlugin.FListOfPluginSettingsLen := AListOfPluginSettingsLen;
+
+    DistPlugin.FOnActionPlugin_SetTemplateVar := AOnActionPlugin_SetTemplateVar;
+    DistPlugin.FOnActionPlugin_GetAllTemplateVars := AOnActionPlugin_GetAllTemplateVars;
+    DistPlugin.FOnActionPlugin_GetAllowedFilesInfo := AOnActionPlugin_GetAllowedFilesInfo;
+    DistPlugin.FOnActionPlugin_LoadBitmap := AOnActionPlugin_LoadBitmap;
+    DistPlugin.FOnActionPlugin_AddToLog := AOnActionPlugin_AddToLog;
+    DistPlugin.FOnActionPlugin_SetResultImg := AOnActionPlugin_SetResultImg;
+    DistPlugin.FOnActionPlugin_SetBitmap := AOnActionPlugin_SetBitmap;
+    DistPlugin.FOnActionPlugin_Screenshot := AOnActionPlugin_Screenshot;
+    DistPlugin.FOnActionPlugin_GetActionContentByIndex := AOnActionPlugin_GetActionContentByIndex;
+    DistPlugin.FOnActionPlugin_InMemFS := AOnActionPlugin_InMemFS;
+    DistPlugin.FOnActionPlugin_DebugPoint := AOnActionPlugin_DebugPoint;
+    DistPlugin.FOnActionPlugin_ExecuteAction := AOnActionPlugin_ExecuteAction;
+    DistPlugin.FOnActionPlugin_AppProcMsg := AOnActionPlugin_AppProcMsg;
+    DistPlugin.FOnActionPlugin_GetActionCount := AOnActionPlugin_GetActionCount;
+    DistPlugin.FOnActionPlugin_GetActionInfoByIndex := AOnActionPlugin_GetActionInfoByIndex;
+    DistPlugin.FOnActionPlugin_CheckStopAllActionsOnDemand := AOnActionPlugin_CheckStopAllActionsOnDemand;
+
+    Result := DistPlugin.ExecPlugin;
+  finally
+    DistPlugin.Free;
   end;
 end;
 
