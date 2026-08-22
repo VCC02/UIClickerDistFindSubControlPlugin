@@ -63,20 +63,6 @@ type
   end;
 
 
-  TFSM = (SInit, SConnectToBroker, SWaitForConAck,
-          SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
-          SRequestCapabilities, SWaitForCapabilitiesResponse,
-          SGetFindSubControlActionContent,
-          SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
-          SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
-          SGetListOfFonts, SWaitForListOfFonts,
-          SUpdateBackgroundImageToAllWorkers, SWaitForUpdateBackgroundImageResults,
-          SUpdateCache, SLoadCache,
-          SUnsubscribeFromResponses, SWaitForResponsesUnsubAck,
-          SDisconnectFromBroker,
-          SDone
-         );
-
   TPluginMQTTClientHandlers = class(TComponent)
   private
     tmrProcessRecData: TTimer;
@@ -90,25 +76,6 @@ type
   end;
 
 
-const
-  CFSMStr: array[TFSM] of string = (
-          'SInit', 'SConnectToBroker', 'SWaitForConAck',
-          'SSubscribeToResponses', 'SWaitForResponsesSubAck',
-          'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
-          'SGetFindSubControlActionContent',
-          'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
-          'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
-          'SGetListOfFonts', 'SWaitForListOfFonts',
-          'SUpdateBackgroundImageToAllWorkers', 'SWaitForUpdateBackgroundImageResults',
-          'SUpdateCache', 'SLoadCache',
-          'SUnsubscribeFromResponses', 'SWaitForResponsesUnsubAck',
-          'SDisconnectFromBroker',
-          'SDone'
-          );
-
- CNoWorkerFoundSubControlErr = 'None of the responding workers found the SubControl.';
- CNoWorkerMatchesOSErr = 'None of the responding workers matches the selected target OS.';
-
 var
   IdTCPClient1: TIdTCPClient;
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
@@ -121,13 +88,9 @@ var
   ConnectedSucessfully, ConAckReceived, SubAckReceived, UnsubAckReceived, SubscribedSucessfully, UnsubscribedSucessfully, DisconnectedSuccessfully: Boolean;
   WaitingForWorkerCapabilities: Boolean;
   WaitingForWorkerFonts: Boolean;
-  FSMDone: Boolean;
+
   AllWorkers: TWorkerArr;
   AllWorkerBackgroundBmpStr: string;
-
-  BkArchiveStream: TMemoryStream;
-  BkArchive: TMemArchive;
-  BkCompressionTime: QWord;   //for statistics only
 
   AddToLogCallback: TOnActionPlugin_AddToLog;
   ActionPlugin_InMemFSCallback: TOnActionPlugin_InMemFS;
@@ -135,12 +98,9 @@ var
   ActionPlugin_AppProcMsgCallback: TOnActionPlugin_AppProcMsg;
   GPluginReference: Pointer;
 
-  GetAllControls: Boolean;
-  FSMError: string;
-  FindSubControlFonts: TClkFindControlMatchBitmapTextArr = nil; //used for sorting
-  FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
-  UpdateBackgroundTk: Int64;
-  WillWaitForUpdateBackgroundResponses: Boolean;
+  GetAllControls: Boolean;  //will be replaced by a TDistPlugin property
+
+
 
   FDistPluginOptions: TDistPluginOptions;
   FVarsForWorkers: TVarsForWorkers; //the old VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore
@@ -151,18 +111,6 @@ var
   GetListOfFontsRequestID: string;
 
   RecTh: TMQTTReceiveThread;
-
-  State, NextState: TFSM;
-
-  ConnectToBroker_tk: QWord; //used for timeouts
-  SubscribeToResponses_tk: QWord; //used for timeouts
-  UnsubscribeFromResponses_tk: QWord; //used for timeouts
-
-  GetCapabilities_tk: QWord; //used for timeouts
-  SendBackgroundToAll_tk: QWord; //used for timeouts
-  //SendBackgroundToSome_tk: QWord; //used for timeouts
-  SendFindSubControl_tk: QWord; //used for timeouts
-  GetListOfFonts_tk: QWord; //used for timeouts
 
   VerbLevel: Integer;        //0 = low-level MQTT logging, 1 = Dist plugin general logging, 2 = Dist plugin important logging.
                              //error messages are displayed regardless of this value
@@ -1576,6 +1524,58 @@ begin
 end;
 
 
+type
+  TFSM = (SInit, SConnectToBroker, SWaitForConAck,
+          SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
+          SRequestCapabilities, SWaitForCapabilitiesResponse,
+          SGetFindSubControlActionContent,
+          SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
+          SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
+          SGetListOfFonts, SWaitForListOfFonts,
+          SUpdateBackgroundImageToAllWorkers, SWaitForUpdateBackgroundImageResults,
+          SUpdateCache, SLoadCache,
+          SUnsubscribeFromResponses, SWaitForResponsesUnsubAck,
+          SDisconnectFromBroker,
+          SDone
+         );
+
+const
+  CFSMStr: array[TFSM] of string = (
+          'SInit', 'SConnectToBroker', 'SWaitForConAck',
+          'SSubscribeToResponses', 'SWaitForResponsesSubAck',
+          'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
+          'SGetFindSubControlActionContent',
+          'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
+          'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
+          'SGetListOfFonts', 'SWaitForListOfFonts',
+          'SUpdateBackgroundImageToAllWorkers', 'SWaitForUpdateBackgroundImageResults',
+          'SUpdateCache', 'SLoadCache',
+          'SUnsubscribeFromResponses', 'SWaitForResponsesUnsubAck',
+          'SDisconnectFromBroker',
+          'SDone'
+          );
+
+ CNoWorkerFoundSubControlErr = 'None of the responding workers found the SubControl.';
+ CNoWorkerMatchesOSErr = 'None of the responding workers matches the selected target OS.';
+
+
+var
+  State, NextState: TFSM;
+  FSMDone: Boolean;
+  FSMError: string;
+
+  WillWaitForUpdateBackgroundResponses: Boolean;
+  UpdateBackgroundTk: Int64;
+
+  SendBackgroundToAll_tk: QWord; //used for timeouts
+  ConnectToBroker_tk: QWord; //used for timeouts
+  SubscribeToResponses_tk: QWord; //used for timeouts
+  UnsubscribeFromResponses_tk: QWord; //used for timeouts
+  GetCapabilities_tk: QWord; //used for timeouts
+  //SendBackgroundToSome_tk: QWord; //used for timeouts
+  SendFindSubControl_tk: QWord; //used for timeouts
+  GetListOfFonts_tk: QWord; //used for timeouts
+
 procedure ExecFSM_Part1;
 var
   i: Integer;
@@ -2120,6 +2120,13 @@ type
     ListOfPluginSettings: TStringList;
     IndexOfFindSubControlActionProperty: Integer;
 
+    BkArchiveStream: TMemoryStream;
+    BkArchive: TMemArchive;
+    BkCompressionTime: QWord;   //for statistics only
+
+    FindSubControlFonts: TClkFindControlMatchBitmapTextArr; //used for sorting
+    FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
+
     procedure SetTemplateVar(AVarName, AVarValue: string);
     procedure GetAllTemplateVars(out AAllTemplateVars: string);
     function GetPluginSettings: string;
@@ -2141,7 +2148,18 @@ type
     function UpdateBkArchiveWithNewBackground(AListOfAllVars: TStringList): Boolean;
     function GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
     function ExecPlugin: Boolean;
+
+  public
+    constructor Create;
+    //property GetAllControls: Boolean read FGetAllControls write FGetAllControls;
   end;
+
+
+constructor TDistPlugin.Create;
+begin
+  inherited Create;
+  FindSubControlFonts := nil;
+end;
 
 
 procedure TDistPlugin.SetTemplateVar(AVarName, AVarValue: string);
