@@ -40,7 +40,7 @@ uses
   ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
   MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties,
   ClickerPluginInMemFileSystem, ClickerPrimitives, ClickerActionPluginAccess,
-  DistFindSubControlPropertyEditorForm, FontSorting;
+  DistFindSubControlPropertyEditorForm, FontSorting, DistFindSubControlFSM;
 
 type
   //TStringArr = array of string;
@@ -77,17 +77,13 @@ type
 
 
 var
+  FDistFSM: TDistFSM;
+
   IdTCPClient1: TIdTCPClient;
   FRecBufFIFO: TPollingFIFO; //used by the reading thread to pass data to MQTT library
   //DebugPoint: TDbgPoint;
-  AtLeastOneWorkerFoundTheSubControl: Boolean;
-  WorkerRespondedCountBG: Word; //Background
-  WorkerRespondedCountFS: Word; //FindSubControl
-  WorkerRespondedCountLoF: Word; //ListOfFonts
+
   FLatestMsg: string = '';
-  ConnectedSucessfully, ConAckReceived, SubAckReceived, UnsubAckReceived, SubscribedSucessfully, UnsubscribedSucessfully, DisconnectedSuccessfully: Boolean;
-  WaitingForWorkerCapabilities: Boolean;
-  WaitingForWorkerFonts: Boolean;
 
   AllWorkers: TWorkerArr;
   AllWorkerBackgroundBmpStr: string;
@@ -99,8 +95,6 @@ var
   GPluginReference: Pointer;
 
   GetAllControls: Boolean;  //will be replaced by a TDistPlugin property
-
-
 
   FDistPluginOptions: TDistPluginOptions;
   FVarsForWorkers: TVarsForWorkers; //the old VarsForWorkers_Names, VarsForWorkers_Values, VarsForWorkers_EvalBefore
@@ -373,7 +367,7 @@ end;
 
 procedure HandleOnAfterMQTT_CONNACK(ClientInstance: DWord; var AConnAckFields: TMQTTConnAckFields; var AConnAckProperties: TMQTTConnAckProperties);
 begin
-  ConAckReceived := True;
+  FDistFSM.ConAckReceived := True;
 
   if VerbLevel < 1 then
   begin
@@ -490,7 +484,7 @@ procedure HandleOnAfterReceivingMQTT_SUBACK(ClientInstance: DWord; var ASubAckFi
 var
   i: Integer;
 begin
-  SubAckReceived := True;
+  FDistFSM.SubAckReceived := True;
 
   if VerbLevel < 1 then
   begin
@@ -561,7 +555,7 @@ procedure HandleOnAfterReceivingMQTT_UNSUBACK(ClientInstance: DWord; var AUnsubA
 var
   i: Integer;
 begin
-  UnsubAckReceived := True;
+  FDistFSM.UnsubAckReceived := True;
 
   if VerbLevel < 1 then
   begin
@@ -904,7 +898,7 @@ begin
 
     if Topic = CTopicName_WorkerToApp_GetCapabilities then
     begin
-      if WaitingForWorkerCapabilities and (WorkerRequestID = GetCapabilitiesRequestID) then //This is True only for a short while (see the state machine below). Any worker which publishes after this, is ignored.
+      if FDistFSM.WaitingForWorkerCapabilities and (WorkerRequestID = GetCapabilitiesRequestID) then //This is True only for a short while (see the state machine below). Any worker which publishes after this, is ignored.
       begin
         AddToLog(DateTimeToStr(Now) + ' (' + IntToStr(GetTickCount64) + ')  Adding worker[' + IntToStr(Length(AllWorkers)) + '] to list: ' + WorkerName);
         AddNewWorkerToList(WorkerName,
@@ -928,7 +922,7 @@ begin
         begin
           if Content.Values['$ExecAction_Err$'] = CBackgroundOKResponse then
           begin
-            Inc(WorkerRespondedCountBG);
+            FDistFSM.WorkerRespondedCountBG := FDistFSM.WorkerRespondedCountBG + 1;
 
             if VerbLevel < 2 then
               AddToLog('Worker[' + IntToStr(WorkerIndex) + '] responded with success when sending background image.');
@@ -947,7 +941,7 @@ begin
       begin
         if WorkerRequestID = AllWorkers[WorkerIndex].FindSubControlRequestID then
         begin
-          Inc(WorkerRespondedCountFS);
+          FDistFSM.WorkerRespondedCountFS := FDistFSM.WorkerRespondedCountFS + 1;
           AllWorkers[WorkerIndex].ResponseReceived := True;
           AllWorkers[WorkerIndex].Response := Content.Values['$ExecAction_Err$'];  /////////////// there is also CActionPlugin_ExecutionResultErrorVar, but the response is set to $ExecAction_Err$
           AllWorkers[WorkerIndex].FindSubControlFound := AllWorkers[WorkerIndex].Response = '';
@@ -987,7 +981,7 @@ begin
           TempResponseArchiveStr := Copy(Msg, Pos(CProtocolParam_ResultImageArchive + '=', Msg) + Length(CProtocolParam_ResultImageArchive + '='), MaxInt);
           SetWorkerResponseBitmapStream(WorkerIndex, TempResponseArchiveStr, Content.Values[CProtocolParam_ResponseArchiveSize]);
 
-          AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_AtLeastOneFound;   //this should be set after all responses
+          FDistFSM.AtLeastOneWorkerFoundTheSubControl := GetAllWorkers_AtLeastOneFound;   //this should be set after all responses
         end  //WorkerRequestID = AllWorkers[WorkerIndex].FindSubControlRequestID
         else
           AddToLog('==================== Received FindSubControl response with RequestID = ' + AllWorkers[WorkerIndex].FindSubControlRequestID);
@@ -995,9 +989,9 @@ begin
     end; //Topic
 
     if Topic = CTopicName_WorkerToApp_GetListOfFonts then
-      if WaitingForWorkerFonts then
+      if FDistFSM.WaitingForWorkerFonts then
       begin
-        Inc(WorkerRespondedCountLoF);
+        FDistFSM.WorkerRespondedCountLoF := FDistFSM.WorkerRespondedCountLoF + 1;
 
         if VerbLevel < 2 then
           AddToLog('Received fonts from worker: ' + WorkerName);
@@ -1525,601 +1519,6 @@ end;
 
 
 type
-  TFSM = (SInit, SConnectToBroker, SWaitForConAck,
-          SSubscribeToResponses, SWaitForResponsesSubAck,   //Responses can be capabilities, lists of missing files, processing results
-          SRequestCapabilities, SWaitForCapabilitiesResponse,
-          SGetFindSubControlActionContent,
-          SPublishBackgroundImageToAllWorkers, SWaitForBackgroundImageResults,
-          SPublishFindSubControlToAllWorkers, SWaitForFindSubControlResults,  //in addition to FindSubControl action details, the publish contains a list of assigned work info for every worker, so they know what exactly to work on
-          SGetListOfFonts, SWaitForListOfFonts,
-          SUpdateBackgroundImageToAllWorkers, SWaitForUpdateBackgroundImageResults,
-          SUpdateCache, SLoadCache,
-          SUnsubscribeFromResponses, SWaitForResponsesUnsubAck,
-          SDisconnectFromBroker,
-          SDone
-         );
-
-const
-  CFSMStr: array[TFSM] of string = (
-          'SInit', 'SConnectToBroker', 'SWaitForConAck',
-          'SSubscribeToResponses', 'SWaitForResponsesSubAck',
-          'SRequestCapabilities', 'SWaitForCapabilitiesResponse',
-          'SGetFindSubControlActionContent',
-          'SPublishBackgroundImageToAllWorkers', 'SWaitForBackgroundImageResults',
-          'SPublishFindSubControlToAllWorkers', 'SWaitForFindSubControlResults',
-          'SGetListOfFonts', 'SWaitForListOfFonts',
-          'SUpdateBackgroundImageToAllWorkers', 'SWaitForUpdateBackgroundImageResults',
-          'SUpdateCache', 'SLoadCache',
-          'SUnsubscribeFromResponses', 'SWaitForResponsesUnsubAck',
-          'SDisconnectFromBroker',
-          'SDone'
-          );
-
- CNoWorkerFoundSubControlErr = 'None of the responding workers found the SubControl.';
- CNoWorkerMatchesOSErr = 'None of the responding workers matches the selected target OS.';
-
-type
-  TDistFSM = class
-  private
-    State, NextState: TFSM;
-    FSMDone: Boolean;
-    FSMError: string;
-
-    WillWaitForUpdateBackgroundResponses: Boolean;
-    UpdateBackgroundTk: Int64;
-
-    SendBackgroundToAll_tk: QWord; //used for timeouts
-    ConnectToBroker_tk: QWord; //used for timeouts
-    SubscribeToResponses_tk: QWord; //used for timeouts
-    UnsubscribeFromResponses_tk: QWord; //used for timeouts
-    GetCapabilities_tk: QWord; //used for timeouts
-    //SendBackgroundToSome_tk: QWord; //used for timeouts
-    SendFindSubControl_tk: QWord; //used for timeouts
-    GetListOfFonts_tk: QWord; //used for timeouts
-
-    procedure ExecFSM_Part1;
-    procedure ExecFSM_Part2;
-
-  public
-    constructor Create;
-    function ExecFSM: string;
-    procedure ResetFSM;
-  end;
-
-
-constructor TDistFSM.Create;
-begin
-  inherited Create;
-  FSMError := '';
-  State := SInit;
-end;
-
-
-procedure TDistFSM.ResetFSM;
-begin
-  FSMDone := True;
-end;
-
-
-procedure TDistFSM.ExecFSM_Part1;
-var
-  i: Integer;
-begin
-  case State of
-    SInit:
-    begin
-      FSMDone := False;
-      ConnectedSucessfully := False;
-      ConAckReceived := False;
-      SubAckReceived := False;
-      UnsubAckReceived := False;
-      SubscribedSucessfully := False;
-      UnsubscribedSucessfully := False;
-      DisconnectedSuccessfully := False;
-
-      //ConnectToBroker_tk := GetTickCount64;
-      //SubscribeToResponses_tk := GetTickCount64;
-      //UnsubscribeFromResponses_tk := GetTickCount64;
-      GetCapabilities_tk := GetTickCount64;
-      SendBackgroundToAll_tk := GetTickCount64;
-      //SendBackgroundToSome_tk := GetTickCount64;
-      SendFindSubControl_tk := GetTickCount64;
-      GetListOfFonts_tk := GetTickCount64;
-    end;
-
-    SConnectToBroker:
-    begin
-      if VerbLevel < 2 then
-        AddToLog('Connecting to broker.');
-
-      ConnectedSucessfully := DoConnectToBroker;
-
-      if ConnectedSucessfully then
-      begin
-        ConnectToBroker_tk := GetTickCount64;
-        DbgPoint('Connected to broker.', '')
-      end
-      else
-      begin
-        FSMError := 'Can''t connect to broker. ' + FDistPluginOptions.Address + ':' + FDistPluginOptions.Port;
-        AddToLog(FSMError);
-      end;
-    end;
-
-    SWaitForConAck:
-    begin
-      // ConAckReceived is set by handler
-    end;
-
-    SSubscribeToResponses:
-    begin
-      SubscribedSucessfully := MQTT_SUBSCRIBE(0, 0);     //subscribing with CTopicNameResult
-      if not SubscribedSucessfully then
-      begin
-        FSMError := 'Can''t subscribe for responses.';
-        AddToLog(FSMError);
-      end
-      else
-        SubscribeToResponses_tk := GetTickCount64;
-    end;
-
-    SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
-    begin
-      //SubAckReceived is set by handler
-    end;
-
-    SRequestCapabilities:
-    begin
-      WaitingForWorkerCapabilities := True;    //reset below
-      if not MQTT_PUBLISH(0, CCallbackID_GetCapabilities, FDistPluginOptions.WorkerQoS) then  //notice CallbackID = 0      (i.e. 'GetCapabilities')
-      begin
-        FSMError := 'Can''t send GetCapabilities request to broker.';
-        AddToLog(FSMError);
-      end
-      else
-        GetCapabilities_tk := GetTickCount64;
-    end;
-
-    SWaitForCapabilitiesResponse:
-    begin
-      // Every worker has to respond with what capabilities is configured.
-      // Some can process Text, others Bmp files, others Primitives.
-      // If the FindSubControl action has only two text profiles, it makes sense to distribute the search to both workers.
-      // That means, all workers should be able to process anything. Anyway, since all have UIClicker installed, all of them should be able to do all.
-      // The only real difference between workers would be the OS (Win vs Lin), where each may have different lists of fonts and different GPU rendering settings.
-      // So, the best option would be to evenly split (as best as possible) all types of FindSubControls (Txt, Bmp, Pmtv) across all workers.
-
-      // For efficient use of the network, it would be better if all workers can respond here with the list of the bmp/pmtv files (including backgrounds),
-      // along with their MD5 hashes, so that the plugin would know what files to send to each worker.
-      // Since all backgrounds may have the same name ('Background.bmp'), this bmp should be renamed to 'Background_<MD5>.bmp'.
-      // The backgrounds are likely to change, but some of them, like menus or various window parts may stay the same.
-      // The worker should be configurable about the cache size.
-    end;
-
-    SGetFindSubControlActionContent:
-    begin
-      //This is where GetFindControlActionProperties is called (unfortunately in FSM's loop) instead of this case item.
-    end;
-
-    SPublishBackgroundImageToAllWorkers:
-    begin
-      //AtLeastOneWorkerFoundTheSubControl := False;   //not sure why this was here (maybe a copy-paste)
-      WorkerRespondedCountBG := 0;
-
-      if VerbLevel < 2 then
-        AddToLog('Sending background image to broker...');
-
-      if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
-      begin
-        FSMError := 'Can''t send background image to all workers.';
-        AddToLog(FSMError);
-      end
-      else
-        SendBackgroundToAll_tk := GetTickCount64;
-
-      if VerbLevel < 2 then
-        AddToLog('Done sending background image.');
-    end;
-
-    SWaitForBackgroundImageResults:
-    begin
-
-    end;
-
-    SPublishFindSubControlToAllWorkers:
-    begin
-      AtLeastOneWorkerFoundTheSubControl := False;
-      WorkerRespondedCountFS := 0;
-      WillWaitForUpdateBackgroundResponses := False;
-
-      if VerbLevel < 2 then
-        AddToLog('Sending FindSubControl settings to broker...');
-
-      for i := 0 to Length(AllWorkers) - 1 do
-      begin
-        if not MQTT_PUBLISH(0, CCallbackID_SendFindSubControl or (i shl 8), FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 3     (i.e. 'FindSubControl')
-        begin
-          FSMError := 'Can''t send FindSubControl settings to broker for worker[' + IntToStr(i) + '].';
-          AddToLog(FSMError);
-        end
-        else
-          SendFindSubControl_tk := GetTickCount64;
-      end;
-
-      if VerbLevel < 2 then
-        AddToLog('Done sending FindSubControl settings.');
-
-      UpdateBackgroundTk := GetTickCount64;
-    end;
-
-    SWaitForFindSubControlResults:
-    begin
-      // It is possible that the plugin may receive "missing files" requests.
-      // If that's the case, it should send those files, here in the same state.
-    end;
-
-    SGetListOfFonts:
-    begin
-      WaitingForWorkerFonts := True; //reset below
-      WorkerRespondedCountLoF := 0;
-
-      if not MQTT_PUBLISH(0, CCallbackID_GetListOfFonts, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 4     (i.e. 'GetListOfFonts')
-      begin
-        FSMError := 'Can''t send GetListOfFonts settings to broker.';
-        AddToLog(FSMError);
-      end
-      else
-        GetListOfFonts_tk := GetTickCount64;
-    end;
-
-    SWaitForListOfFonts:
-    begin
-
-    end;
-
-    SUpdateBackgroundImageToAllWorkers:
-    begin
-      WillWaitForUpdateBackgroundResponses := False; //Reset here.  Set in main loop.
-      //SendBackgroundToAll_tk := GetTickCount64;  //Set in main loop.
-      WorkerRespondedCountBG := 0;
-    end;
-
-    SWaitForUpdateBackgroundImageResults:
-    begin
-
-    end;
-
-    SUpdateCache:
-    begin
-      if VerbLevel < 2 then
-        AddToLog('Updating plugin cache..');
-
-      if FDistPluginOptions.SaveWorkerCapabilitiesCacheAction = '' then
-      begin
-        FSMError := 'There is no configured action for updating plugin cache.';
-        AddToLog(FSMError);
-      end
-      else
-        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @FDistPluginOptions.SaveWorkerCapabilitiesCacheAction[1]) then
-          FSMError := 'Error updating plugin cache. The ' + FDistPluginOptions.SaveWorkerCapabilitiesCacheAction + ' action failed.';
-          //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
-    end;
-
-    SLoadCache:
-    begin
-      if VerbLevel < 2 then
-        AddToLog('Loading plugin cache..');
-
-      if FDistPluginOptions.LoadWorkerCapabilitiesCacheAction = '' then
-      begin
-        FSMError := 'There is no configured action for loading plugin cache.';
-        AddToLog(FSMError);
-      end
-      else
-        if not ActionPlugin_ExecuteActionCallback(GPluginReference, @FDistPluginOptions.LoadWorkerCapabilitiesCacheAction[1]) then
-          FSMError := 'Error loading plugin cache. The ' + FDistPluginOptions.LoadWorkerCapabilitiesCacheAction + ' action failed.';
-          //ToDo: load all vars, then read the value of $ExecAction_Err$ and concatenate it to the error message above.
-    end;
-
-    SUnsubscribeFromResponses:
-    begin
-      UnsubscribedSucessfully := MQTT_UNSUBSCRIBE(0, 0);     //unsubscribing with CTopicNameResult
-      if not UnsubscribedSucessfully then
-      begin
-        FSMError := 'Can''t unsubscribe from responses.';
-        AddToLog(FSMError);
-      end
-      else
-        UnsubscribeFromResponses_tk := GetTickCount64;
-    end;
-
-    SWaitForResponsesUnsubAck:
-    begin
-      //UnsubAckReceived is set by handler
-    end;
-
-    SDisconnectFromBroker:
-    begin
-      FSMDone := True;
-      DisconnectedSuccessfully := DoDisconnect;
-    end;
-
-    SDone:
-    begin
-      FSMDone := True;
-      AddToLog('Plugin done');
-    end;
-  end;
-end;
-
-
-procedure TDistFSM.ExecFSM_Part2;
-begin
-  case State of
-    SInit:
-      NextState := SConnectToBroker;
-
-    SConnectToBroker:
-      if ConnectedSucessfully then
-        NextState := SWaitForConAck
-      else
-        NextState := SDisconnectFromBroker;
-
-    SWaitForConAck:
-    begin
-      if ConAckReceived then  //there should be one ConAckReceived event only (this plugin to broker), unlike multiple workers below
-        NextState := SSubscribeToResponses
-      else
-        if GetTickCount64 - ConnectToBroker_tk > 1000 then
-          NextState := SDisconnectFromBroker  //Timeout
-        else
-          NextState := SWaitForConAck;
-    end;
-
-    SSubscribeToResponses:
-      if SubscribedSucessfully then
-        NextState := SWaitForResponsesSubAck
-      else
-        NextState := SDisconnectFromBroker;
-
-    SWaitForResponsesSubAck:   //Responses can be capabilities, lists of missing files, processing results
-      if SubAckReceived then
-      begin
-        if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then
-          NextState := SLoadCache
-        else
-          NextState := SRequestCapabilities;
-      end
-      else
-      begin
-        if GetTickCount64 - SubscribeToResponses_tk > 1000 then
-          NextState := SDisconnectFromBroker  //Timeout
-        else
-          NextState := SWaitForResponsesSubAck;
-      end;
-
-    SRequestCapabilities:
-      NextState := SWaitForCapabilitiesResponse;
-
-    SWaitForCapabilitiesResponse:
-      if (GetTickCount64 - GetCapabilities_tk > FDistPluginOptions.GetWorkerCapabilitiesTimeout) or  //Waiting for some time, for all workers to present their capabilities. This way, the plugin knows home many are they.
-         (Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount) then      //Or enough workers are available, no need to wait for more.
-      begin
-        if Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount then
-          AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout (Capabilities).');
-
-        if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndFindSubControl then
-          NextState := SGetFindSubControlActionContent
-        else
-          if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFonts then
-            NextState := SGetListOfFonts
-          else
-            if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
-              NextState := SGetListOfFonts  //in SWaitForListOfFonts, there is still a verification of WorkerCapabilitiesSource
-            else
-              if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndUpdateCache then
-                NextState := SUpdateCache
-              else
-                if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsLoadCacheAndFindSubControl then   //////////// this should not happen in this state
-                begin
-                  NextState := SUnsubscribeFromResponses; /////////////// set here to a different state when implemented
-                  AddToLog('________' + CReqCapOperation_wcsLoadCacheAndFindSubControl + ' not implemented yet...'); //remove comment
-                end
-                else
-                begin
-                  NextState := SUnsubscribeFromResponses;
-                  AddToLog('________ Unknown operation: ' + FDistPluginOptions.WorkerCapabilitiesSource + '. Exiting plugin.');
-                end;
-
-        WaitingForWorkerCapabilities := False;
-      end
-      else
-        NextState := SWaitForCapabilitiesResponse;
-
-    SGetFindSubControlActionContent:
-    begin
-      if Length(AllWorkers) > 255 then
-      begin
-        FSMError := 'Too many workers (' + IntToStr(Length(AllWorkers)) + '). Please modify the index encoding to raise the limit above 255.';
-        AddToLog(FSMError);
-        NextState := SUnsubscribeFromResponses;
-      end
-      else
-        NextState := SPublishBackgroundImageToAllWorkers;
-    end;
-
-    SPublishBackgroundImageToAllWorkers:
-      NextState := SWaitForBackgroundImageResults;
-
-    SWaitForBackgroundImageResults:
-      if GetTickCount64 - SendBackgroundToAll_tk > FDistPluginOptions.FindSubControlWorkerTimeout then   //not sure what timeout to use here
-      begin
-        NextState := SUnsubscribeFromResponses;  //Timeout
-
-        if WorkerRespondedCountBG = 0 then
-          FSMError := 'Timeout waiting for workers to send the background image to their local UIClicker.'
-        else
-          FSMError := 'Some of the responding workers could not send the background image to their local UIClicker.';
-
-        FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCountBG) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
-
-        AddToLog(FSMError);
-        AddToLog('Sending background image duration: ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + 'ms.');
-      end
-      else
-      begin
-        NextState := SWaitForBackgroundImageResults;
-
-        if WorkerRespondedCountBG >= Length(AllWorkers) then
-        begin
-          NextState := SPublishFindSubControlToAllWorkers;
-
-          if VerbLevel < 2 then
-            AddToLog('All workers responded after having the background image in ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.');
-        end;
-      end;
-
-    SPublishFindSubControlToAllWorkers:
-      NextState := SWaitForFindSubControlResults;
-
-    SWaitForFindSubControlResults:
-      if AtLeastOneWorkerFoundTheSubControl then
-        NextState := SUnsubscribeFromResponses
-      else
-        if GetTickCount64 - SendFindSubControl_tk > FDistPluginOptions.FindSubControlWorkerTimeout then
-        begin
-          NextState := SUnsubscribeFromResponses;  //Timeout
-
-          if WorkerRespondedCountFS = 0 then
-            FSMError := 'Timeout waiting for workers to find the SubControl.'
-          else
-            FSMError := CNoWorkerFoundSubControlErr;
-
-          FSMError := FSMError + ' ResponseCount = ' + IntToStr(WorkerRespondedCountFS) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
-
-          AddToLog(FSMError);
-        end
-        else
-        begin
-          if not WillWaitForUpdateBackgroundResponses then
-            NextState := SWaitForFindSubControlResults
-          else
-            NextState := SUpdateBackgroundImageToAllWorkers;
-        end;
-
-    SGetListOfFonts:
-      NextState := SWaitForListOfFonts;
-
-    SWaitForListOfFonts:
-      if (GetTickCount64 - GetListOfFonts_tk > FDistPluginOptions.GetListOfFontsTimeout) or
-         (WorkerRespondedCountLoF >= FDistPluginOptions.MinExpectedWorkerCount) then   //Waiting for some time, for all workers to present their fonts.
-      begin
-        if Length(AllWorkers) >= FDistPluginOptions.MinExpectedWorkerCount then
-          AddToLog('Enough workers are available (' + IntToStr(Length(AllWorkers)) + '). Skipping timeout (ListOfFonts).');
-
-        if FDistPluginOptions.WorkerCapabilitiesSource = CReqCapOperation_wcsReqCapAndGetFontsAndFindSubControl then
-          NextState := SGetFindSubControlActionContent
-        else
-          NextState := SUnsubscribeFromResponses;
-
-        if WorkerRespondedCountLoF = 0 then
-        begin
-          FSMError := 'Timeout waiting for workers to respond with lists of fonts.';
-          NextState := SUnsubscribeFromResponses;
-        end
-        else
-          if WorkerRespondedCountLoF < Length(AllWorkers) then
-          begin
-            FSMError := 'Not all workers reponded in time with their lists of fonts.';
-            FSMError := FSMError + ' ListOfFontsResponseCount = ' + IntToStr(WorkerRespondedCountLoF) + ' / ' + IntToStr(Length(AllWorkers)) + '.';  //Do not change this format. It is used later.
-            NextState := SUnsubscribeFromResponses;
-          end;
-
-        AddToLog(FSMError);
-        WaitingForWorkerFonts := False;
-      end
-      else
-        NextState := SWaitForListOfFonts;
-
-    SUpdateBackgroundImageToAllWorkers:
-      NextState := SWaitForUpdateBackgroundImageResults;
-
-    SWaitForUpdateBackgroundImageResults:
-    begin
-      if GetTickCount64 - SendBackgroundToAll_tk > Max(500, FDistPluginOptions.UpdateBackgroundInterval - 100) then   //not sure what timeout to use here
-      begin
-        //Do not set "NextState := SUnsubscribeFromResponses;"  //Timeout     A timeout on updating the background, should not stop the plugin.
-        NextState := SWaitForFindSubControlResults;   //go back to the main waiting state
-
-        if WorkerRespondedCountBG = 0 then
-          AddToLog('Timeout waiting for workers to send the background image to their local UIClicker.')
-        else
-          AddToLog('Some of the responding workers could not send the background image to their local UIClicker.');
-
-        AddToLog(' ResponseCount = ' + IntToStr(WorkerRespondedCountBG) + ' / ' + IntToStr(Length(AllWorkers)) + '.');  //Do not change this format. It is used later.
-        AddToLog('Updating background image duration: ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.  FindSubControlWorkerTimeout is set to ' + IntToStr(FDistPluginOptions.FindSubControlWorkerTimeout) + 'ms.');
-      end
-      else
-      begin
-        NextState := SWaitForUpdateBackgroundImageResults;
-
-        if WorkerRespondedCountBG >= Length(AllWorkers) then
-        begin
-          NextState := SWaitForFindSubControlResults;  //go back to the main waiting state
-
-          if VerbLevel < 2 then
-            AddToLog('All workers responded after having the updated background image in ' + IntToStr(GetTickCount64 - SendBackgroundToAll_tk) + 'ms.');
-        end;
-      end;
-    end;
-
-    SUpdateCache:
-      NextState := SUnsubscribeFromResponses;
-
-    SLoadCache:
-    begin
-      //NextState := SGetFindSubControlActionContent;  //from SLoadCache, the next state should be SGetFindSubControlActionContent
-      FDistPluginOptions.WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndFindSubControl; //but the list of workers is not updated yet by the cache.  ToDo
-      NextState := SRequestCapabilities; //Go and get capabilities, which updates the list of workers and then execute FindSubControl. (Temp solution.)
-    end;
-
-    SUnsubscribeFromResponses:
-      if UnsubscribedSucessfully then
-        NextState := SWaitForResponsesUnsubAck
-      else
-        NextState := SDisconnectFromBroker;
-
-    SWaitForResponsesUnsubAck:
-      if UnsubAckReceived then
-        NextState := SDisconnectFromBroker
-      else
-      begin
-        if GetTickCount64 - UnsubscribeFromResponses_tk > 1000 then
-          NextState := SDisconnectFromBroker  //Timeout
-        else
-          NextState := SWaitForResponsesUnsubAck;
-      end;
-
-    SDisconnectFromBroker:
-      NextState := SDone;
-
-    SDone:
-      NextState := SDone;
-  end;
-end;
-
-
-function TDistFSM.ExecFSM: string;
-begin
-  ExecFSM_Part1;
-  ExecFSM_Part2;
-  State := NextState;
-
-  Result := FSMError;
-end;
-
-
-type
   TDistPlugin = class
   private
     FPluginReference: Pointer;
@@ -2154,8 +1553,6 @@ type
     FindSubControlFonts: TClkFindControlMatchBitmapTextArr; //used for sorting
     FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
 
-    FDistFSM: TDistFSM;
-
     procedure SetTemplateVar(AVarName, AVarValue: string);
     procedure GetAllTemplateVars(out AAllTemplateVars: string);
     function GetPluginSettings: string;
@@ -2178,6 +1575,12 @@ type
     function GetFindSubControlContent(AListOfAllVars: TStringList; out AHasTxtTasks: Boolean): Boolean;
     function ExecPlugin: Boolean;
 
+    procedure HandleOnAddToLog(s: string);
+    function HandleOnConnectToBroker: Boolean;
+    function HandleOnGetAllWorkersCount: Integer;
+    function HandleOnSaveWorkerCapabilitiesCache: Boolean;
+    function HandleOnLoadWorkerCapabilitiesCache: Boolean;
+    function HandleOnDisconnectFromBroker: Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -2189,7 +1592,17 @@ constructor TDistPlugin.Create;
 begin
   inherited Create;
   FindSubControlFonts := nil;
+
   FDistFSM := TDistFSM.Create;
+  FDistFSM.VerbLevel := VerbLevel;
+
+  //FDistFSM.DistPluginOptions := FDistPluginOptions;  //do not set FDistFSM.DistPluginOptions here, because FDistPluginOptions is not set yet.
+  FDistFSM.OnAddToLog := HandleOnAddToLog;
+  FDistFSM.OnConnectToBroker := HandleOnConnectToBroker;
+  FDistFSM.OnGetAllWorkersCount := HandleOnGetAllWorkersCount;
+  FDistFSM.OnSaveWorkerCapabilitiesCache := HandleOnSaveWorkerCapabilitiesCache;
+  FDistFSM.OnLoadWorkerCapabilitiesCache := HandleOnLoadWorkerCapabilitiesCache;
+  FDistFSM.OnDisconnectFromBroker := HandleOnDisconnectFromBroker;
 end;
 
 
@@ -2199,6 +1612,41 @@ begin
   inherited Destroy;
 end;
 
+
+procedure TDistPlugin.HandleOnAddToLog(s: string);
+begin
+  AddToLog(s);
+end;
+
+
+function TDistPlugin.HandleOnConnectToBroker: Boolean;
+begin
+  Result := DoConnectToBroker;
+end;
+
+
+function TDistPlugin.HandleOnGetAllWorkersCount: Integer;
+begin
+  Result := Length(AllWorkers);
+end;
+
+
+function TDistPlugin.HandleOnSaveWorkerCapabilitiesCache: Boolean;
+begin
+  Result := ActionPlugin_ExecuteActionCallback(GPluginReference, @FDistPluginOptions.SaveWorkerCapabilitiesCacheAction[1]);
+end;
+
+
+function TDistPlugin.HandleOnLoadWorkerCapabilitiesCache: Boolean;
+begin
+  Result := ActionPlugin_ExecuteActionCallback(GPluginReference, @FDistPluginOptions.LoadWorkerCapabilitiesCacheAction[1]);
+end;
+
+
+function TDistPlugin.HandleOnDisconnectFromBroker: Boolean;
+begin
+  Result := DoDisconnect;
+end;
 
 procedure TDistPlugin.SetTemplateVar(AVarName, AVarValue: string);
 begin
@@ -3421,9 +2869,9 @@ begin
   FDistPluginOptions.WorkerCapabilitiesSource := CReqCapOperation_wcsReqCapAndGetFonts; //Init here, in case an Exit is called later.
   GetCapabilitiesRequestID := 'NotSet';
   SendBackgroundToAllRequestID := 'NotSet';
-  WorkerRespondedCountBG := 0;
-  WorkerRespondedCountFS := 0;
-  WorkerRespondedCountLoF := 0;
+  FDistFSM.WorkerRespondedCountBG := 0;
+  FDistFSM.WorkerRespondedCountFS := 0;
+  FDistFSM.WorkerRespondedCountLoF := 0;
 
   Randomize;
   RequestIDCnt := Random(MaxInt);
@@ -3481,6 +2929,7 @@ begin
       GetAllTemplateVars(AllVarsStr);
       GetPluginSettingsFromProperties(ListOfPluginSettings, AllVarsStr, FDistPluginOptions, FVarsForWorkers);
       ListOfAllVars.Text := AllVarsStr;
+      FDistFSM.DistPluginOptions := FDistPluginOptions;
 
       s := 'unset action';
       IndexOfFindSubControlActionProperty := -1;
@@ -3627,7 +3076,7 @@ begin
       if VerbLevel < 2 then
         AddToLog('Stopped MQTT timer...');
 
-      Result := DisconnectedSuccessfully;
+      Result := FDistFSM.DisconnectedSuccessfully;
 
       if ResultedFSMError <> '' then
       begin
