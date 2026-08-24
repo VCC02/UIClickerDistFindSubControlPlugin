@@ -1558,25 +1558,50 @@ const
  CNoWorkerFoundSubControlErr = 'None of the responding workers found the SubControl.';
  CNoWorkerMatchesOSErr = 'None of the responding workers matches the selected target OS.';
 
+type
+  TDistFSM = class
+  private
+    State, NextState: TFSM;
+    FSMDone: Boolean;
+    FSMError: string;
 
-var
-  State, NextState: TFSM;
-  FSMDone: Boolean;
-  FSMError: string;
+    WillWaitForUpdateBackgroundResponses: Boolean;
+    UpdateBackgroundTk: Int64;
 
-  WillWaitForUpdateBackgroundResponses: Boolean;
-  UpdateBackgroundTk: Int64;
+    SendBackgroundToAll_tk: QWord; //used for timeouts
+    ConnectToBroker_tk: QWord; //used for timeouts
+    SubscribeToResponses_tk: QWord; //used for timeouts
+    UnsubscribeFromResponses_tk: QWord; //used for timeouts
+    GetCapabilities_tk: QWord; //used for timeouts
+    //SendBackgroundToSome_tk: QWord; //used for timeouts
+    SendFindSubControl_tk: QWord; //used for timeouts
+    GetListOfFonts_tk: QWord; //used for timeouts
 
-  SendBackgroundToAll_tk: QWord; //used for timeouts
-  ConnectToBroker_tk: QWord; //used for timeouts
-  SubscribeToResponses_tk: QWord; //used for timeouts
-  UnsubscribeFromResponses_tk: QWord; //used for timeouts
-  GetCapabilities_tk: QWord; //used for timeouts
-  //SendBackgroundToSome_tk: QWord; //used for timeouts
-  SendFindSubControl_tk: QWord; //used for timeouts
-  GetListOfFonts_tk: QWord; //used for timeouts
+    procedure ExecFSM_Part1;
+    procedure ExecFSM_Part2;
 
-procedure ExecFSM_Part1;
+  public
+    constructor Create;
+    function ExecFSM: string;
+    procedure ResetFSM;
+  end;
+
+
+constructor TDistFSM.Create;
+begin
+  inherited Create;
+  FSMError := '';
+  State := SInit;
+end;
+
+
+procedure TDistFSM.ResetFSM;
+begin
+  FSMDone := True;
+end;
+
+
+procedure TDistFSM.ExecFSM_Part1;
 var
   i: Integer;
 begin
@@ -1828,7 +1853,7 @@ begin
 end;
 
 
-procedure ExecFSM_Part2;
+procedure TDistFSM.ExecFSM_Part2;
 begin
   case State of
     SInit:
@@ -2084,11 +2109,13 @@ begin
 end;
 
 
-procedure ExecFSM;
+function TDistFSM.ExecFSM: string;
 begin
   ExecFSM_Part1;
   ExecFSM_Part2;
   State := NextState;
+
+  Result := FSMError;
 end;
 
 
@@ -2127,6 +2154,8 @@ type
     FindSubControlFonts: TClkFindControlMatchBitmapTextArr; //used for sorting
     FontsUsedByPmtvs: TStringArray;  //used for sorting and task allocation
 
+    FDistFSM: TDistFSM;
+
     procedure SetTemplateVar(AVarName, AVarValue: string);
     procedure GetAllTemplateVars(out AAllTemplateVars: string);
     function GetPluginSettings: string;
@@ -2151,6 +2180,7 @@ type
 
   public
     constructor Create;
+    destructor Destroy; override;
     //property GetAllControls: Boolean read FGetAllControls write FGetAllControls;
   end;
 
@@ -2159,6 +2189,14 @@ constructor TDistPlugin.Create;
 begin
   inherited Create;
   FindSubControlFonts := nil;
+  FDistFSM := TDistFSM.Create;
+end;
+
+
+destructor TDistPlugin.Destroy;
+begin
+  FreeAndNil(FDistFSM);
+  inherited Destroy;
 end;
 
 
@@ -3372,6 +3410,7 @@ var
   ListOfAllVars: TStringList;
   ResultImageAvailable: Boolean;
   FoundMatchingOS, HasTxtTasks: Boolean;
+  ResultedFSMError: string;
 begin
   Result := True;
 
@@ -3478,8 +3517,6 @@ begin
         AddToLog('WorkerCapabilitiesSource: ' + FDistPluginOptions.WorkerCapabilitiesSource);
 
       MQTT_Init;
-      FSMError := '';
-      State := SInit;
 
       if MQTT_CreateClient then
       begin
@@ -3487,34 +3524,34 @@ begin
           InitHandlers;
 
           repeat
-            ExecFSM;
+            ResultedFSMError := FDistFSM.ExecFSM;
 
-            if State = SGetFindSubControlActionContent then
+            if FDistFSM.State = SGetFindSubControlActionContent then
             begin
               try
                 if not GetFindSubControlContent(ListOfAllVars, HasTxtTasks) then
                 begin
                   AddToLog('Stopping FSM, because GetFindSubControlContent returned False.');
-                  FSMDone := True;
+                  FDistFSM.ResetFSM;
                 end;
               except
                 on EFSM: Exception do
                 begin
-                  FSMError := FSMError + 'Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message;
-                  AddToLog(FSMError);
-                  FSMDone := True;
+                  ResultedFSMError := ResultedFSMError + 'Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message;
+                  AddToLog(ResultedFSMError);
+                  FDistFSM.ResetFSM;
                 end;
               end;
             end;
 
-            if State = SWaitForFindSubControlResults then
+            if FDistFSM.State = SWaitForFindSubControlResults then
             begin
               try
                 //UpdateBackgroundTk is initialized in SPublishFindSubControlToAllWorkers.
 
-                if (FDistPluginOptions.UpdateBackgroundInterval > 0) and (GetTickCount64 - UpdateBackgroundTk >= FDistPluginOptions.UpdateBackgroundInterval) then
+                if (FDistPluginOptions.UpdateBackgroundInterval > 0) and (GetTickCount64 - FDistFSM.UpdateBackgroundTk >= FDistPluginOptions.UpdateBackgroundInterval) then
                 begin
-                  UpdateBackgroundTk := GetTickCount64;
+                  FDistFSM.UpdateBackgroundTk := GetTickCount64;
 
                   if UpdateBkArchiveWithNewBackground(ListOfAllVars) then
                   begin
@@ -3523,27 +3560,27 @@ begin
 
                     if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')
                     begin
-                      FSMError := 'Can''t send background image to all workers, although it changed.';
-                      AddToLog(FSMError);
+                      ResultedFSMError := 'Can''t send background image to all workers, although it changed.';
+                      AddToLog(ResultedFSMError);
                     end
                     else
                     begin
-                      SendBackgroundToAll_tk := GetTickCount64;
-                      WillWaitForUpdateBackgroundResponses := True;
+                      FDistFSM.SendBackgroundToAll_tk := GetTickCount64;
+                      FDistFSM.WillWaitForUpdateBackgroundResponses := True;
                     end;
 
                     if VerbLevel < 2 then
                       AddToLog('Done sending background image, because it changed.');
                   end
                   else
-                    AddToLog('Same background...  UpdateBackgroundTk = ' + IntToStr(UpdateBackgroundTk));
+                    AddToLog('Same background...  UpdateBackgroundTk = ' + IntToStr(FDistFSM.UpdateBackgroundTk));
                 end;
               except
                 on EFSM: Exception do
                 begin
-                  FSMError := FSMError + 'Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message;
-                  AddToLog(FSMError);
-                  FSMDone := True;
+                  ResultedFSMError := ResultedFSMError + 'Stopping FSM, because GetFindSubControlContent raised an exception: ' + EFSM.Message;
+                  AddToLog(ResultedFSMError);
+                  FDistFSM.ResetFSM;
                 end;
               end;
             end;
@@ -3564,13 +3601,13 @@ begin
             end;
 
             Sleep(1);
-          until FSMDone;
+          until FDistFSM.FSMDone;
 
           if VerbLevel < 2 then
             AddToLog('-----------  Exiting FSM');
         finally
           if VerbLevel < 2 then
-            AddToLog('Last FSM state: ' + CFSMStr[State]);
+            AddToLog('Last FSM state: ' + CFSMStr[FDistFSM.State]);
 
           MQTT_DestroyClient(0);
 
@@ -3592,10 +3629,10 @@ begin
 
       Result := DisconnectedSuccessfully;
 
-      if FSMError <> '' then
+      if ResultedFSMError <> '' then
       begin
         Result := False;
-        FLatestMsg := FSMError;
+        FLatestMsg := ResultedFSMError;
       end;
     finally
       try
