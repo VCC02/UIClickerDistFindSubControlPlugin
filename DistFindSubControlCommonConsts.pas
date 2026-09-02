@@ -29,7 +29,7 @@ unit DistFindSubControlCommonConsts;
 interface
 
 uses
-  Classes, SysUtils, MemArchive, TplLzmaUnit, TplZlibUnit;
+  Classes, SysUtils, MemArchive, TplLzmaUnit, TplZlibUnit, ClickerUtils;
 
 
 type
@@ -118,8 +118,10 @@ type
     FCompressionAlgorithm: TCompressionAlgorithm;
     FLzmaOptions: TplLzmaOptions;
     FOnAddToLogNoObj: TOnAddToLogNoObj;
+    FOnAddToLog: TOnAddToLog;
 
     procedure DoOnAddToLogNoObj(AMsg: string);
+    procedure DoOnAddToLog(AMsg: string);
   public
     constructor Create;
 
@@ -131,6 +133,7 @@ type
     property LzmaOptions: TplLzmaOptions write FLzmaOptions;
 
     property OnAddToLogNoObj: TOnAddToLogNoObj write FOnAddToLogNoObj;
+    property OnAddToLog: TOnAddToLog write FOnAddToLog;
   end;
 
 
@@ -166,6 +169,8 @@ type
     Fonts: string;
     FindSubControlRequestID: string;
   end;
+
+  PWorker = ^TWorker;
 
   TWorkerArr = array of TWorker;
 
@@ -227,7 +232,7 @@ implementation
 uses
   Math, ClickerExtraUtils,
   //IdGlobal,
-  DistFindSubControlPluginProperties, ClickerUtils;
+  DistFindSubControlPluginProperties;
 
 
 function CompressionAlgorithmsStrToType(AStr: string): TCompressionAlgorithm;
@@ -284,15 +289,29 @@ begin
   inherited Create;
   FCompressionAlgorithm := caLzma;
   FOnAddToLogNoObj := nil;
+  FOnAddToLog := nil;
 end;
 
 
 procedure TArchiveHandlers.DoOnAddToLogNoObj(AMsg: string);
 begin
   if not Assigned(FOnAddToLogNoObj) then
-    raise Exception.Create('OnAddToLogNoObj not assigned');
+    try
+      DoOnAddToLog(AMsg)
+    except
+      raise Exception.Create('OnAddToLogNoObj not assigned');
+    end;
 
   FOnAddToLogNoObj(AMsg);
+end;
+
+
+procedure TArchiveHandlers.DoOnAddToLog(AMsg: string);
+begin
+  if not Assigned(FOnAddToLog) then
+    raise Exception.Create('OnAddToLog not assigned');
+
+  FOnAddToLog(AMsg);
 end;
 
 
