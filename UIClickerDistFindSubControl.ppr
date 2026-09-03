@@ -1360,7 +1360,7 @@ begin
 
         //AllWorkers[WorkersIndex].WorkerActionContentStr should not require any update, since the compression info is the same
       finally
-        CloseBkArchive;
+        //CloseBkArchive;  //commented, because there is already a call below:
         if not CloseBkArchive then
           Result := False;
       end;
@@ -1858,7 +1858,7 @@ begin
 
                   if UpdateBkArchiveWithNewBackground(ListOfAllVars) then
                   begin
-                    if DistExec.VerbLevel < 2 then
+                    //if DistExec.VerbLevel < 2 then
                       AddToLog('Sending background image to broker, because it changed...');
 
                     if not MQTT_PUBLISH(0, CCallbackID_SendBackgroundToAll, FDistPluginOptions.WorkerQoS) then   //notice CallbackID = 1     (i.e. 'SendBackgroundToAll')

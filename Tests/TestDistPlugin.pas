@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 13 Apr 2025
     initial release date: 13 Apr 2025
 
@@ -108,7 +108,7 @@ type
     procedure ExpectWorkerOSOnSpecificTask(AWork, AExpectedOSValue: string);
     procedure ExpectWorkerFontsOnSpecificTask(AWork, AExpectedFontsValue: string);
 
-    procedure ExecutePluginTestTemplate_FullPath(ATemplatePath: string);
+    procedure ExecutePluginTestTemplate_FullPath(ATemplatePath: string; AExpectingPluginActionToPass: Boolean = False);
 
     procedure BeforeAll(const AReportedOSes, AReportedFonts: TStringArr);
     procedure AfterAll;
@@ -1376,7 +1376,7 @@ begin
 end;
 
 
-procedure TTestDistPlugin.ExecutePluginTestTemplate_FullPath(ATemplatePath: string);
+procedure TTestDistPlugin.ExecutePluginTestTemplate_FullPath(ATemplatePath: string; AExpectingPluginActionToPass: Boolean = False);
 begin
   PrepareClickerUnderTestToLocalMode;
 
@@ -1402,6 +1402,9 @@ begin
 
   ExecuteTemplateOnTestDriver(FTemplatesDir + 'PlayAllActionsFromAppUnderTest.clktmpl', CREParam_FileLocation_ValueDisk);
   PrepareClickerUnderTestToReadItsVars;
+
+  if AExpectingPluginActionToPass then
+    ExpectVarFromClientUnderTest('$LastAction_Status$', 'Successful', 'The action should pass.');
 
   if (FPluginUsedOS <> '') or
      (FCalledFindSubControlAction <> '') or
@@ -1487,7 +1490,7 @@ end;
 
 procedure TTestDistPluginFullOSes.Test_AllocationOfOneFontProfile_WinFontsOnly_ChangingBackground;
 begin
-  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneBlueFontProfile.clktmpl');
+  ExecutePluginTestTemplate_FullPath('..\..\UIClickerDistFindSubControlPlugin\Tests\TestFiles\AllocateOneBlueFontProfile.clktmpl', True);
 end;
 
 
