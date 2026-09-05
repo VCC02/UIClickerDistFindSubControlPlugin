@@ -1,5 +1,5 @@
 {
-    Copyright (C) 2025 VCC
+    Copyright (C) 2026 VCC
     creation date: 12 Oct 2025
     initial release date: 12 Oct 2025
 
@@ -222,7 +222,7 @@ begin
   if Length(FindSubControlFontsForSorting) = 0 then
     AddToLog('+++++++++++++++++++++++++++++ FindSubControlFonts is empty.');
 
-  if (a > Length(FindSubControlFontsForSorting) - 1) or (b > Length(FindSubControlFontsForSorting) - 1) then
+  if (a > Int64(Length(FindSubControlFontsForSorting)) - 1) or (b > Int64(Length(FindSubControlFontsForSorting))- 1) then
     raise Exception.Create('One of the arguments of the CompFuncByDupFonts_Txt function is out of range.  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(FindSubControlFonts) = ' + IntToStr(Length(FindSubControlFontsForSorting)) + '. If this doesn''t happen on 32-bit, then it must be a problem on 64-bit only.');
 
   try
@@ -260,7 +260,7 @@ begin
   if Length(FontsUsedByPmtvsForSorting) = 0 then
     AddToLog('+++++++++++++++++++++++++++++ FindSubControlFonts is empty.');
 
-  if (a > Length(FontsUsedByPmtvsForSorting) - 1) or (b > Length(FontsUsedByPmtvsForSorting) - 1) then
+  if (a > Int64(Length(FontsUsedByPmtvsForSorting)) - 1) or (b > Int64(Length(FontsUsedByPmtvsForSorting)) - 1) then
     raise Exception.Create('One of the arguments of the CompFuncByDupFonts_Pmtv function is out of range.  a = ' + IntToStr(a) + '  b = ' + IntToStr(b) + '  Len(FontsUsedByPmtvs) = ' + IntToStr(Length(FontsUsedByPmtvsForSorting)) + '. If this doesn''t happen on 32-bit, then it must be a problem on 64-bit only.');
 
   try

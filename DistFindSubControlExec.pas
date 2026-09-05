@@ -30,23 +30,21 @@ interface
 
 uses
   Windows,
-  Interfaces, Classes, SysUtils, Graphics, ExtCtrls, Forms, Math, IdTCPClient,
-  DistFindSubControlDM, ImgList, TplZlibUnit, TplLzmaUnit, IntegerList,
+  Interfaces, Classes, SysUtils, Graphics, ExtCtrls, Forms, IdTCPClient,
+  ImgList,
   IdGlobal, ClickerUtils, ClickerExtraUtils, ClickerActionPlugins, DllUtils,
-  ClickerFileProviderUtils, DynArrays, PollingFIFO, InMemFileSystem,
-  DistFindSubControlCommonConsts, ClickerIniFiles, ClickerActionProperties,
+  DynArrays, PollingFIFO, InMemFileSystem,
+  DistFindSubControlCommonConsts,
 
-  ClickerTemplates, MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
+  MQTTClient, MQTTUtils, MQTTConnectCtrl, MQTTSubscribeCtrl,
   MQTTUnsubscribeCtrl, MemArchive, DistFindSubControlPluginProperties,
-  ClickerPluginInMemFileSystem, ClickerPrimitives, ClickerActionPluginAccess,
-  DistFindSubControlPropertyEditorForm, FontSorting, DistFindSubControlFSM;
+  FontSorting, DistFindSubControlFSM;
 
 
 type
   TOnGetMQTTCredentials = procedure(out AUserName, APassword: string) of object;
   TOnMQTTErrorObj = procedure(ClientInstance: DWord; AErr: Word; APacketType: Byte) of object;
   TOnSyncReceivedBuffer = procedure(var AReadBuf: TDynArrayOfByte) of object;
-  TOnAppProcMsg = procedure of object;
 
 
   TMQTTReceiveThread = class(TThread)
@@ -413,6 +411,7 @@ begin
   FOnLoadWorkerCapabilitiesCache := nil;
 
   FRecBufFIFO := TPollingFIFO.Create;
+  FRecBufFIFO.OnAppProcMsg := DoOnAppProcMsg;
 
   FDistFSM := TDistFSM.Create;
   FDistFSM.VerbLevel := VerbLevel;
